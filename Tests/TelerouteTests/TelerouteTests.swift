@@ -280,6 +280,32 @@ struct TelerouteTests {
     #expect(values == ["start", "name:Alice", "confirm:Alice:approve"])
 }
 
+@Test func flowRoutesCallbackUsingCallbackSenderWhenMessageWasSentByBot() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.flow.callback-user"))
+    let recorder = Recorder<String>()
+
+    router.add(flow: SignupFlow(recorder: recorder))
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/signup", userId: 42, chatId: 42)])
+    _ = await recorder.waitForCount(1)
+    await router.process([makeMessageUpdate(text: "Alice", userId: 42, chatId: 42)])
+    _ = await recorder.waitForCount(2)
+    await router.process([
+        makeCallbackUpdate(
+            data: "confirm/approve",
+            messageUserId: 9_999,
+            messageIsBot: true,
+            callbackUserId: 42,
+            chatId: 42
+        )
+    ])
+
+    let values = await recorder.waitForCount(3)
+    #expect(values == ["start", "name:Alice", "confirm:Alice:approve"])
+}
+
 @Test func commandCancelsActiveFlowAndFallsBackToRegularRouting() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.flow.cancel"))
@@ -917,6 +943,8 @@ private actor SharedTestBot {
 private func makeCommandUpdate(
     text: String,
     chatType: TGChatType = .private,
+    userId: Int64 = 1,
+    chatId: Int64 = 1,
     updateId: Int = 1
 ) -> TGUpdate {
     let commandToken = String(text.split(maxSplits: 1, whereSeparator: \.isWhitespace).first ?? "")
@@ -927,9 +955,9 @@ private func makeCommandUpdate(
     )
     let message = TGMessage(
         messageId: 1,
-        from: makeUser(),
+        from: makeUser(id: userId),
         date: 0,
-        chat: makeChat(type: chatType),
+        chat: makeChat(id: chatId, type: chatType),
         text: text,
         entities: [entity]
     )
@@ -939,13 +967,15 @@ private func makeCommandUpdate(
 private func makeMessageUpdate(
     text: String,
     chatType: TGChatType = .private,
+    userId: Int64 = 1,
+    chatId: Int64 = 1,
     updateId: Int = 3
 ) -> TGUpdate {
     let message = TGMessage(
         messageId: 3,
-        from: makeUser(),
+        from: makeUser(id: userId),
         date: 0,
-        chat: makeChat(type: chatType),
+        chat: makeChat(id: chatId, type: chatType),
         text: text
     )
     return TGUpdate(updateId: updateId, message: message)
@@ -954,18 +984,22 @@ private func makeMessageUpdate(
 private func makeCallbackUpdate(
     data: String,
     chatType: TGChatType = .private,
+    messageUserId: Int64 = 1,
+    messageIsBot: Bool = false,
+    callbackUserId: Int64 = 1,
+    chatId: Int64 = 1,
     updateId: Int = 2
 ) -> TGUpdate {
     let message = TGMessage(
         messageId: 1,
-        from: makeUser(),
+        from: makeUser(id: messageUserId, isBot: messageIsBot),
         date: 0,
-        chat: makeChat(type: chatType),
+        chat: makeChat(id: chatId, type: chatType),
         text: "callback host"
     )
     let callbackQuery = TGCallbackQuery(
         id: "callback-id",
-        from: makeUser(),
+        from: makeUser(id: callbackUserId),
         message: .message(message),
         chatInstance: "chat-instance",
         data: data
@@ -973,12 +1007,12 @@ private func makeCallbackUpdate(
     return TGUpdate(updateId: updateId, callbackQuery: callbackQuery)
 }
 
-private func makeUser() -> TGUser {
-    TGUser(id: 1, isBot: false, firstName: "Test", username: "tester")
+private func makeUser(id: Int64 = 1, isBot: Bool = false) -> TGUser {
+    TGUser(id: id, isBot: isBot, firstName: "Test", username: "tester")
 }
 
-private func makeChat(type: TGChatType = .private) -> TGChat {
-    TGChat(id: 1, type: type, firstName: "Test")
+private func makeChat(id: Int64 = 1, type: TGChatType = .private) -> TGChat {
+    TGChat(id: id, type: type, firstName: "Test")
 }
 
 private func scopeKey(_ scope: DecodedSetMyCommandsParams.RawScope?) -> String {

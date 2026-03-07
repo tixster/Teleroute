@@ -95,10 +95,13 @@ public struct TelerouteContext: Sendable {
 
     /// Best-effort resolved user identifier for the current update.
     public var userId: Int64? {
+        if let callbackUserID = self.callbackQuery?.from.id {
+            return callbackUserID
+        }
         if let from = self.message?.from {
             return from.id
         }
-        return self.callbackQuery?.from.id
+        return nil
     }
 
     /// Active flow session for the current chat/user scope, if one exists.

@@ -22,6 +22,10 @@ let package = Package(
             name: name,
             targets: [name]
         ),
+        .executable(
+            name: "TelerouteExample",
+            targets: ["TelerouteExample"]
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-log", from: "1.10.1"),
@@ -39,6 +43,16 @@ let package = Package(
         .testTarget(
             name: "TelerouteTests",
             dependencies: [.byName(name: name)],
+            swiftSettings: settings
+        ),
+        .executableTarget(
+            name: "TelerouteExample",
+            dependencies: [
+                .byName(name: name),
+            ],
+            resources: [
+                .copy("README.md"),
+            ],
             swiftSettings: settings
         ),
     ]

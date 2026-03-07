@@ -139,21 +139,92 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
             TGBaseHandler(name: "TelerouteDispatcher") { [weak self] update in
                 guard let self else { return }
                 do {
+                    self.log.debug("Received update", metadata: self.updateMetadata(for: update))
                     guard await self.shouldHandle(update) else {
+                        self.log.debug("Skipped duplicate update", metadata: self.updateMetadata(for: update))
                         return
                     }
                     if try await self.processFlow(update) {
+                        self.log.debug("Handled update with flow route", metadata: self.updateMetadata(for: update))
                         return
                     }
                     if try await self.processCallback(update) {
+                        self.log.debug("Handled update with callback route", metadata: self.updateMetadata(for: update))
                         return
                     }
-                    _ = try await self.processCommand(update)
+                    if try await self.processCommand(update) {
+                        self.log.debug("Handled update with command route", metadata: self.updateMetadata(for: update))
+                        return
+                    }
+                    self.log.debug("No route matched update", metadata: self.updateMetadata(for: update))
                 } catch {
-                    self.log.error("\(error.localizedDescription)")
+                    await self.logProcessingError(error, update: update)
                 }
             }
         )
+    }
+
+    private func updateMetadata(for update: TGUpdate) -> Logger.Metadata {
+        let context = TelerouteContext(bot: self.bot, update: update)
+        var metadata: Logger.Metadata = [
+            "update_id": .stringConvertible(update.updateId),
+            "chat_id": .string(context.chatId.map(String.init) ?? "none"),
+            "user_id": .string(context.userId.map(String.init) ?? "none"),
+        ]
+
+        if let command = TelerouteCommandExtractor.extract(from: update) {
+            metadata["route_kind"] = .string("command")
+            metadata["command"] = .string(command.name)
+        } else if let callbackData = update.callbackQuery?.data {
+            metadata["route_kind"] = .string("callback")
+            metadata["callback_data"] = .string(callbackData)
+        } else if let text = context.message?.text, text.isEmpty == false {
+            metadata["route_kind"] = .string("message")
+            metadata["message_text"] = .string(text)
+        } else {
+            metadata["route_kind"] = .string("unknown")
+        }
+
+        return metadata
+    }
+
+    private func logProcessingError(_ error: any Error, update: TGUpdate) async {
+        let context = TelerouteContext(bot: self.bot, update: update)
+        var metadata = self.updateMetadata(for: update)
+        metadata.merge([
+            "error_type": .string(String(reflecting: type(of: error))),
+        ]) { _, new in new }
+
+        if let command = TelerouteCommandExtractor.extract(from: update),
+           let argumentsText = command.argumentsText,
+           argumentsText.isEmpty == false {
+            metadata["command_arguments"] = .string(argumentsText)
+        }
+
+        if let flowKey = context.flowKey,
+           let session = await self.flowStorage.session(for: flowKey) {
+            metadata["flow_id"] = .string(session.id)
+            metadata["flow_step"] = .string(session.step)
+        }
+
+        self.log.error(Self.errorMessage(for: error), metadata: metadata)
+    }
+
+    private static func errorMessage(for error: any Error) -> Logger.Message {
+        if let botError = error as? BotError {
+            return .init(stringLiteral: botError.localizedDescription)
+        }
+
+        if let localizedError = error as? any LocalizedError,
+           let description = localizedError.errorDescription,
+           description.isEmpty == false {
+            return .init(stringLiteral: description)
+        }
+
+        let fallback = error.localizedDescription == error._domain
+            ? String(reflecting: error)
+            : error.localizedDescription
+        return .init(stringLiteral: fallback)
     }
 
     private func shouldHandle(_ update: TGUpdate) async -> Bool {

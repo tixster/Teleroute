@@ -75,6 +75,28 @@ try await bot.add(router: router)
 try await bot.start()
 ```
 
+## Example Project
+
+The package includes a runnable example target that exercises the full feature set:
+
+- string commands and callbacks
+- typed commands and typed callbacks
+- route groups
+- collections and group-owned collections
+- guards and middleware
+- command queueing
+- published command sync
+- multi-step flows
+
+Run it with a real Telegram bot token:
+
+```bash
+TELEGRAM_BOT_TOKEN=123456:abc swift run TelerouteExample
+```
+
+The executable entry point lives at [TelerouteExampleApp](Sources/TelerouteExample/App/TelerouteExampleApp.swift).
+Detailed architecture and route documentation live at [TelerouteExample README](Sources/TelerouteExample/README.md).
+
 ## Core Ideas
 
 - `command("start")` matches `/start`
