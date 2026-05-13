@@ -1,7 +1,7 @@
 import Foundation
 
 /// Errors thrown by router helpers when the current update does not contain the expected data.
-public enum TelerouteError: Error, LocalizedError, Sendable {
+public enum TelerouteError: LocalizedError, Sendable {
     case callbackQueryMissing
     case chatTargetMissing
     case flowControllerMissing

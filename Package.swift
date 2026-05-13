@@ -28,8 +28,8 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-log", from: "1.10.1"),
-        .package(url: "https://github.com/nerzh/swift-telegram-bot", from: "4.5.0"),
+        .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),
+        .package(url: "https://github.com/nerzh/swift-telegram-bot", from: "10.0.0"),
     ],
     targets: [
         .target(

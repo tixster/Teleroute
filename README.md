@@ -122,6 +122,16 @@ This handler runs for a message like:
 /start
 ```
 
+If you need to match only commands explicitly addressed to one bot in a multi-bot chat, use `botUsername`:
+
+```swift
+router.command("start", botUsername: "my_bot") { _, context in
+    try await context.reply(text: "hello from my_bot")
+}
+```
+
+This matches `/start@my_bot` and ignores `/start@other_bot`.
+
 `callback(...)` handles inline keyboard button presses.
 
 ```swift

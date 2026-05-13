@@ -5,7 +5,7 @@ import Foundation
 ///
 /// Group prefixes behave similarly to route groups:
 /// commands are normalized using `_`, while callback routes keep `/`.
-public final class TelerouteGroup: @unchecked Sendable {
+public final class TelerouteGroup: Sendable {
     let storage: TelerouteStorage
     let commandPrefix: [String]
     let callbackPrefix: [String]
@@ -40,6 +40,9 @@ public final class TelerouteGroup: @unchecked Sendable {
     ///
     /// Example:
     /// `group("admin").command("ban")` matches `/admin_ban`.
+    ///
+    /// Use `botUsername` when the route should only match commands explicitly
+    /// addressed to one bot, for example `/start@my_bot`.
     public func command(
         _ path: String,
         botUsername: String? = nil,
