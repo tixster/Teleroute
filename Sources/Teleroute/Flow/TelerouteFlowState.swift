@@ -63,7 +63,8 @@ public struct TelerouteFlowSession: Sendable {
     /// Flow values accumulated so far.
     public let values: TelerouteFlowValues
 
-    init(id: String, step: String, values: TelerouteFlowValues) {
+    /// Creates a flow session snapshot.
+    public init(id: String, step: String, values: TelerouteFlowValues) {
         self.id = id
         self.step = step
         self.values = values

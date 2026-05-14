@@ -27,7 +27,7 @@ It gives Telegram bots API for:
 ## Installation
 
 ```swift
-// swift-tools-version: 6.2
+// swift-tools-version: 6.3
 import PackageDescription
 
 let package = Package(
@@ -45,6 +45,45 @@ let package = Package(
     ]
 )
 ```
+
+## Agent Skill Installation
+
+This repository includes an agent skill for working on Teleroute itself.
+
+### Codex
+
+Install or update the skill from the repository root:
+
+```bash
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
+rm -rf "${CODEX_HOME:-$HOME/.codex}/skills/teleroute"
+cp -R skills/teleroute "${CODEX_HOME:-$HOME/.codex}/skills/"
+```
+
+After installation, invoke it as `$teleroute` when asking Codex to implement,
+test, document, or debug Teleroute routing behavior.
+
+### Claude Code
+
+Install or update it as a personal Claude Code skill:
+
+```bash
+mkdir -p "$HOME/.claude/skills"
+rm -rf "$HOME/.claude/skills/teleroute"
+cp -R skills/teleroute "$HOME/.claude/skills/"
+```
+
+Alternatively, install it as a project-local Claude Code skill:
+
+```bash
+mkdir -p .claude/skills
+rm -rf .claude/skills/teleroute
+cp -R skills/teleroute .claude/skills/
+```
+
+Claude Code discovers skills automatically from `~/.claude/skills` and
+`.claude/skills`. Ask Claude to use the Teleroute skill, or ask for work that
+matches its description.
 
 ## Quick Start
 
@@ -763,7 +802,7 @@ Guarded routes are excluded from this diagnostic because registering the same pa
 
 ## Events
 
-`router.events` exposes an `AsyncSequence` of lifecycle events backed by `swift-async-algorithms`.
+`router.events` exposes an `AsyncSequence` of lifecycle events.
 
 ```swift
 Task {

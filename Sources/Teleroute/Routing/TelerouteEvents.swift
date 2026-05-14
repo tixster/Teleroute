@@ -1,4 +1,3 @@
-import AsyncAlgorithms
 import Foundation
 import Synchronization
 
@@ -38,56 +37,56 @@ public struct TelerouteEvent: Equatable, Sendable {
 
 /// Async stream of router events.
 ///
-/// The sequence is backed by `AsyncChannel` and is intended for a single
-/// observability consumer.
+/// The sequence is intended for a single observability consumer.
 public struct TelerouteEventSequence: AsyncSequence, Sendable {
     public typealias Element = TelerouteEvent
 
-    private let channel: AsyncChannel<TelerouteEvent>
+    private let stream: AsyncStream<TelerouteEvent>
 
-    init(channel: AsyncChannel<TelerouteEvent>) {
-        self.channel = channel
+    init(stream: AsyncStream<TelerouteEvent>) {
+        self.stream = stream
     }
 
-    public func makeAsyncIterator() -> AsyncChannel<TelerouteEvent>.Iterator {
-        self.channel.makeAsyncIterator()
+    public func makeAsyncIterator() -> AsyncStream<TelerouteEvent>.Iterator {
+        self.stream.makeAsyncIterator()
     }
 }
 
 final class TelerouteEventEmitter: Sendable {
     private struct State: Sendable {
-        var channel: AsyncChannel<TelerouteEvent>?
+        var stream: AsyncStream<TelerouteEvent>?
+        var continuation: AsyncStream<TelerouteEvent>.Continuation?
     }
 
     private let state = Mutex(State())
 
     var events: TelerouteEventSequence {
-        let channel = self.state.withLock {
-            if let channel = $0.channel {
-                return channel
+        let stream = self.state.withLock {
+            if let stream = $0.stream {
+                return stream
             }
-            let channel = AsyncChannel<TelerouteEvent>()
-            $0.channel = channel
-            return channel
+            var continuation: AsyncStream<TelerouteEvent>.Continuation?
+            let stream = AsyncStream<TelerouteEvent> {
+                continuation = $0
+            }
+            $0.stream = stream
+            $0.continuation = continuation
+            return stream
         }
-        return .init(channel: channel)
+        return .init(stream: stream)
     }
 
     func emit(_ event: TelerouteEvent) {
-        guard let channel = self.state.withLock({ $0.channel }) else {
-            return
-        }
-        Task {
-            await channel.send(event)
-        }
+        self.state.withLock { $0.continuation }?.yield(event)
     }
 
     func finish() {
-        let channel = self.state.withLock {
-            let channel = $0.channel
-            $0.channel = nil
-            return channel
+        let continuation = self.state.withLock {
+            let continuation = $0.continuation
+            $0.stream = nil
+            $0.continuation = nil
+            return continuation
         }
-        channel?.finish()
+        continuation?.finish()
     }
 }

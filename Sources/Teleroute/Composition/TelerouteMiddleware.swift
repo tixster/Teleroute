@@ -15,6 +15,8 @@ public protocol TelerouteMiddleware: Sendable {
     ) async throws
 }
 
+protocol TelerouteConsumingMiddleware: TelerouteMiddleware {}
+
 enum TelerouteMiddlewareComposer: Sendable {
     static func resolve(
         routeGuard: (any TelerouteGuard)?,

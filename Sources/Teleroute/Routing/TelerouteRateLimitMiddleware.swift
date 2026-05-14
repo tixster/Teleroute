@@ -102,6 +102,9 @@ public struct TelerouteDebounceMiddleware: TelerouteMiddleware, Sendable {
     }
 }
 
+extension TelerouteThrottleMiddleware: TelerouteConsumingMiddleware {}
+extension TelerouteDebounceMiddleware: TelerouteConsumingMiddleware {}
+
 private actor TelerouteThrottleGate {
     private let clock = ContinuousClock()
     private var expirations: [String: ContinuousClock.Instant] = [:]

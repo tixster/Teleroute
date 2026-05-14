@@ -1,5 +1,6 @@
 import SwiftTelegramBot
 import Foundation
+import Synchronization
 
 actor TelerouteMiddlewareRunner {
     let middlewares: [any TelerouteMiddleware]
@@ -28,9 +29,16 @@ actor TelerouteMiddlewareRunner {
             try await self.handler(self.update, context)
             return
         }
-        try await self.middlewares[index].handle(context) { [weak self] nextContext in
+        let middleware = self.middlewares[index]
+        let didCallNext = Mutex(false)
+        try await middleware.handle(context) { [weak self] nextContext in
+            didCallNext.withLock { $0 = true }
             guard let self else { return }
             try await self.execute(index: index + 1, context: nextContext)
+        }
+        if didCallNext.withLock({ $0 }) == false,
+           middleware is any TelerouteConsumingMiddleware {
+            self.handled = true
         }
     }
 }

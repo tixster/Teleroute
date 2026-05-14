@@ -312,6 +312,36 @@ struct TelerouteTests {
     #expect(await recorder.values == ["first"])
 }
 
+@Test func throttleMiddlewareConsumesDroppedUpdateBeforeFallbackRoute() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.middleware.throttle.consume"))
+    let recorder = Recorder<String>()
+
+    router.command(
+        "tap",
+        middlewares: [
+            TelerouteThrottleMiddleware(
+                interval: .milliseconds(200),
+                scope: .chatUser
+            )
+        ]
+    ) { _, context in
+        await recorder.record("limited:\(context.command?.arguments.first ?? "")")
+    }
+
+    router.command("tap") { _, context in
+        await recorder.record("fallback:\(context.command?.arguments.first ?? "")")
+    }
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/tap first", updateId: 222)])
+    _ = await recorder.waitForCount(1, retries: 100)
+    await router.process([makeCommandUpdate(text: "/tap second", updateId: 223)])
+    try? await Task.sleep(for: .milliseconds(100))
+
+    #expect(await recorder.values == ["limited:first"])
+}
+
 @Test func debounceMiddlewareHandlesLatestUpdateAfterQuietInterval() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.middleware.debounce"))
@@ -340,6 +370,38 @@ struct TelerouteTests {
     #expect(await recorder.values == ["second"])
 }
 
+@Test func debounceMiddlewareConsumesSupersededUpdateBeforeFallbackRoute() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.middleware.debounce.consume"))
+    let recorder = Recorder<String>()
+
+    router.command(
+        "search",
+        middlewares: [
+            TelerouteDebounceMiddleware(
+                interval: .milliseconds(50),
+                scope: .chatUser
+            )
+        ]
+    ) { _, context in
+        await recorder.record("debounced:\(context.command?.arguments.first ?? "")")
+    }
+
+    router.command("search") { _, context in
+        await recorder.record("fallback:\(context.command?.arguments.first ?? "")")
+    }
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/search first", updateId: 232)])
+    try? await Task.sleep(for: .milliseconds(20))
+    await router.process([makeCommandUpdate(text: "/search second", updateId: 233)])
+
+    _ = await recorder.waitForCount(1, retries: 100)
+    try? await Task.sleep(for: .milliseconds(80))
+
+    #expect(await recorder.values == ["debounced:second"])
+}
+
 @Test func routerPublishesLifecycleEvents() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.events"))
@@ -365,6 +427,41 @@ struct TelerouteTests {
 
     #expect(events.contains { $0.kind == .received && $0.updateId == 235 })
     #expect(events.contains { $0.kind == .handled && $0.routeKind == .command && $0.routeName == "events" })
+}
+
+@Test func eventEmitterPreservesEmissionOrder() async throws {
+    let emitter = TelerouteEventEmitter()
+    let eventCount = 50
+    let events = emitter.events
+
+    let collectionTask = Task {
+        var iterator = events.makeAsyncIterator()
+        var updateIds: [Int] = []
+        while updateIds.count < eventCount {
+            guard let event = await iterator.next() else { break }
+            updateIds.append(event.updateId)
+        }
+        return updateIds
+    }
+
+    for updateId in 0..<eventCount {
+        emitter.emit(
+            .init(
+                kind: .received,
+                routeKind: .command,
+                routeName: nil,
+                updateId: updateId,
+                chatId: nil,
+                userId: nil,
+                errorDescription: nil
+            )
+        )
+    }
+
+    let updateIds = await collectionTask.value
+    emitter.finish()
+
+    #expect(updateIds == Array(0..<eventCount))
 }
 
 @Test func flowRoutesMessagesAndCallbacksByActiveStep() async throws {
