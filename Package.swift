@@ -1,4 +1,4 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -28,6 +28,8 @@ let package = Package(
         ),
     ],
     dependencies: [
+        .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-collections", from: "1.5.0"),
         .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),
         .package(url: "https://github.com/nerzh/swift-telegram-bot", from: "10.0.0"),
     ],
@@ -35,6 +37,9 @@ let package = Package(
         .target(
             name: name,
             dependencies: [
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+                .product(name: "HeapModule", package: "swift-collections"),
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "SwiftTelegramBot", package: "swift-telegram-bot"),
             ],

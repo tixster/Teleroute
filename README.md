@@ -2,7 +2,7 @@
 
 [![Linux CI](https://github.com/tixster/Teleroute/actions/workflows/linux-ci.yml/badge.svg?branch=main)](https://github.com/tixster/Teleroute/actions/workflows/linux-ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/tixster/Teleroute/blob/main/LICENSE)
-[![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138?logo=swift&logoColor=white)](https://swift.org)
+[![Swift 6.3](https://img.shields.io/badge/Swift-6.3-F05138?logo=swift&logoColor=white)](https://swift.org)
 
 Teleroute is a route-style layer for [swift-telegram-bot](https://github.com/nerzh/swift-telegram-bot).
 
@@ -15,12 +15,14 @@ It gives Telegram bots API for:
 - collections
 - guards and middleware
 - stateful multi-step flows
+- lifecycle events
+- throttle and debounce middleware
 
 ## Requirements
 
-- Swift 6.2
+- Swift 6.3
 - macOS 15+
-- [swift-telegram-bot](https://github.com/nerzh/swift-telegram-bot) 4.5+
+- [swift-telegram-bot](https://github.com/nerzh/swift-telegram-bot) 10.0+
 
 ## Installation
 
@@ -380,6 +382,8 @@ Available visibility helpers:
 
 Telegram resolves command lists from the narrowest scope to the broadest one, and falls back to `.default` when there is no more specific match.
 
+Command sets keep registration order. If the same command is registered more than once in the same visibility scope with the same description, it is published once. If descriptions conflict, `publishedCommandSets()` throws `TelerouteError.duplicatePublishedCommand`.
+
 Typed commands can declare the same metadata on the spec:
 
 ```swift
@@ -554,6 +558,40 @@ router.callback(
 }
 ```
 
+Built-in rate-limiting middleware is available for high-frequency buttons and commands:
+
+```swift
+router.callback(
+    "orders/{id}/approve",
+    middlewares: [
+        TelerouteThrottleMiddleware(
+            interval: .seconds(1),
+            scope: .callbackData
+        )
+    ]
+) { _, context in
+    try await context.answerCallbackQuery(text: "approved")
+}
+```
+
+Use debounce when only the latest update in a burst should run:
+
+```swift
+router.command(
+    "search",
+    middlewares: [
+        TelerouteDebounceMiddleware(
+            interval: .milliseconds(300),
+            scope: .chatUser
+        )
+    ]
+) { _, context in
+    try await context.reply(text: "searching \(context.command?.argumentsText ?? "")")
+}
+```
+
+Available rate-limit scopes are `.chat`, `.user`, `.chatUser`, `.callbackData`, `.command`, and `.custom`.
+
 ### 8. Command Queueing
 
 Use `queueing:` when a command must run sequentially instead of being handled in parallel.
@@ -648,7 +686,7 @@ struct SignupFlow: TelerouteFlow {
 router.add(flow: SignupFlow())
 ```
 
-If a user sends any Telegram command while a flow is active, the current flow session is cancelled first and the command is then handled by regular command routes.
+If a user sends a Telegram command while a flow is active, Teleroute first checks flow-local command routes for the active step. If no flow command handles the update, the current flow session is cancelled and the command is then handled by regular command routes.
 
 By default `Teleroute` uses `TelerouteInMemoryFlowStorage`, but you can inject your own storage:
 
@@ -702,6 +740,17 @@ It also exposes parsed values:
 - if several routes share the same command or callback pattern, they are evaluated in registration order
 - the first route whose guard and middleware chain reaches the final handler wins
 - repeated identical commands and callback presses from the same chat/user are ignored for 2 seconds by default
+- active flow updates for the same `chatId + userId` are serialized so each step sees the latest flow session
+
+For startup diagnostics, `router.duplicateRouteSignatures` reports duplicate unguarded command, callback, and flow route registrations:
+
+```swift
+for duplicate in router.duplicateRouteSignatures {
+    print("Duplicate route: \(duplicate.kind) \(duplicate.name)")
+}
+```
+
+Guarded routes are excluded from this diagnostic because registering the same path with different guards is a supported routing pattern.
 
 ## Design Notes
 
@@ -710,12 +759,36 @@ It also exposes parsed values:
 - collections are for feature composition
 - flows are for stateful user interaction
 - typed specs are for keeping parsing close to the route domain model
+- route and command diagnostics use ordered collections so reports stay deterministic
+
+## Events
+
+`router.events` exposes an `AsyncSequence` of lifecycle events backed by `swift-async-algorithms`.
+
+```swift
+Task {
+    for await event in router.events {
+        switch event.kind {
+        case .handled:
+            print("handled \(event.routeKind) \(event.routeName ?? "")")
+        case .failed:
+            print("failed \(event.errorDescription ?? "unknown error")")
+        default:
+            break
+        }
+    }
+}
+```
+
+Events are emitted for received updates, skipped duplicates, handled routes, unmatched updates, and failures.
 
 ## Replay Protection
 
 By default `Teleroute` suppresses repeated handling of the same command or callback for the same `chatId + userId` pair during a short window.
 
-The default configuration uses `TelerouteInMemoryReplayProtectionStorage` with a 2-second TTL.
+The default configuration uses `TelerouteInMemoryReplayProtectionStorage` with a 2-second TTL. Expired in-memory keys are removed during claims and by a periodic cleanup task.
+
+In-memory cleanup tracks expirations in a min-heap, so removing expired keys does not require scanning every stored replay key on each claim.
 
 You can customize or disable it:
 

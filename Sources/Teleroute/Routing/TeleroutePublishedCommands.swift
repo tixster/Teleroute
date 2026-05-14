@@ -1,5 +1,6 @@
-import SwiftTelegramBot
 import Foundation
+import OrderedCollections
+import SwiftTelegramBot
 
 /// Chat target used by Telegram command visibility scopes.
 public enum TelerouteCommandChat: Hashable, Sendable {
@@ -209,12 +210,16 @@ public extension Teleroute {
 
     /// Returns registered Telegram bot commands grouped by their visibility scope.
     func publishedCommandSets() throws -> [TeleroutePublishedCommandSet] {
-        var grouped: [String: (visibility: TelerouteCommandVisibility, commands: [TGBotCommand])] = [:]
-        var existingDescriptions: [String: [String: String]] = [:]
+        var grouped: OrderedDictionary<
+            String,
+            (visibility: TelerouteCommandVisibility, commands: OrderedDictionary<String, String>)
+        > = [:]
 
         for command in self.storage.publishedCommands {
             let visibilityKey = command.visibility.storageKey()
-            if let existingDescription = existingDescriptions[visibilityKey]?[command.name] {
+
+            var group = grouped[visibilityKey] ?? (command.visibility, [:])
+            if let existingDescription = group.commands[command.name] {
                 guard existingDescription == command.description else {
                     throw TelerouteError.duplicatePublishedCommand(
                         command.name,
@@ -224,17 +229,39 @@ public extension Teleroute {
                 continue
             }
 
-            existingDescriptions[visibilityKey, default: [:]][command.name] = command.description
-            grouped[visibilityKey, default: (command.visibility, [])].commands.append(
-                .init(command: command.name, description: command.description)
-            )
+            group.commands[command.name] = command.description
+            grouped[visibilityKey] = group
         }
 
-        return grouped
-            .sorted { $0.key < $1.key }
-            .map { _, value in
-                .init(visibility: value.visibility, commands: value.commands)
+        return grouped.values.map { value in
+            .init(
+                visibility: value.visibility,
+                commands: value.commands.map { command, description in
+                    .init(command: command, description: description)
+                }
+            )
+        }
+    }
+
+    private static func appendPublishedBotCommand(
+        _ botCommand: TGBotCommand,
+        visibility: TelerouteCommandVisibility,
+        to grouped: inout OrderedDictionary<String, (visibility: TelerouteCommandVisibility, commands: OrderedDictionary<String, String>)>
+    ) throws {
+        let visibilityKey = visibility.storageKey()
+        var group = grouped[visibilityKey] ?? (visibility, [:])
+        if let existingDescription = group.commands[botCommand.command] {
+            guard existingDescription == botCommand.description else {
+                throw TelerouteError.duplicatePublishedCommand(
+                    botCommand.command,
+                    visibility: visibilityKey
+                )
             }
+            grouped[visibilityKey] = group
+            return
+        }
+        group.commands[botCommand.command] = botCommand.description
+        grouped[visibilityKey] = group
     }
 
     /// Publishes registered Telegram bot commands via `setMyCommands`.
@@ -260,20 +287,30 @@ public extension Teleroute {
     private func publishedCommandSets(
         for commands: [any TelerouteCommand.Type]
     ) throws -> [TeleroutePublishedCommandSet] {
-        var grouped: [String: (visibility: TelerouteCommandVisibility, commands: [TGBotCommand])] = [:]
+        var grouped: OrderedDictionary<
+            String,
+            (visibility: TelerouteCommandVisibility, commands: OrderedDictionary<String, String>)
+        > = [:]
 
         for command in commands {
             let botCommand = try Self.makePublishedBotCommand(command)
             for visibility in command.visibility {
-                grouped[visibility.storageKey(), default: (visibility, [])].commands.append(botCommand)
+                try Self.appendPublishedBotCommand(
+                    botCommand,
+                    visibility: visibility,
+                    to: &grouped
+                )
             }
         }
 
-        return grouped
-            .sorted { $0.key < $1.key }
-            .map { _, value in
-                .init(visibility: value.visibility, commands: value.commands)
-            }
+        return grouped.values.map { value in
+            .init(
+                visibility: value.visibility,
+                commands: value.commands.map { command, description in
+                    .init(command: command, description: description)
+                }
+            )
+        }
     }
 }
 

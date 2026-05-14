@@ -1,25 +1,60 @@
+import AsyncAlgorithms
+import Synchronization
+
 @_exported import Foundation
 @_exported import Logging
 @_exported import SwiftTelegramBot
 
 /// Router for `swift-telegram-bot`.
 ///
-/// `Teleroute` is a `TGDefaultDispatcher` subclass, so it can be attached directly
+/// `Teleroute` is a `TGDefaultDispatcherPrtcl` dispatcher, so it can be attached directly
 /// to `TGBot` and process incoming updates through the existing dispatcher pipeline.
-public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
-    let storage = TelerouteStorage()
+public final class Teleroute: TGDefaultDispatcherPrtcl {
+    private let dispatcher: TGDefaultDispatcher
+    let storage: TelerouteStorage
+    let rootGroup: TelerouteGroup
     private let flowStorage: any TelerouteFlowStorage
     private let replayProtectionStorage: (any TelerouteReplayProtectionStorage)?
     private let replayProtectionTTL: Duration
-    private var hasRegisteredHandlers = false
-    lazy var rootGroup = TelerouteGroup(storage: self.storage)
+    private let handlerRegistrationState = TelerouteHandlerRegistrationState()
+    private let eventEmitter = TelerouteEventEmitter()
+    private let processingTasks = Mutex<[UUID: Task<Void, Never>]>([:])
+    private let replayProtectionCleanupTask: Task<Void, Never>?
+
+    /// Router lifecycle events emitted as updates are received, matched, skipped, or failed.
+    public var events: TelerouteEventSequence {
+        self.eventEmitter.events
+    }
+
+    public var bot: TGBot {
+        self.dispatcher.bot
+    }
+
+    public var log: Logger {
+        self.dispatcher.log
+    }
+
+    public var id: SendableValue<Int> {
+        self.dispatcher.id
+    }
+
+    public var handlersGroup: HandlersGroupActor {
+        self.dispatcher.handlersGroup
+    }
 
     /// Creates a router bound to a Telegram bot and logger.
-    public override init(bot: TGBot, logger: Logger) {
+    public init(bot: TGBot, logger: Logger) {
+        let storage = TelerouteStorage()
+        let replayProtectionStorage = TelerouteInMemoryReplayProtectionStorage()
+        self.dispatcher = TGDefaultDispatcher(bot: bot, logger: logger)
+        self.storage = storage
+        self.rootGroup = TelerouteGroup(storage: storage)
         self.flowStorage = TelerouteInMemoryFlowStorage()
-        self.replayProtectionStorage = TelerouteInMemoryReplayProtectionStorage()
+        self.replayProtectionStorage = replayProtectionStorage
         self.replayProtectionTTL = .seconds(2)
-        super.init(bot: bot, logger: logger)
+        self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
+            storage: replayProtectionStorage
+        )
     }
 
     /// Creates a router bound to a Telegram bot, logger, and custom flow storage.
@@ -30,10 +65,24 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
         replayProtectionStorage: (any TelerouteReplayProtectionStorage)? = TelerouteInMemoryReplayProtectionStorage(),
         replayProtectionTTL: Duration = .seconds(2)
     ) {
+        let storage = TelerouteStorage()
+        self.dispatcher = TGDefaultDispatcher(bot: bot, logger: logger)
+        self.storage = storage
+        self.rootGroup = TelerouteGroup(storage: storage)
         self.flowStorage = flowStorage
         self.replayProtectionStorage = replayProtectionStorage
         self.replayProtectionTTL = replayProtectionTTL
-        super.init(bot: bot, logger: logger)
+        self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
+            storage: replayProtectionStorage
+        )
+    }
+
+    deinit {
+        for task in self.processingTasks.withLock({ Array($0.values) }) {
+            task.cancel()
+        }
+        self.replayProtectionCleanupTask?.cancel()
+        self.eventEmitter.finish()
     }
 
     /// Creates a top-level route group.
@@ -130,17 +179,26 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
         self.rootGroup.callbackKeyboard(rows)
     }
 
+    /// Duplicate unguarded route signatures detected during registration.
+    ///
+    /// Guarded routes are intentionally excluded because registering the same
+    /// path with different guards is a supported routing pattern.
+    public var duplicateRouteSignatures: [TelerouteRouteSignature] {
+        self.storage.duplicateRouteSignatures
+    }
+
     /// `TGDefaultDispatcher` entry point. Registers internal Telegram handlers once.
-    public override func handle() async {
-        guard !self.hasRegisteredHandlers else { return }
-        self.hasRegisteredHandlers = true
+    public func handle() async {
+        guard self.handlerRegistrationState.claim() else { return }
 
         await self.add(
             TGBaseHandler(name: "TelerouteDispatcher") { [weak self] update in
                 guard let self else { return }
                 do {
+                    self.emitEvent(.received, update: update)
                     self.log.debug("Received update", metadata: self.updateMetadata(for: update))
                     guard await self.shouldHandle(update) else {
+                        self.emitEvent(.skippedDuplicate, update: update)
                         self.log.debug("Skipped duplicate update", metadata: self.updateMetadata(for: update))
                         return
                     }
@@ -156,12 +214,46 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
                         self.log.debug("Handled update with command route", metadata: self.updateMetadata(for: update))
                         return
                     }
+                    self.emitEvent(.unmatched, update: update)
                     self.log.debug("No route matched update", metadata: self.updateMetadata(for: update))
                 } catch {
+                    self.emitEvent(.failed, update: update, error: error)
                     await self.logProcessingError(error, update: update)
                 }
             }
         )
+    }
+
+    public func process(_ updates: [TGUpdate]) async {
+        for update in updates {
+            self.log.trace("processByHandler start:\n\(dump(update))")
+            let handlers = await self.handlersGroup.value
+            guard handlers.isEmpty == false else { return }
+
+            for handler in handlers {
+                guard await handler.check(update: update) else {
+                    continue
+                }
+
+                let uuid = UUID()
+                let task = Task { [weak self] in
+                    if Task.isCancelled { return }
+                    guard let self else { return }
+                    do {
+                        try await handler.handle(update: update)
+                    } catch {
+                        self.log.error("\(BotError(error).localizedDescription)")
+                    }
+                    _ = self.processingTasks.withLock {
+                        $0.removeValue(forKey: uuid)
+                    }
+                }
+
+                self.processingTasks.withLock {
+                    $0[uuid] = task
+                }
+            }
+        }
     }
 
     private func updateMetadata(for update: TGUpdate) -> Logger.Metadata {
@@ -211,20 +303,23 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
     }
 
     private static func errorMessage(for error: any Error) -> Logger.Message {
+        .init(stringLiteral: self.errorDescription(for: error))
+    }
+
+    private static func errorDescription(for error: any Error) -> String {
         if let botError = error as? BotError {
-            return .init(stringLiteral: botError.localizedDescription)
+            return botError.localizedDescription
         }
 
         if let localizedError = error as? any LocalizedError,
            let description = localizedError.errorDescription,
            description.isEmpty == false {
-            return .init(stringLiteral: description)
+            return description
         }
 
-        let fallback = error.localizedDescription == error._domain
+        return error.localizedDescription == error._domain
             ? String(reflecting: error)
             : error.localizedDescription
-        return .init(stringLiteral: fallback)
     }
 
     private func shouldHandle(_ update: TGUpdate) async -> Bool {
@@ -245,7 +340,7 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
         }
 
         if let command = TelerouteCommandExtractor.extract(from: update) {
-            return "command|\(chatID)|\(userID)|\(command.name)|\(command.argumentsText ?? "")"
+            return "command|\(chatID)|\(userID)|\(command.rawValue)|\(command.argumentsText ?? "")"
         }
 
         return nil
@@ -259,8 +354,17 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
             flowStorage: self.flowStorage,
             flowSession: nil
         )
-        guard let flowKey = baseContext.flowKey,
-              let session = await self.flowStorage.session(for: flowKey) else {
+        guard let flowKey = baseContext.flowKey else {
+            return false
+        }
+        return try await self.storage.flowQueue.enqueue(key: TelerouteFlowQueueKey.key(for: flowKey)) {
+            try await self.processFlow(update, flowKey: flowKey)
+        }
+    }
+
+    @discardableResult
+    private func processFlow(_ update: TGUpdate, flowKey: TelerouteFlowKey) async throws -> Bool {
+        guard let session = await self.flowStorage.session(for: flowKey) else {
             return false
         }
 
@@ -287,13 +391,51 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
                     handler: route.handler
                 )
                 if handled {
+                    self.emitEvent(
+                        .handled,
+                        update: update,
+                        routeKind: .flow,
+                        routeName: "\(route.flowID):\(route.step)"
+                    )
                     return true
                 }
             }
             return false
         }
 
-        if TelerouteCommandExtractor.extract(from: update) != nil {
+        if let command = TelerouteCommandExtractor.extract(from: update) {
+            for route in self.storage.flowRoutes {
+                guard route.flowID == session.id, route.step == session.step else {
+                    continue
+                }
+                guard case let .command(name, botUsername) = route.matcher,
+                      Self.commandMatches(command, routeName: name, botUsername: botUsername) else {
+                    continue
+                }
+                let context = TelerouteContext(
+                    bot: self.bot,
+                    update: update,
+                    parameters: .init(),
+                    command: command,
+                    flowStorage: self.flowStorage,
+                    flowSession: session
+                )
+                let handled = try await Self.run(
+                    middlewares: route.middlewares,
+                    context: context,
+                    update: update,
+                    handler: route.handler
+                )
+                if handled {
+                    self.emitEvent(
+                        .handled,
+                        update: update,
+                        routeKind: .flow,
+                        routeName: "\(route.flowID):\(route.step):\(name)"
+                    )
+                    return true
+                }
+            }
             await self.flowStorage.removeSession(for: flowKey)
             return false
         }
@@ -324,6 +466,12 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
                 handler: route.handler
             )
             if handled {
+                self.emitEvent(
+                    .handled,
+                    update: update,
+                    routeKind: .flow,
+                    routeName: "\(route.flowID):\(route.step)"
+                )
                 return true
             }
         }
@@ -336,14 +484,11 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
         guard let command = TelerouteCommandExtractor.extract(from: update) else {
             return false
         }
-        for route in self.storage.commandRoutes where {
-            guard $0.name == command.name else { return false }
-            guard let expectedUsername = $0.botUsername,
-                  let mentionedUsername = command.mentionedBotUsername else {
-                return $0.name == command.name
-            }
-            return expectedUsername == mentionedUsername
-        }(route) {
+        for route in self.storage.commandRoutes where Self.commandMatches(
+            command,
+            routeName: route.name,
+            botUsername: route.botUsername
+        ) {
             let context = TelerouteContext(
                 bot: self.bot,
                 update: update,
@@ -361,9 +506,33 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
             if handled == false {
                 continue
             }
+            self.emitEvent(
+                .handled,
+                update: update,
+                routeKind: .command,
+                routeName: route.name
+            )
             return true
         }
         return false
+    }
+
+    private static func commandMatches(
+        _ command: TelerouteCommandMatch,
+        routeName: String,
+        botUsername: String?
+    ) -> Bool {
+        guard routeName == command.name else { return false }
+        guard let botUsername else { return true }
+        guard let mentionedBotUsername = command.mentionedBotUsername else { return false }
+        return self.normalizedBotUsername(botUsername) == self.normalizedBotUsername(mentionedBotUsername)
+    }
+
+    private static func normalizedBotUsername(_ username: String) -> String {
+        let username = username.hasPrefix("@")
+            ? String(username.dropFirst())
+            : username
+        return username.lowercased()
     }
 
     @discardableResult
@@ -392,9 +561,64 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
             if handled == false {
                 continue
             }
+            self.emitEvent(
+                .handled,
+                update: update,
+                routeKind: .callback,
+                routeName: route.pattern.routeDescription
+            )
             return true
         }
         return false
+    }
+
+    private func emitEvent(
+        _ kind: TelerouteEvent.Kind,
+        update: TGUpdate,
+        routeKind: TelerouteEvent.RouteKind? = nil,
+        routeName: String? = nil,
+        error: (any Error)? = nil
+    ) {
+        let context = TelerouteContext(bot: self.bot, update: update)
+        self.eventEmitter.emit(
+            .init(
+                kind: kind,
+                routeKind: routeKind ?? self.eventRouteKind(for: update),
+                routeName: routeName,
+                updateId: update.updateId,
+                chatId: context.chatId,
+                userId: context.userId,
+                errorDescription: error.map(Self.errorDescription(for:))
+            )
+        )
+    }
+
+    private func eventRouteKind(for update: TGUpdate) -> TelerouteEvent.RouteKind {
+        if TelerouteCommandExtractor.extract(from: update) != nil {
+            return .command
+        }
+        if update.callbackQuery?.data != nil {
+            return .callback
+        }
+        if TelerouteMessageExtractor.extract(from: update) != nil {
+            return .message
+        }
+        return .unknown
+    }
+
+    private static func makeReplayProtectionCleanupTask(
+        storage: (any TelerouteReplayProtectionStorage)?,
+        interval: Duration = .seconds(60)
+    ) -> Task<Void, Never>? {
+        guard let storage = storage as? any TelerouteReplayProtectionCleanupStorage else {
+            return nil
+        }
+        return Task {
+            let timer = AsyncTimerSequence.repeating(every: interval)
+            for await _ in timer {
+                await storage.removeExpired()
+            }
+        }
     }
 
     private static func run(
@@ -409,5 +633,19 @@ public final class Teleroute: TGDefaultDispatcher, @unchecked Sendable {
             handler: handler
         )
         return try await runner.run(context: context)
+    }
+}
+
+private final class TelerouteHandlerRegistrationState: Sendable {
+    private let hasRegisteredHandlers = Mutex(false)
+
+    func claim() -> Bool {
+        self.hasRegisteredHandlers.withLock {
+            guard $0 == false else {
+                return false
+            }
+            $0 = true
+            return true
+        }
     }
 }

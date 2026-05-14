@@ -41,6 +41,30 @@ struct TelerouteTests {
     #expect(values == ["admin_ban"])
 }
 
+@Test func commandBotUsernameRequiresExplicitMention() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.command.bot-username"))
+    let recorder = Recorder<String>()
+
+    router.command("start", botUsername: "my_bot") { _, context in
+        await recorder.record(context.command?.rawValue ?? "")
+    }
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/start", updateId: 10)])
+    try? await Task.sleep(for: .milliseconds(50))
+    #expect(await recorder.values.isEmpty)
+
+    await router.process([makeCommandUpdate(text: "/start@other_bot", updateId: 11)])
+    try? await Task.sleep(for: .milliseconds(50))
+    #expect(await recorder.values.isEmpty)
+
+    await router.process([makeCommandUpdate(text: "/start@My_Bot", updateId: 12)])
+
+    let values = await recorder.waitForCount(1)
+    #expect(values == ["/start@My_Bot"])
+}
+
 @Test func routesCallbackAndDecodesParameters() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.callback"))
@@ -261,6 +285,88 @@ struct TelerouteTests {
     #expect(values == [["mw:before"], ["handler"], ["mw:after"]])
 }
 
+@Test func throttleMiddlewareDropsRepeatedUpdatesWithinInterval() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.middleware.throttle"))
+    let recorder = Recorder<String>()
+
+    router.command(
+        "tap",
+        middlewares: [
+            TelerouteThrottleMiddleware(
+                interval: .milliseconds(200),
+                scope: .chatUser
+            )
+        ]
+    ) { _, context in
+        await recorder.record(context.command?.arguments.first ?? "")
+    }
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/tap first", updateId: 220)])
+    let values = await recorder.waitForCount(1, retries: 100)
+    await router.process([makeCommandUpdate(text: "/tap second", updateId: 221)])
+    try? await Task.sleep(for: .milliseconds(100))
+
+    #expect(values == ["first"])
+    #expect(await recorder.values == ["first"])
+}
+
+@Test func debounceMiddlewareHandlesLatestUpdateAfterQuietInterval() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.middleware.debounce"))
+    let recorder = Recorder<String>()
+
+    router.command(
+        "search",
+        middlewares: [
+            TelerouteDebounceMiddleware(
+                interval: .milliseconds(50),
+                scope: .chatUser
+            )
+        ]
+    ) { _, context in
+        await recorder.record(context.command?.arguments.first ?? "")
+    }
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/search first", updateId: 230)])
+    try? await Task.sleep(for: .milliseconds(20))
+    await router.process([makeCommandUpdate(text: "/search second", updateId: 231)])
+
+    let values = await recorder.waitForCount(1, retries: 100)
+    try? await Task.sleep(for: .milliseconds(80))
+    #expect(values == ["second"])
+    #expect(await recorder.values == ["second"])
+}
+
+@Test func routerPublishesLifecycleEvents() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.events"))
+    let recorder = Recorder<TelerouteEvent>()
+
+    let collectionTask = Task {
+        var iterator = router.events.makeAsyncIterator()
+        while let event = await iterator.next() {
+            await recorder.record(event)
+            if await recorder.values.count >= 2 {
+                break
+            }
+        }
+    }
+
+    router.command("events") { _, _ in }
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/events", updateId: 235)])
+
+    let events = await recorder.waitForCount(2, retries: 100)
+    collectionTask.cancel()
+
+    #expect(events.contains { $0.kind == .received && $0.updateId == 235 })
+    #expect(events.contains { $0.kind == .handled && $0.routeKind == .command && $0.routeName == "events" })
+}
+
 @Test func flowRoutesMessagesAndCallbacksByActiveStep() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.flow"))
@@ -278,6 +384,49 @@ struct TelerouteTests {
 
     let values = await recorder.waitForCount(3)
     #expect(values == ["start", "name:Alice", "confirm:Alice:approve"])
+}
+
+@Test func flowCommandHandlesActiveStepBeforeFallbackCancellation() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.flow.command"))
+    let recorder = Recorder<String>()
+
+    router.add(flow: SignupFlow(recorder: recorder))
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/signup", updateId: 240)])
+    _ = await recorder.waitForCount(1)
+    await router.process([makeMessageUpdate(text: "Alice", updateId: 241)])
+    _ = await recorder.waitForCount(2)
+    await router.process([makeCommandUpdate(text: "/cancel", updateId: 242)])
+    await router.process([makeMessageUpdate(text: "ignored", updateId: 243)])
+
+    let values = await recorder.waitForCount(3)
+    #expect(values == ["start", "name:Alice", "cancel:Alice"])
+}
+
+@Test func flowMessagesForSameSessionSeeLatestSessionSequentially() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.flow.serial"))
+    let recorder = Recorder<String>()
+
+    router.add(flow: SignupFlow(recorder: recorder))
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/signup", updateId: 250)])
+    _ = await recorder.waitForCount(1)
+    await router.process([
+        makeMessageUpdate(text: "Alice", updateId: 251),
+        makeMessageUpdate(text: "Bob", updateId: 252),
+    ])
+
+    _ = await recorder.waitForCount(2, retries: 200)
+    try? await Task.sleep(for: .milliseconds(100))
+
+    let values = await recorder.values
+    #expect(values.count == 2)
+    #expect(values.first == "start")
+    #expect(["name:Alice", "name:Bob"].contains(values.last ?? ""))
 }
 
 @Test func flowRoutesCallbackUsingCallbackSenderWhenMessageWasSentByBot() async throws {
@@ -393,6 +542,17 @@ struct TelerouteTests {
     #expect(values == ["42"])
 }
 
+@Test func replayProtectionCleanupRemovesExpiredKeys() async throws {
+    let storage = TelerouteInMemoryReplayProtectionStorage()
+
+    #expect(await storage.claim(key: "command|1|1|start", ttl: .milliseconds(20)))
+    #expect(await storage.storedKeyCount == 1)
+    try? await Task.sleep(for: .milliseconds(40))
+    await storage.removeExpired()
+
+    #expect(await storage.storedKeyCount == 0)
+}
+
 @Test func queuedCommandsRunSequentiallyForSameChatUser() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.queue.command"))
@@ -478,9 +638,37 @@ struct TelerouteTests {
     let commandSets = try router.publishedCommandSets()
 
     #expect(commandSets.count == 3)
-    #expect(commandSets[0].commands.map(\.command) == ["ban"])
+    #expect(scopeKey(commandSets[0].visibility) == "default")
+    #expect(commandSets[0].commands.map(\.command) == ["start"])
+    #expect(scopeKey(commandSets[1].visibility) == "allGroupChats")
     #expect(commandSets[1].commands.map(\.command) == ["ban"])
-    #expect(commandSets[2].commands.map(\.command) == ["start"])
+    #expect(scopeKey(commandSets[2].visibility) == "allChatAdministrators")
+    #expect(commandSets[2].commands.map(\.command) == ["ban"])
+}
+
+@Test func duplicateRouteSignaturesAreReportedForUnguardedRoutes() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.routes.duplicates"))
+
+    router.command("start") { _, _ in }
+    router.command("start") { _, _ in }
+    router.callback("orders/{id}") { _, _ in }
+    router.callback("orders/{id}") { _, _ in }
+
+    let duplicates = router.duplicateRouteSignatures
+
+    #expect(duplicates.map(\.kind) == [.command, .callback])
+    #expect(duplicates.map(\.name) == ["start", "orders/{id}"])
+}
+
+@Test func guardedDuplicateRoutesAreNotReportedAsDuplicates() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.routes.guarded-duplicates"))
+
+    router.command("start", routeGuard: ChatTypeGuard(.private)) { _, _ in }
+    router.command("start", routeGuard: ChatTypeGuard(.group)) { _, _ in }
+
+    #expect(router.duplicateRouteSignatures.isEmpty)
 }
 
 @Test func typedCommandPublishesUsingSpecVisibility() async throws {
@@ -827,6 +1015,12 @@ private struct SignupFlow: TelerouteFlow {
             try await context.transition(to: .confirm, merging: ["name": name])
         }
 
+        flow.command("cancel", at: .confirm) { _, context in
+            let name = try context.values.require("name")
+            await self.recorder.record("cancel:\(name)")
+            try await context.finish()
+        }
+
         flow.callback("confirm/{decision}", at: .confirm) { _, context in
             let name = try context.values.require("name")
             let decision = try context.parameters.require("decision")
@@ -1058,6 +1252,25 @@ private func scopeKey(_ scope: DecodedSetMyCommandsParams.RawScope?) -> String {
         return "chatMember:\(chat):\(scope.userId ?? 0)"
     default:
         return scope.type
+    }
+}
+
+private func scopeKey(_ visibility: TelerouteCommandVisibility) -> String {
+    switch visibility.scope {
+    case .default:
+        return "default"
+    case .allPrivateChats:
+        return "allPrivateChats"
+    case .allGroupChats:
+        return "allGroupChats"
+    case .allChatAdministrators:
+        return "allChatAdministrators"
+    case let .chat(chat):
+        return "chat:\(chat.storageKey())"
+    case let .chatAdministrators(chat):
+        return "chatAdministrators:\(chat.storageKey())"
+    case let .chatMember(chat, userID):
+        return "chatMember:\(chat.storageKey()):\(userID)"
     }
 }
 

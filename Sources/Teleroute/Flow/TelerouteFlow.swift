@@ -29,7 +29,7 @@ public typealias TelerouteFlowHandler<Flow: TelerouteFlow> = @Sendable (
 ) async throws -> Void
 
 /// Flow-specific registration API for step handlers.
-public final class TelerouteFlowGroup<Flow: TelerouteFlow>: @unchecked Sendable {
+public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
     let storage: TelerouteStorage
     let commandPrefix: [String]
     let callbackPrefix: [String]
@@ -72,12 +72,16 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: @unchecked Sendable 
         }
         if let description {
             for visibility in visibility {
-                self.storage.publishedCommands.append(
+                self.storage.appendPublishedCommand(
                     .init(name: name, description: description, visibility: visibility)
                 )
             }
         }
-        self.storage.commandRoutes.append(
+        let flowQueueMiddleware = TelerouteFlowQueueMiddleware(queue: self.storage.flowQueue)
+        let insertionIndex = routeGuard == nil ? 0 : 1
+        resolvedMiddlewares.insert(flowQueueMiddleware, at: insertionIndex)
+
+        self.storage.appendCommandRoute(
             .init(
                 name: name,
                 botUsername: botUsername,
@@ -86,7 +90,10 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: @unchecked Sendable 
                     try await context.start(Flow.self, at: step)
                     try await handler(update, context)
                 }
-            )
+            ),
+            signature: routeGuard == nil
+                ? .init(kind: .command, name: name, botUsername: botUsername)
+                : nil
         )
     }
 
@@ -100,6 +107,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: @unchecked Sendable 
         self.register(
             step: step,
             matcher: .message,
+            signatureName: "*",
             routeGuard: routeGuard,
             middlewares: middlewares,
             handler: handler
@@ -115,12 +123,14 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: @unchecked Sendable 
         middlewares: [any TelerouteMiddleware] = [],
         use handler: @escaping TelerouteFlowHandler<Flow>
     ) {
+        let name = TeleroutePath.commandName(prefix: self.commandPrefix, path: path)
         self.register(
             step: step,
             matcher: .command(
-                name: TeleroutePath.commandName(prefix: self.commandPrefix, path: path),
+                name: name,
                 botUsername: botUsername
             ),
+            signatureName: name,
             routeGuard: routeGuard,
             middlewares: middlewares,
             handler: handler
@@ -135,9 +145,11 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: @unchecked Sendable 
         middlewares: [any TelerouteMiddleware] = [],
         use handler: @escaping TelerouteFlowHandler<Flow>
     ) {
+        let pattern = TelerouteCallbackPattern(prefix: self.callbackPrefix, path: path)
         self.register(
             step: step,
-            matcher: .callback(.init(prefix: self.callbackPrefix, path: path)),
+            matcher: .callback(pattern),
+            signatureName: pattern.routeDescription,
             routeGuard: routeGuard,
             middlewares: middlewares,
             handler: handler
@@ -196,6 +208,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: @unchecked Sendable 
     private func register(
         step: Flow.Step,
         matcher: TelerouteFlowRouteMatcher,
+        signatureName: String,
         routeGuard: (any TelerouteGuard)?,
         middlewares: [any TelerouteMiddleware],
         handler: @escaping TelerouteFlowHandler<Flow>
@@ -204,7 +217,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: @unchecked Sendable 
             routeGuard: routeGuard,
             middlewares: middlewares
         )
-        self.storage.flowRoutes.append(
+        self.storage.appendFlowRoute(
             .init(
                 flowID: Flow.id,
                 step: step.rawValue,
@@ -214,8 +227,39 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: @unchecked Sendable 
                     let flowContext = try TelerouteFlowContext<Flow>(context: context)
                     try await handler(update, flowContext)
                 }
-            )
+            ),
+            signature: routeGuard == nil
+                ? .init(
+                    kind: matcher.signatureKind,
+                    name: signatureName,
+                    botUsername: matcher.botUsername,
+                    flowID: Flow.id,
+                    step: step.rawValue
+                )
+                : nil
         )
+    }
+}
+
+private extension TelerouteFlowRouteMatcher {
+    var signatureKind: TelerouteRouteSignature.Kind {
+        switch self {
+        case .message:
+            .flowMessage
+        case .command:
+            .flowCommand
+        case .callback:
+            .flowCallback
+        }
+    }
+
+    var botUsername: String? {
+        switch self {
+        case let .command(_, botUsername):
+            botUsername
+        case .message, .callback:
+            nil
+        }
     }
 }
 

@@ -69,18 +69,21 @@ public final class TelerouteGroup: Sendable {
         }
         if let description {
             for visibility in visibility {
-                self.storage.publishedCommands.append(
+                self.storage.appendPublishedCommand(
                     .init(name: name, description: description, visibility: visibility)
                 )
             }
         }
-        self.storage.commandRoutes.append(
+        self.storage.appendCommandRoute(
             .init(
                 name: name,
                 botUsername: botUsername,
                 middlewares: resolvedMiddlewares,
                 handler: handler
-            )
+            ),
+            signature: routeGuard == nil
+                ? .init(kind: .command, name: name, botUsername: botUsername)
+                : nil
         )
     }
 
@@ -98,12 +101,16 @@ public final class TelerouteGroup: Sendable {
             routeGuard: routeGuard,
             middlewares: middlewares
         )
-        self.storage.callbackRoutes.append(
+        let pattern = TelerouteCallbackPattern(prefix: self.callbackPrefix, path: path)
+        self.storage.appendCallbackRoute(
             .init(
-                pattern: .init(prefix: self.callbackPrefix, path: path),
+                pattern: pattern,
                 middlewares: resolvedMiddlewares,
                 handler: handler
-            )
+            ),
+            signature: routeGuard == nil
+                ? .init(kind: .callback, name: pattern.routeDescription)
+                : nil
         )
     }
 

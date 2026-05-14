@@ -1,11 +1,124 @@
 import Foundation
+import OrderedCollections
+import Synchronization
 
-final class TelerouteStorage: @unchecked Sendable {
-    var commandRoutes: [TelerouteCommandRoute] = []
-    var callbackRoutes: [TelerouteCallbackRoute] = []
-    var flowRoutes: [TelerouteFlowRoute] = []
-    var publishedCommands: [TeleroutePublishedCommand] = []
+final class TelerouteStorage: Sendable {
+    private struct State: Sendable {
+        var commandRoutes: [TelerouteCommandRoute] = []
+        var callbackRoutes: [TelerouteCallbackRoute] = []
+        var flowRoutes: [TelerouteFlowRoute] = []
+        var publishedCommands: [TeleroutePublishedCommand] = []
+        var routeSignatures: OrderedSet<TelerouteRouteSignature> = []
+        var duplicateRouteSignatures: OrderedSet<TelerouteRouteSignature> = []
+    }
+
+    private let state = Mutex(State())
     let commandQueue = TelerouteCommandQueue()
+    let flowQueue = TelerouteCommandQueue()
+
+    var commandRoutes: [TelerouteCommandRoute] {
+        self.state.withLock { $0.commandRoutes }
+    }
+
+    var callbackRoutes: [TelerouteCallbackRoute] {
+        self.state.withLock { $0.callbackRoutes }
+    }
+
+    var flowRoutes: [TelerouteFlowRoute] {
+        self.state.withLock { $0.flowRoutes }
+    }
+
+    var publishedCommands: [TeleroutePublishedCommand] {
+        self.state.withLock { $0.publishedCommands }
+    }
+
+    var duplicateRouteSignatures: [TelerouteRouteSignature] {
+        self.state.withLock { Array($0.duplicateRouteSignatures) }
+    }
+
+    func appendCommandRoute(
+        _ route: TelerouteCommandRoute,
+        signature: TelerouteRouteSignature?
+    ) {
+        self.state.withLock {
+            Self.register(signature, in: &$0)
+            $0.commandRoutes.append(route)
+        }
+    }
+
+    func appendCallbackRoute(
+        _ route: TelerouteCallbackRoute,
+        signature: TelerouteRouteSignature?
+    ) {
+        self.state.withLock {
+            Self.register(signature, in: &$0)
+            $0.callbackRoutes.append(route)
+        }
+    }
+
+    func appendFlowRoute(
+        _ route: TelerouteFlowRoute,
+        signature: TelerouteRouteSignature?
+    ) {
+        self.state.withLock {
+            Self.register(signature, in: &$0)
+            $0.flowRoutes.append(route)
+        }
+    }
+
+    func appendPublishedCommand(_ command: TeleroutePublishedCommand) {
+        self.state.withLock {
+            $0.publishedCommands.append(command)
+        }
+    }
+
+    private static func register(
+        _ signature: TelerouteRouteSignature?,
+        in state: inout State
+    ) {
+        guard let signature else { return }
+        let result = state.routeSignatures.append(signature)
+        if result.inserted == false {
+            state.duplicateRouteSignatures.append(signature)
+        }
+    }
+}
+
+/// Route identity used for duplicate-registration diagnostics.
+public struct TelerouteRouteSignature: Hashable, Sendable {
+    public enum Kind: Hashable, Sendable {
+        case command
+        case callback
+        case flowMessage
+        case flowCommand
+        case flowCallback
+    }
+
+    /// Route category.
+    public let kind: Kind
+    /// Normalized command name or callback path.
+    public let name: String
+    /// Optional bot username restriction for command routes.
+    public let botUsername: String?
+    /// Flow identifier for flow-local routes.
+    public let flowID: String?
+    /// Flow step for flow-local routes.
+    public let step: String?
+
+    /// Creates a route signature value for comparison in diagnostics or tests.
+    public init(
+        kind: Kind,
+        name: String,
+        botUsername: String? = nil,
+        flowID: String? = nil,
+        step: String? = nil
+    ) {
+        self.kind = kind
+        self.name = name
+        self.botUsername = botUsername
+        self.flowID = flowID
+        self.step = step
+    }
 }
 
 struct TelerouteCommandRoute: Sendable {
@@ -55,6 +168,18 @@ struct TelerouteCallbackPattern: Sendable {
     }
 
     let segments: [Segment]
+
+    var routeDescription: String {
+        self.segments.map { segment in
+            switch segment {
+            case let .literal(value):
+                value
+            case let .parameter(name):
+                "{\(name)}"
+            }
+        }
+        .joined(separator: "/")
+    }
 
     init(prefix: [String], path: String) {
         self.segments = (prefix + TeleroutePath.components(from: path)).map { component in
