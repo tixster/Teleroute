@@ -189,7 +189,7 @@ public extension Teleroute {
     func publishCommands(
         _ commands: [any TelerouteCommand.Type]
     ) async throws {
-        for commandSet in try publishedCommandSets(for: commands) {
+        for commandSet in try Self.publishedCommandSets(for: commands) {
             try await self.publishCommands(
                 commandSet.commands,
                 visibility: commandSet.visibility
@@ -275,7 +275,7 @@ public extension Teleroute {
         }
     }
 
-    private static func makePublishedBotCommand(
+    static func makePublishedBotCommand(
         _ command: any TelerouteCommand.Type
     ) throws -> TGBotCommand {
         guard let description = command.commandDescription else {
@@ -284,7 +284,9 @@ public extension Teleroute {
         return .init(command: command.path, description: description)
     }
 
-    private func publishedCommandSets(
+    /// Groups typed commands into the visibility-scoped sets that should be
+    /// published via `setMyCommands`. Pure function: does not read router state.
+    static func publishedCommandSets(
         for commands: [any TelerouteCommand.Type]
     ) throws -> [TeleroutePublishedCommandSet] {
         var grouped: OrderedDictionary<
@@ -344,8 +346,9 @@ public extension TelerouteContext {
     func publishCommands(
         _ commands: [any TelerouteCommand.Type]
     ) async throws {
-        let router = Teleroute(bot: self.bot, logger: .init(label: "teleroute.publish"))
-        try await router.publishCommands(commands)
+        for commandSet in try Teleroute.publishedCommandSets(for: commands) {
+            _ = try await self.bot.setMyCommands(params: commandSet.telegramParams)
+        }
     }
 
     /// Publishes typed commands using their `path` and `commandDescription` for one explicit visibility scope.
@@ -353,8 +356,10 @@ public extension TelerouteContext {
         _ commands: [any TelerouteCommand.Type],
         visibility: TelerouteCommandVisibility
     ) async throws {
-        let router = Teleroute(bot: self.bot, logger: .init(label: "teleroute.publish"))
-        try await router.publishCommands(commands, visibility: visibility)
+        try await self.publishCommands(
+            try commands.map(Teleroute.makePublishedBotCommand),
+            visibility: visibility
+        )
     }
 }
 

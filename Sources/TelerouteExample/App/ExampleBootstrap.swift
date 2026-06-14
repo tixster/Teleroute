@@ -26,7 +26,11 @@ enum ExampleBootstrap {
             logger: ExampleLoggerFactory.makeRouterLogger(),
             flowStorage: TelerouteInMemoryFlowStorage(),
             replayProtectionStorage: TelerouteInMemoryReplayProtectionStorage(),
-            replayProtectionTTL: .seconds(3)
+            replayProtectionTTL: .seconds(3),
+            // The example exposes explicit `/cancel_signup` and `/resume_signup`
+            // commands, so flows are cancelled manually rather than torn down by
+            // any unrelated command the user might type mid-flow (e.g. `/help`).
+            flowCancellationPolicy: .manual
         )
     }
 

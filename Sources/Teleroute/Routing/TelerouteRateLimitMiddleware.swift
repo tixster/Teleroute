@@ -92,13 +92,20 @@ public struct TelerouteDebounceMiddleware: TelerouteMiddleware, Sendable {
         }
 
         let generation = await self.gate.reserve(key: key.rawValue)
-        try await Task.sleep(for: self.interval)
-        guard await self.gate.shouldRun(key: key.rawValue, generation: generation) else {
-            return
+        do {
+            try await Task.sleep(for: self.interval)
+            guard await self.gate.shouldRun(key: key.rawValue, generation: generation) else {
+                await self.gate.finish(key: key.rawValue, generation: generation)
+                return
+            }
+            try await next(context)
+            await self.gate.finish(key: key.rawValue, generation: generation)
+        } catch is CancellationError {
+            // Cancellation is expected when a newer update supersedes this debounce
+            // or when the router tears down its processing tasks. It is not a failure,
+            // so it is swallowed here instead of surfacing as a `.failed` event.
+            await self.gate.finish(key: key.rawValue, generation: generation)
         }
-
-        try await next(context)
-        await self.gate.finish(key: key.rawValue, generation: generation)
     }
 }
 

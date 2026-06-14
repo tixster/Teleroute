@@ -16,6 +16,7 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     private let flowStorage: any TelerouteFlowStorage
     private let replayProtectionStorage: (any TelerouteReplayProtectionStorage)?
     private let replayProtectionTTL: Duration
+    private let flowCancellationPolicy: TelerouteFlowCancellationPolicy
     private let handlerRegistrationState = TelerouteHandlerRegistrationState()
     private let eventEmitter = TelerouteEventEmitter()
     private let processingTasks = Mutex<[UUID: Task<Void, Never>]>([:])
@@ -52,6 +53,7 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         self.flowStorage = TelerouteInMemoryFlowStorage()
         self.replayProtectionStorage = replayProtectionStorage
         self.replayProtectionTTL = .seconds(2)
+        self.flowCancellationPolicy = .cancelOnAnyUnmatchedCommand
         self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
             storage: replayProtectionStorage
         )
@@ -63,7 +65,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         logger: Logger,
         flowStorage: any TelerouteFlowStorage,
         replayProtectionStorage: (any TelerouteReplayProtectionStorage)? = TelerouteInMemoryReplayProtectionStorage(),
-        replayProtectionTTL: Duration = .seconds(2)
+        replayProtectionTTL: Duration = .seconds(2),
+        flowCancellationPolicy: TelerouteFlowCancellationPolicy = .cancelOnAnyUnmatchedCommand
     ) {
         let storage = TelerouteStorage()
         self.dispatcher = TGDefaultDispatcher(bot: bot, logger: logger)
@@ -72,6 +75,7 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         self.flowStorage = flowStorage
         self.replayProtectionStorage = replayProtectionStorage
         self.replayProtectionTTL = replayProtectionTTL
+        self.flowCancellationPolicy = flowCancellationPolicy
         self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
             storage: replayProtectionStorage
         )
@@ -436,7 +440,12 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                     return true
                 }
             }
-            await self.flowStorage.removeSession(for: flowKey)
+            // An unrelated command (e.g. `/help`) arrived while a flow was
+            // active. By default this tears the flow down so subsequent messages
+            // are no longer captured, but callers can opt out via the policy.
+            if self.flowCancellationPolicy.cancelsSessionOnUnmatchedCommand {
+                await self.flowStorage.removeSession(for: flowKey)
+            }
             return false
         }
 

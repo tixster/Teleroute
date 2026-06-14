@@ -294,6 +294,9 @@ struct ApproveOrderCallback: TelerouteCallback {
         self.id = try parameters.require("id")
     }
 
+    // `parameters` is declared `{ get throws }` on the protocol. A non-throwing
+    // implementation satisfies the requirement; declare `throws` when encoding
+    // can fail (for example when a required value is missing).
     var parameters: [String: String] {
         ["id": self.id]
     }
@@ -469,6 +472,9 @@ struct RejectOrderCallback: TelerouteCallback {
         self.id = try parameters.require("id")
     }
 
+    // `parameters` is declared `{ get throws }` on the protocol. A non-throwing
+    // implementation satisfies the requirement; declare `throws` when encoding
+    // can fail (for example when a required value is missing).
     var parameters: [String: String] {
         ["id": self.id]
     }
@@ -725,7 +731,20 @@ struct SignupFlow: TelerouteFlow {
 router.add(flow: SignupFlow())
 ```
 
-If a user sends a Telegram command while a flow is active, Teleroute first checks flow-local command routes for the active step. If no flow command handles the update, the current flow session is cancelled and the command is then handled by regular command routes.
+If a user sends a Telegram command while a flow is active, Teleroute first checks flow-local command routes for the active step. By default, if no flow command handles the update, the current flow session is cancelled and the command is then handled by regular command routes. This means an unrelated command such as `/help` arriving mid-flow tears the flow down. Control this with a `TelerouteFlowCancellationPolicy` passed to the router initializer:
+
+- `.cancelOnAnyUnmatchedCommand` (default): cancels the session when a command does not match a flow-local command route for the current step, preserving the historical behavior.
+- `.preserveOnUnmatchedCommand`: leaves the session in place; the update falls through to regular command routes and the flow keeps capturing subsequent messages.
+- `.manual`: never cancels a session automatically. Use this when cancellation must always be explicit, for example through `context.cancelFlow()`.
+
+```swift
+let router = Teleroute(
+    bot: bot,
+    logger: logger,
+    flowStorage: TelerouteInMemoryFlowStorage(),
+    flowCancellationPolicy: .manual
+)
+```
 
 By default `Teleroute` uses `TelerouteInMemoryFlowStorage`, but you can inject your own storage:
 

@@ -859,6 +859,242 @@ struct TelerouteTests {
     #expect(params.commands.map(\.description) == ["Visible command"])
     #expect(scopeKey(params.scope) == "chat:1")
 }
+
+@Test func replayProtectionReHandlesAfterTTLExpires() async throws {
+    let bot = try await makeBot()
+    let storage = TelerouteInMemoryFlowStorage()
+    let replayStorage = TelerouteInMemoryReplayProtectionStorage()
+    let router = Teleroute(
+        bot: bot,
+        logger: .init(label: "router.replay.ttl"),
+        flowStorage: storage,
+        replayProtectionStorage: replayStorage,
+        replayProtectionTTL: .milliseconds(40)
+    )
+    let recorder = Recorder<String>()
+
+    router.command("start") { _, _ in
+        await recorder.record("start")
+    }
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/start", updateId: 500)])
+    _ = await recorder.waitForCount(1)
+
+    // Same update within the TTL window is suppressed.
+    await router.process([makeCommandUpdate(text: "/start", updateId: 501)])
+    try? await Task.sleep(for: .milliseconds(5))
+    #expect(await recorder.values.count == 1)
+
+    // After the TTL expires the command is handled again.
+    try? await Task.sleep(for: .milliseconds(50))
+    await router.process([makeCommandUpdate(text: "/start", updateId: 502)])
+    _ = await recorder.waitForCount(2)
+
+    #expect(await recorder.values == ["start", "start"])
+}
+
+@Test func queuedCommandsRunSequentiallyForGlobalScope() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.queue.global"))
+    let recorder = Recorder<String>()
+    let probe = ConcurrencyProbe()
+
+    router.command("sync", queueing: .global) { _, context in
+        let value = context.command?.arguments.first ?? "unknown"
+        await recorder.record("start:\(value)")
+        await probe.enter()
+        try? await Task.sleep(for: .milliseconds(50))
+        await probe.leave()
+        await recorder.record("end:\(value)")
+    }
+
+    await router.handle()
+    // Different chats and users share the global queue, so they must serialize.
+    await router.process([
+        makeCommandUpdate(text: "/sync 1", userId: 10, chatId: 10, updateId: 510),
+        makeCommandUpdate(text: "/sync 2", userId: 20, chatId: 20, updateId: 511),
+    ])
+
+    let values = await recorder.waitForCount(4, retries: 200)
+    let expectedOrders = [
+        ["start:1", "end:1", "start:2", "end:2"],
+        ["start:2", "end:2", "start:1", "end:1"],
+    ]
+    #expect(await probe.maxConcurrent == 1)
+    #expect(expectedOrders.contains(values))
+    try? await Task.sleep(for: .milliseconds(20))
+}
+
+@Test func queuedCommandsSerializePerChatButRunInParallelAcrossChats() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.queue.chat"))
+    let probe = ConcurrencyProbe()
+
+    router.command("sync", queueing: .chat) { _, _ in
+        await probe.enter()
+        try? await Task.sleep(for: .milliseconds(50))
+        await probe.leave()
+    }
+
+    await router.handle()
+    // Same chat, different users: serialized.
+    // Different chat: allowed to run in parallel with the first.
+    await router.process([
+        makeCommandUpdate(text: "/sync", userId: 1, chatId: 1, updateId: 520),
+        makeCommandUpdate(text: "/sync", userId: 2, chatId: 1, updateId: 521),
+        makeCommandUpdate(text: "/sync", userId: 3, chatId: 2, updateId: 522),
+    ])
+
+    try? await Task.sleep(for: .milliseconds(120))
+    // Two independent chats → up to two concurrent handlers.
+    #expect(await probe.maxConcurrent == 2)
+}
+
+@Test func flowValuesMergePreservesExistingKeysAndOverwritesConflicts() {
+    let initial = TelerouteFlowValues(["name": "Alice", "age": "30"])
+    let merged = initial.merging(["age": "31", "city": "Berlin"])
+    #expect(merged.get("name") == "Alice")
+    #expect(merged.get("age") == "31")
+    #expect(merged.get("city") == "Berlin")
+}
+
+@Test func contextSendThrowsWhenChatCannotBeResolved() async throws {
+    let bot = try await makeBot()
+    // An update without a message or callback query yields no resolvable chat.
+    let update = TGUpdate(updateId: 530, message: nil)
+    let context = TelerouteContext(bot: bot, update: update)
+
+    await #expect(throws: TelerouteError.self) {
+        try await context.send(text: "hello")
+    }
+}
+
+@Test func contextEditThrowsWhenMessageIsMissing() async throws {
+    let bot = try await makeBot()
+    let update = TGUpdate(updateId: 531, message: nil)
+    let context = TelerouteContext(bot: bot, update: update)
+
+    await #expect(throws: TelerouteError.self) {
+        try await context.edit(text: "edited")
+    }
+}
+
+@Test func contextAnswerCallbackQueryThrowsWhenCallbackIsMissing() async throws {
+    let bot = try await makeBot()
+    let update = TGUpdate(updateId: 532, message: nil)
+    let context = TelerouteContext(bot: bot, update: update)
+
+    await #expect(throws: TelerouteError.self) {
+        try await context.answerCallbackQuery(text: "ack")
+    }
+}
+
+@Test func debounceCancelsSilentlyWithoutFailedEvent() async throws {
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.debounce.cancel"))
+    let recorder = Recorder<TelerouteEvent.Kind>()
+
+    router.command("save", middlewares: [TelerouteDebounceMiddleware(interval: .seconds(10))]) { _, _ in
+        await recorder.record(.handled)
+    }
+
+    let events = router.events
+    let eventTask = Task {
+        for await event in events {
+            await recorder.record(event.kind)
+        }
+    }
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/save", updateId: 540)])
+    // Let the debounce arm, then tear down processing tasks to cancel the sleep.
+    try? await Task.sleep(for: .milliseconds(20))
+
+    eventTask.cancel()
+    try? await Task.sleep(for: .milliseconds(50))
+
+    let kinds = await recorder.values
+    #expect(kinds.contains(.failed) == false)
+}
+
+@Test func flowPreservesSessionWhenPolicyIsManual() async throws {
+    let bot = try await makeBot()
+    let storage = TelerouteInMemoryFlowStorage()
+    let router = Teleroute(
+        bot: bot,
+        logger: .init(label: "router.flow.manual"),
+        flowStorage: storage,
+        flowCancellationPolicy: .manual
+    )
+    let recorder = Recorder<String>()
+
+    router.add(flow: SignupFlow(recorder: recorder))
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/signup", updateId: 550)])
+    _ = await recorder.waitForCount(1)
+    await router.process([makeMessageUpdate(text: "Alice", updateId: 551)])
+    _ = await recorder.waitForCount(2)
+
+    // An unrelated command must NOT cancel the session under `.manual`.
+    await router.process([makeCommandUpdate(text: "/help", updateId: 552)])
+    try? await Task.sleep(for: .milliseconds(30))
+    let flowKey = TelerouteFlowKey(chatId: 1, userId: 1)
+    let sessionAfterHelp = await storage.session(for: flowKey)
+    #expect(sessionAfterHelp != nil)
+
+    // Subsequent messages are still captured by the flow.
+    await router.process([makeMessageUpdate(text: "Bob", updateId: 553)])
+    _ = await recorder.waitForCount(3, retries: 100)
+
+    let values = await recorder.values
+    #expect(values.first == "start")
+    #expect(["name:Alice", "name:Bob"].contains(values.last ?? ""))
+}
+
+@Test func queueResumesPendingCallerWithCancellationOnTeardown() async throws {
+    let queue = TelerouteCommandQueue(workerIdleTimeout: .seconds(30))
+    // Submit one long-running operation so the worker is busy, then enqueue a
+    // second that will be parked. Cancelling the second caller's task must
+    // resume its continuation with CancellationError instead of hanging.
+    let gate = TestGate()
+    let first = Task {
+        try await queue.enqueue(key: "k") {
+            await gate.wait()
+            return 1
+        }
+    }
+    try? await Task.sleep(for: .milliseconds(20))
+
+    let second = Task {
+        try await queue.enqueue(key: "k") { 2 }
+    }
+    try? await Task.sleep(for: .milliseconds(20))
+    second.cancel()
+
+    await #expect(throws: CancellationError.self) {
+        _ = try await second.value
+    }
+
+    await gate.release()
+    _ = try await first.value
+}
+
+@Test func duplicatePublishedCommandIsPublishedOnceWhenDescriptionsMatch() async throws {
+    let recorder = PublishedCommandsRecorder()
+    let bot = try await makeBot(client: RecordingCommandsClient(recorder: recorder))
+    let router = Teleroute(bot: bot, logger: .init(label: "router.commands.dedup"))
+
+    // Same command registered twice with identical description: published once.
+    router.command("start", description: "Begin", visibility: [.default]) { _, _ in }
+    router.command("start", description: "Begin", visibility: [.default]) { _, _ in }
+
+    let sets = try router.publishedCommandSets()
+    #expect(sets.count == 1)
+    #expect(sets.first?.commands.count == 1)
+    #expect(sets.first?.commands.first?.command == "start")
+}
 }
 
 
@@ -903,6 +1139,20 @@ private actor ConcurrencyProbe {
 
     var maxConcurrent: Int {
         self.maxRunning
+    }
+}
+
+private actor TestGate {
+    private var released = false
+
+    func wait() async {
+        while self.released == false {
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+    }
+
+    func release() {
+        self.released = true
     }
 }
 
