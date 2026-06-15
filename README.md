@@ -354,6 +354,40 @@ let button = try admin.callbackButton(
 
 Here `button.callbackData` becomes `admin/users/42/ban` because the callback is generated from the same group.
 
+#### Typed Commands And Callbacks With Macros
+
+The `@TelerouteCommand` and `@TelerouteCallback` macros synthesize the protocol conformance, `path`, the decode initializer, and a memberwise init from the stored `let` properties. The `{param}` segments in a callback path are matched to properties of the same name.
+
+```swift
+import Teleroute
+
+@TelerouteCommand("ban")
+struct BanCommand {
+    let userID: String
+    let reason: String?
+
+    func handle(update: TGUpdate, context: TelerouteContext) async throws {
+        try await context.reply(text: "ban \(self.userID): \(self.reason ?? "no reason")")
+    }
+}
+
+@TelerouteCallback("orders/{orderID}/approve")
+struct ApproveOrderCallback {
+    let orderID: String
+
+    func handle(update: TGUpdate, context: TelerouteContext) async throws {
+        try await context.answerCallbackQuery(text: "approved \(self.orderID)")
+    }
+}
+
+router.command(BanCommand.self)
+router.callback(ApproveOrderCallback.self)
+
+let button = try router.callbackButton("Approve", callback: ApproveOrderCallback(orderID: "42"))
+```
+
+Command properties are decoded by name first, then by position. Optional (`String?`) properties use `command.get(_:at:)` and fall back to `nil`. The macros require the `TelerouteMacros` compiler plugin, which ships with the package.
+
 ### 3. Published Commands And Visibility
 
 Use this when you want `Teleroute` to register Telegram command menus through `setMyCommands`.
@@ -555,14 +589,29 @@ router.add(collection: ProfileRoutes())
 Use guards to select routes by context without putting `if` logic into handlers.
 
 ```swift
-struct PrivateChatGuard: TelerouteGuard {
-    func matches(_ context: TelerouteContext) async throws -> Bool {
-        context.message?.chat.type == .private
-    }
-}
-
-router.command("start", routeGuard: PrivateChatGuard()) { _, context in
+router.command("start", routeGuard: TeleroutePrivateChatGuard()) { _, context in
     try await context.reply(text: "private only")
+}
+```
+
+Built-in guards:
+
+| Guard | Matches when |
+|-------|--------------|
+| `TelerouteChatTypeGuard(_:)` | the update's chat type equals the supplied value |
+| `TeleroutePrivateChatGuard()` | the update is from a private (1:1) chat |
+| `TelerouteGroupChatGuard()` | the update is from a group or supergroup |
+| `TelerouteUserAllowlistGuard(_:)` | the sender's user id is in the supplied set |
+| `TelerouteChatAllowlistGuard(_:)` | the chat id is in the supplied set |
+| `TelerouteArgumentCountGuard(_:)` | the command has exactly the expected number of arguments |
+| `TelerouteAdminGuard()` | the sender is an administrator or owner (issues a `getChatMember` call) |
+
+Group-scoped guards apply to every route registered inside the group:
+
+```swift
+router.group("admin", routeGuards: [TelerouteAdminGuard()]) { admin in
+    admin.command("ban") { _, _ in ... }
+    admin.command("unban") { _, _ in ... }
 }
 ```
 
@@ -571,37 +620,39 @@ router.command("start", routeGuard: PrivateChatGuard()) { _, context in
 Use middleware for logging, auth, metrics, or shared pre/post hooks.
 
 ```swift
-struct LoggingMiddleware: TelerouteMiddleware {
-    func handle(
-        _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
-        print("before")
-        try await next(context)
-        print("after")
-    }
-}
-
 router.command(
     "start",
-    middlewares: [LoggingMiddleware()]
+    middlewares: [TelerouteAccessLogMiddleware(label: "start")]
 ) { _, context in
     try await context.reply(text: "hello")
 }
 ```
 
-Guards and middleware can be combined:
+Guards and middleware can be combined, and both can be declared at the group level:
 
 ```swift
-router.callback(
-    "orders/{id}/approve",
-    routeGuard: PrivateChatGuard(),
-    middlewares: [LoggingMiddleware()]
-) { _, context in
-    let id = try context.parameters.require("id")
-    try await context.answerCallbackQuery(text: "approved \(id)")
+router.group(
+    "orders",
+    middlewares: [TelerouteAccessLogMiddleware(label: "orders")],
+    routeGuards: [TeleroutePrivateChatGuard()]
+) { orders in
+    orders.callback("orders/{id}/approve") { _, context in
+        let id = try context.parameters.require("id")
+        try await context.answerCallbackQuery(text: "approved \(id)")
+    }
 }
 ```
+
+Built-in middleware:
+
+| Middleware | Behavior |
+|------------|----------|
+| `TelerouteAccessLogMiddleware(label:)` | logs handler entry/exit |
+| `TelerouteTimeoutMiddleware(_:)` | throws `TelerouteTimeoutError` past the deadline |
+| `TelerouteRetryMiddleware(retries:backoff:)` | retries the chain on throw |
+| `TelerouteErrorHandlingMiddleware(handler:)` | catches errors and runs a recovery closure |
+| `TelerouteThrottleMiddleware(interval:scope:)` | drops repeats within an interval |
+| `TelerouteDebounceMiddleware(interval:scope:)` | runs only the latest update after a quiet period |
 
 Built-in rate-limiting middleware is available for high-frequency buttons and commands:
 
@@ -821,16 +872,16 @@ Guarded routes are excluded from this diagnostic because registering the same pa
 
 ## Events
 
-`router.events` exposes an `AsyncSequence` of lifecycle events.
+`router.events` exposes an `AsyncSequence` of lifecycle events. Multiple consumers are supported: each call to `router.events` returns an independent sequence, and every subscriber receives the same events through its own buffer.
 
 ```swift
 Task {
     for await event in router.events {
         switch event.kind {
         case .handled:
-            print("handled \(event.routeKind) \(event.routeName ?? "")")
+            print("handled \(event.routeKind) \(event.routeName ?? "") in \(event.duration ?? .zero)")
         case .failed:
-            print("failed \(event.errorDescription ?? "unknown error")")
+            print("failed: \(String(describing: event.error))")
         default:
             break
         }
@@ -838,7 +889,113 @@ Task {
 }
 ```
 
-Events are emitted for received updates, skipped duplicates, handled routes, unmatched updates, and failures.
+Events are emitted for received updates, skipped duplicates, handled routes, unmatched updates, and failures. `TelerouteEvent` carries `startedAt`/`duration` timing and a typed `error` payload on `.failed` events.
+
+## Error Handling
+
+Supply an `onError` closure to centralize error recovery, user-facing replies, or retry logic. When the handler is `nil`, errors are only logged and surfaced through `events`.
+
+```swift
+let router = Teleroute(bot: bot, logger: logger) { error, context in
+    try? await context.reply(text: "Something went wrong: \(error)")
+}
+```
+
+## Metrics
+
+Implement `TelerouteMetricsSink` to forward routing counts and handler durations to an observability backend. All callbacks default to no-ops.
+
+```swift
+struct PrometheusMetricsSink: TelerouteMetricsSink {
+    func recordHandled(routeKind: TelerouteEvent.RouteKind, routeName: String?, chatId: Int64?, userId: Int64?, duration: Duration) async {
+        // increment counters / observe histograms
+    }
+    func recordFailed(routeKind: TelerouteEvent.RouteKind, routeName: String?, chatId: Int64?, userId: Int64?, duration: Duration, error: any Error) async {
+        // increment error counters
+    }
+}
+
+let router = Teleroute(bot: bot, logger: logger, metricsSink: PrometheusMetricsSink())
+```
+
+## Context Helpers
+
+Beyond `reply`/`send`/`edit`/`answerCallbackQuery`, `TelerouteContext` wraps media and message operations:
+
+```swift
+// Media
+try await context.sendPhoto(.fileId(fileId), caption: "preview")
+try await context.sendDocument(document, caption: "report")
+try await context.sendMediaGroup(media)
+try await context.sendVideo(video)
+try await context.sendAnimation(animation)
+try await context.sendAudio(audio)
+
+// Message operations
+try await context.forwardMessage(from: sourceChatId, messageId: 42)
+try await context.deleteMessage()                  // defaults to the current message
+try await context.editReplyMarkup(newKeyboard)     // edits only the keyboard
+
+// Chat actions
+try await context.sendChatAction(.typing)
+```
+
+## Keyboard Builder
+
+Inline keyboards can be built declaratively with `TelerouteKeyboardBuilder`:
+
+```swift
+let keyboard = try router.callbackKeyboard {
+    TelerouteKeyboardBuilder.Row {
+        try router.callbackButton("Prev", path: "page", parameters: ["page": "0"])
+        try router.callbackButton("Next", path: "page", parameters: ["page": "2"])
+    }
+    TelerouteKeyboardBuilder.Row {
+        try router.callbackButton("Cancel", path: "cancel")
+    }
+}
+```
+
+For paginated menus, `TeleroutePagination.navigationRow` hides `Prev`/`Next` at the boundaries:
+
+```swift
+let nav = TeleroutePagination.navigationRow(path: "list", page: page, pageCount: total) { text, path, params in
+    try router.callbackButton(text, path: path, parameters: params)
+}
+```
+
+## Route Builder DSL
+
+Register the whole route tree declaratively with `router.routes { ... }`:
+
+```swift
+router.routes {
+    TelerouteRouteCommand("start", description: "Begin") { _, ctx in
+        try await ctx.reply(text: "Hi")
+    }
+    TelerouteRouteGroup("admin", routeGuards: [TelerouteAdminGuard()]) {
+        TelerouteRouteCommand("ban") { _, ctx in ... }
+        TelerouteRouteCallback("reset/{userId}") { _, ctx in ... }
+    }
+}
+```
+
+Group middleware and guards declared on `TelerouteRouteGroup` apply to every nested route.
+
+## Testing
+
+Add the `TelerouteTestSupport` product to your test target to reuse test doubles: a stub `TGClientPrtcl`, a generic `TelerouteTestRecorder`, a `TelerouteMockFlowStorage`, and update factories.
+
+```swift
+import TelerouteTestSupport
+
+let bot = try await TelerouteTestSupport.makeBot()
+let router = Teleroute(bot: bot, logger: .init(label: "tests"))
+
+router.command("ping") { _, _ in ... }
+await router.handle()
+await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/ping")])
+```
 
 ## Replay Protection
 

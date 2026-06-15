@@ -233,10 +233,10 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.guard.command"))
     let recorder = Recorder<String>()
 
-    router.command("start", routeGuard: ChatTypeGuard(.group)) { _, _ in
+    router.command("start", routeGuard: TelerouteChatTypeGuard(.group)) { _, _ in
         await recorder.record("group")
     }
-    router.command("start", routeGuard: ChatTypeGuard(.private)) { _, _ in
+    router.command("start", routeGuard: TelerouteChatTypeGuard(.private)) { _, _ in
         await recorder.record("private")
     }
 
@@ -252,10 +252,10 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.guard.callback"))
     let recorder = Recorder<String>()
 
-    router.callback("orders/{id}/approve", routeGuard: ChatTypeGuard(.group)) { _, _ in
+    router.callback("orders/{id}/approve", routeGuard: TelerouteChatTypeGuard(.group)) { _, _ in
         await recorder.record("group")
     }
-    router.callback("orders/{id}/approve", routeGuard: ChatTypeGuard(.private)) { _, context in
+    router.callback("orders/{id}/approve", routeGuard: TelerouteChatTypeGuard(.private)) { _, context in
         await recorder.record(try context.parameters.require("id"))
     }
 
@@ -430,9 +430,9 @@ struct TelerouteTests {
 }
 
 @Test func eventEmitterPreservesEmissionOrder() async throws {
-    let emitter = TelerouteEventEmitter()
+    let hub = TelerouteEventHub()
     let eventCount = 50
-    let events = emitter.events
+    let events = hub.sequence()
 
     let collectionTask = Task {
         var iterator = events.makeAsyncIterator()
@@ -445,23 +445,108 @@ struct TelerouteTests {
     }
 
     for updateId in 0..<eventCount {
-        emitter.emit(
+        hub.emit(
             .init(
                 kind: .received,
                 routeKind: .command,
-                routeName: nil,
                 updateId: updateId,
                 chatId: nil,
-                userId: nil,
-                errorDescription: nil
+                userId: nil
             )
         )
     }
 
     let updateIds = await collectionTask.value
-    emitter.finish()
+    hub.finish()
 
     #expect(updateIds == Array(0..<eventCount))
+}
+
+@Test func eventHubBroadcastsToMultipleConsumers() async throws {
+    let hub = TelerouteEventHub()
+    // Two independent subscriptions: each gets its own stream/buffer.
+    let eventsA = hub.sequence()
+    let eventsB = hub.sequence()
+
+    let consumerA = Task {
+        var iterator = eventsA.makeAsyncIterator()
+        var updateIds: [Int] = []
+        while updateIds.count < 3 {
+            guard let event = await iterator.next() else { break }
+            updateIds.append(event.updateId)
+        }
+        return updateIds
+    }
+    let consumerB = Task {
+        var iterator = eventsB.makeAsyncIterator()
+        var updateIds: [Int] = []
+        while updateIds.count < 3 {
+            guard let event = await iterator.next() else { break }
+            updateIds.append(event.updateId)
+        }
+        return updateIds
+    }
+
+    try? await Task.sleep(for: .milliseconds(20))
+    for updateId in 1...3 {
+        hub.emit(.init(kind: .handled, routeKind: .command, updateId: updateId, chatId: nil, userId: nil))
+    }
+
+    let idsA = await consumerA.value
+    let idsB = await consumerB.value
+    hub.finish()
+
+    #expect(idsA == [1, 2, 3])
+    #expect(idsB == [1, 2, 3])
+}
+
+@Test func onErrorReceivesHandlerErrors() async throws {
+    struct BoomError: Error {}
+    let bot = try await makeBot()
+    let recorder = Recorder<String>()
+
+    let router = Teleroute(bot: bot, logger: .init(label: "router.error")) { error, _ in
+        await recorder.record(String(describing: error))
+    }
+
+    router.command("boom") { _, _ in
+        throw BoomError()
+    }
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/boom", updateId: 600)])
+
+    let captured = await recorder.waitForCount(1)
+    #expect(captured == ["BoomError()"])
+}
+
+@Test func failedEventCarriesTypedError() async throws {
+    struct BoomError: Error & Equatable {}
+    let bot = try await makeBot()
+    let router = Teleroute(bot: bot, logger: .init(label: "router.failed-event"))
+    let recorder = Recorder<TelerouteEvent>()
+
+    let eventTask = Task {
+        for await event in router.events {
+            await recorder.record(event)
+            if event.kind == .failed { break }
+        }
+    }
+
+    router.command("boom") { _, _ in
+        throw BoomError()
+    }
+
+    await router.handle()
+    await router.process([makeCommandUpdate(text: "/boom", updateId: 601)])
+    _ = await recorder.waitForCount(2, retries: 100)
+
+    eventTask.cancel()
+    try? await Task.sleep(for: .milliseconds(30))
+
+    let failed = await recorder.values.last { $0.kind == .failed }
+    #expect(failed != nil)
+    #expect(failed?.error is BoomError)
 }
 
 @Test func flowRoutesMessagesAndCallbacksByActiveStep() async throws {
@@ -729,7 +814,7 @@ struct TelerouteTests {
     router.command(
         "start",
         description: "Start the bot",
-        routeGuard: ChatTypeGuard(.private)
+        routeGuard: TelerouteChatTypeGuard(.private)
     ) { _, _ in }
 
     let commandSets = try router.publishedCommandSets()
@@ -762,8 +847,8 @@ struct TelerouteTests {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.routes.guarded-duplicates"))
 
-    router.command("start", routeGuard: ChatTypeGuard(.private)) { _, _ in }
-    router.command("start", routeGuard: ChatTypeGuard(.group)) { _, _ in }
+    router.command("start", routeGuard: TelerouteChatTypeGuard(.private)) { _, _ in }
+    router.command("start", routeGuard: TelerouteChatTypeGuard(.group)) { _, _ in }
 
     #expect(router.duplicateRouteSignatures.isEmpty)
 }
@@ -1285,18 +1370,6 @@ private struct GroupedAdminCollection: TelerouteGroupCollection {
         collection.command("ban") { _, context in
             await self.recorder.record("grouped-ban:\(context.command?.arguments.first ?? "")")
         }
-    }
-}
-
-private struct ChatTypeGuard: TelerouteGuard {
-    let expected: TGChatType
-
-    init(_ expected: TGChatType) {
-        self.expected = expected
-    }
-
-    func matches(_ context: TelerouteContext) async throws -> Bool {
-        context.message?.chat.type == self.expected
     }
 }
 

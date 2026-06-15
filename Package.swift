@@ -2,6 +2,7 @@
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
+import CompilerPluginSupport
 
 let settings: [SwiftSetting] = [
     .swiftLanguageMode(.v6),
@@ -22,6 +23,10 @@ let package = Package(
             name: name,
             targets: [name]
         ),
+        .library(
+            name: "TelerouteTestSupport",
+            targets: ["TelerouteTestSupport"]
+        ),
         .executable(
             name: "TelerouteExample",
             targets: ["TelerouteExample"]
@@ -32,6 +37,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-collections", from: "1.5.0"),
         .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),
         .package(url: "https://github.com/nerzh/swift-telegram-bot", from: "10.0.0"),
+        .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.0"),
     ],
     targets: [
         .target(
@@ -42,12 +48,33 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "SwiftTelegramBot", package: "swift-telegram-bot"),
+                .target(name: "TelerouteMacros"),
+            ],
+            swiftSettings: settings
+        ),
+        .macro(
+            name: "TelerouteMacros",
+            dependencies: [
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
             ],
             swiftSettings: settings
         ),
         .testTarget(
             name: "TelerouteTests",
-            dependencies: [.byName(name: name)],
+            dependencies: [
+                .byName(name: name),
+                .byName(name: "TelerouteTestSupport"),
+                .target(name: "TelerouteMacros"),
+            ],
+            swiftSettings: settings
+        ),
+        .target(
+            name: "TelerouteTestSupport",
+            dependencies: [
+                .byName(name: name),
+                .product(name: "SwiftTelegramBot", package: "swift-telegram-bot"),
+            ],
             swiftSettings: settings
         ),
         .executableTarget(

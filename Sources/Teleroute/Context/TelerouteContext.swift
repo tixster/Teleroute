@@ -93,6 +93,17 @@ public struct TelerouteContext: Sendable {
         return nil
     }
 
+    /// Telegram chat type inferred from the current message or callback query.
+    public var chatType: TGChatType? {
+        if let message = self.message {
+            return message.chat.type
+        }
+        if let callbackMessage = self.callbackQuery?.message {
+            return callbackMessage.chat.type
+        }
+        return nil
+    }
+
     /// Best-effort resolved user identifier for the current update.
     public var userId: Int64? {
         if let callbackUserID = self.callbackQuery?.from.id {

@@ -10,7 +10,7 @@
 
 ## Source Areas
 
-- `Core/Teleroute.swift`: root router facade, `TGDefaultDispatcherPrtcl` integration, update processing order, event emission, replay protection setup, root API forwarding.
+- `Core/Teleroute.swift`: root router facade, `TGDefaultDispatcherPrtcl` integration, update processing order, event emission, error handling, metrics sink callbacks, replay protection setup, flow cancellation policy enforcement, root API forwarding.
 - `Routing/TelerouteGroup.swift`: grouped command/callback registration and callback keyboard helpers.
 - `Routing/TelerouteMatching.swift`: storage, route signatures, command extraction, callback pattern matching, callback data rendering, percent encoding.
 - `Routing/TelerouteMiddlewareRunner.swift`: middleware chain execution and consuming middleware semantics.
@@ -19,11 +19,19 @@
 - `Routing/TeleroutePublishedCommands.swift`: Telegram command visibility scopes, command-set generation, publishing helpers.
 - `Routing/TelerouteEvents.swift`: lifecycle event payloads and async event sequence.
 - `Routing/TelerouteReplayProtection.swift`: replay claim storage and in-memory cleanup.
+- `Composition/TelerouteBuiltInMiddleware.swift`: access-log, timeout, retry, and error-handling middleware.
+- `Composition/TelerouteGuards.swift`: built-in chat-type, allowlist, argument-count, and admin guards.
+- `Composition/TelerouteKeyboardBuilder.swift`: declarative inline keyboard builder and pagination helpers.
+- `Composition/TelerouteRouteBuilder.swift`: declarative route-registration DSL (`router.routes { ... }`).
 - `Typed/TelerouteCommand.swift`, `Typed/TelerouteCallback.swift`, `Typed/TelerouteTypedRoutes.swift`: typed command/callback protocols, registration overloads, callback generation helpers.
+- `Macros/TelerouteMacros.swift`: `@TelerouteCommand` and `@TelerouteCallback` public macros.
 - `Flow/TelerouteFlow.swift`, `Flow/TelerouteFlowState.swift`, `Flow/TelerouteFlowStorage.swift`: multi-step flow APIs, flow context, storage, transitions, finish/cancel behavior.
+- `Flow/TelerouteFlowCancellationPolicy.swift`: policies for unmatched commands during active flows.
 - `Composition/TelerouteCollections.swift`: feature collection protocols and collection mounting APIs.
 - `Composition/TelerouteMiddleware.swift`: `TelerouteGuard`, `TelerouteMiddleware`, internal consuming marker, guard composition.
-- `Context/*`: handler context, command matches, route parameters, errors.
+- `Context/TelerouteContext.swift`, `Context/TelerouteContext+Media.swift`: handler context plus media, forwarding, editing, delete, and chat-action helpers.
+- `Context/TelerouteMetricsSink.swift`: observability sink protocol and default no-op implementation.
+- `Context/*`: command matches, route parameters, errors, and error-handling hooks.
 
 ## Routing Invariants
 
@@ -36,21 +44,27 @@
 - Route evaluation is registration ordered; the first route whose guard/middleware chain reaches its final handler wins.
 - Consuming middleware that does not call `next` must conform to `TelerouteConsumingMiddleware`; otherwise fallback routes can still be considered unhandled.
 - Flow sessions are scoped by `chatId + userId`. Active flow updates for one scope should be serialized.
-- A Telegram command during an active flow first checks flow-local command routes. If no flow command handles it, the active flow is cancelled and normal command routing continues.
+- A Telegram command during an active flow first checks flow-local command routes. What happens next is controlled by `TelerouteFlowCancellationPolicy`; the default still cancels and then continues normal command routing.
+- Observability side effects should stay coherent: received/skipped/handled/unmatched/failed events and metrics callbacks should describe the same routing outcome.
 
 ## Public API Surfaces
 
-- Root registration: `Teleroute.command`, `Teleroute.callback`, `Teleroute.group`, `Teleroute.add(flow:)`, collection APIs, typed route overloads, callback keyboard/data helpers, published command helpers.
-- Group registration: `TelerouteGroup.command`, `TelerouteGroup.callback`, nested groups, collection APIs, typed route overloads, callback keyboard/data helpers.
+- Root registration: `Teleroute.command`, `Teleroute.callback`, `Teleroute.group`, `Teleroute.add(flow:)`, `Teleroute.routes`, collection APIs, typed route overloads, callback keyboard/data helpers, keyboard-builder helpers, published command helpers.
+- Group registration: `TelerouteGroup.command`, `TelerouteGroup.callback`, nested groups, collection APIs, typed route overloads, callback keyboard/data helpers, keyboard-builder helpers.
 - Typed specs: `TelerouteCommand` and `TelerouteCallback` support self-handling and handler-in-registration styles.
-- Flows: `TelerouteFlow`, `TelerouteFlowGroup`, and `TelerouteFlowContext` handle flow starts, messages, commands, callbacks, transitions, values, cancellation, and finish.
-- Context helpers: `reply`, `send`, `edit`, `answerCallbackQuery`, parsed `command`, `parameters`, `message`, `callbackQuery`, `callbackData`, `chatId`, `userId`, `activeFlow`.
+- Macros: `@TelerouteCommand` and `@TelerouteCallback` synthesize typed route conformances from stored properties and path definitions.
+- Flows: `TelerouteFlow`, `TelerouteFlowGroup`, `TelerouteFlowContext`, `TelerouteFlowCancellationPolicy`, and flow storage abstractions cover flow starts, messages, commands, callbacks, transitions, values, cancellation, and finish behavior.
+- Context helpers: `reply`, `send`, `edit`, `answerCallbackQuery`, media sends, message forwarding/deletion/editing, chat actions, parsed `command`, `parameters`, `message`, `callbackQuery`, `callbackData`, `chatId`, `userId`, `activeFlow`.
+- Observability and recovery: `router.events`, `onError`, and `TelerouteMetricsSink`.
 - Published commands: visibility helpers include `.default`, `.allPrivateChats`, `.allGroupChats`, `.allChatAdministrators`, `.chat`, `.chatAdministrators`, and `.chatMember`.
 
 ## Test Patterns
 
 - Keep tests in `Tests/TelerouteTests` and prefer Swift Testing.
-- Use existing helpers in `TelerouteTests.swift`: `makeBot`, `makeCommandUpdate`, `makeMessageUpdate`, `makeCallbackUpdate`, `Recorder`, fake `TGClientPrtcl` implementations, and command publishing recorders.
+- Shared fixtures live in `TelerouteTestSupport`; reuse `makeBot`, `makeCommandUpdate`, `makeMessageUpdate`, `makeCallbackUpdate`, `TelerouteTestRecorder`, mock flow storage, fake `TGClientPrtcl` implementations, and command publishing recorders.
+- `TelerouteStageBTests.swift` covers guards and built-in middleware.
+- `TelerouteStageETests.swift` covers keyboard builders, pagination, metrics, and route-builder DSL.
+- `TelerouteMacroTests.swift` covers public macros.
 - For public API access-control regressions, add non-`@testable` coverage in `PublicAPITests.swift`.
 - Avoid real Telegram/network calls. Synthetic updates and fake clients are the expected test surface.
 - Async routing tests typically call `await router.handle()`, then `await router.process([...])`, then wait through `Recorder.waitForCount`.
@@ -58,6 +72,6 @@
 
 ## Documentation And Example Alignment
 
-- README is the public behavior contract. Update it when changing route syntax, matching order, callbacks, typed routes, flows, command publishing, middleware semantics, or setup requirements.
+- README is the public behavior contract. Update it when changing route syntax, matching order, callbacks, typed routes, macros, flows, flow cancellation, command publishing, middleware/guard semantics, keyboard helpers, observability, context helpers, or setup requirements.
 - `Sources/TelerouteExample` should remain a runnable demonstration of README claims.
 - Do not document behavior that is not covered by source and tests.
