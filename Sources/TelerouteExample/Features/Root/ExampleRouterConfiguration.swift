@@ -21,8 +21,8 @@ enum ExampleRouterConfiguration {
             "start",
             description: "Show the example menu",
             visibility: [.allPrivateChats],
-            routeGuard: ChatTypeGuard(.private),
-            middlewares: [AccessLogMiddleware(label: "start")]
+            routeGuard: TeleroutePrivateChatGuard(),
+            middlewares: [TelerouteAccessLogMiddleware(label: "start")]
         ) { _, context in
             let screen = try ExampleStartScreen(router: router, admin: admin)
             try await context.reply(text: screen.text, replyMarkup: screen.replyMarkup)
@@ -72,8 +72,8 @@ enum ExampleRouterConfiguration {
 
         router.command(
             ProfileCommand.self,
-            routeGuard: ChatTypeGuard(.private),
-            middlewares: [AccessLogMiddleware(label: "profile")]
+            routeGuard: TeleroutePrivateChatGuard(),
+            middlewares: [TelerouteAccessLogMiddleware(label: "profile")]
         )
         router.command(SyncCatalogCommand.self)
     }
@@ -82,8 +82,8 @@ enum ExampleRouterConfiguration {
     private static func registerRootCallbacks(router: Teleroute) {
         router.callback(
             ApproveOrderCallback.self,
-            routeGuard: ChatTypeGuard(.private),
-            middlewares: [AccessLogMiddleware(label: "approve-order")]
+            routeGuard: TeleroutePrivateChatGuard(),
+            middlewares: [TelerouteAccessLogMiddleware(label: "approve-order")]
         ) { _, context, callback in
             try await context.answerCallbackQuery(text: "Order \(callback.orderID) approved")
             try await context.edit(text: "Order \(callback.orderID) approved")
@@ -93,8 +93,8 @@ enum ExampleRouterConfiguration {
 
         router.callback(
             "support/{topic}",
-            routeGuard: ChatTypeGuard(.private),
-            middlewares: [AccessLogMiddleware(label: "support")]
+            routeGuard: TeleroutePrivateChatGuard(),
+            middlewares: [TelerouteAccessLogMiddleware(label: "support")]
         ) { _, context in
             let topic = try context.parameters.require("topic")
             try await context.answerCallbackQuery(text: "Opening \(topic)")
@@ -108,7 +108,7 @@ enum ExampleRouterConfiguration {
             AdminBanCommand.self,
             description: "Ban a user inside the admin namespace",
             visibility: [.allChatAdministrators],
-            middlewares: [AccessLogMiddleware(label: "admin-ban")]
+            middlewares: [TelerouteAccessLogMiddleware(label: "admin-ban")]
         ) { _, context, command in
             try await context.reply(
                 text: "Admin ban: \(command.userID), reason: \(command.reason ?? "not provided")"
@@ -117,7 +117,7 @@ enum ExampleRouterConfiguration {
 
         admin.callback(
             "users/{userID}/ban",
-            middlewares: [AccessLogMiddleware(label: "admin-callback-ban")]
+            middlewares: [TelerouteAccessLogMiddleware(label: "admin-callback-ban")]
         ) { _, context in
             let userID = try context.parameters.require("userID")
             try await context.answerCallbackQuery(text: "User \(userID) banned")

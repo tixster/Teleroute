@@ -9,31 +9,63 @@ public final class TelerouteGroup: Sendable {
     let storage: TelerouteStorage
     let commandPrefix: [String]
     let callbackPrefix: [String]
+    let inheritedMiddlewares: [any TelerouteMiddleware]
+    let inheritedGuards: [any TelerouteGuard]
 
     init(
         storage: TelerouteStorage,
         commandPrefix: [String] = [],
-        callbackPrefix: [String] = []
+        callbackPrefix: [String] = [],
+        inheritedMiddlewares: [any TelerouteMiddleware] = [],
+        inheritedGuards: [any TelerouteGuard] = []
     ) {
         self.storage = storage
         self.commandPrefix = commandPrefix
         self.callbackPrefix = callbackPrefix
+        self.inheritedMiddlewares = inheritedMiddlewares
+        self.inheritedGuards = inheritedGuards
     }
 
-    /// Creates a nested group inheriting the current prefixes.
+    /// Creates a nested group inheriting the current prefixes, middleware, and guards.
     @discardableResult
     public func group(_ path: String) -> TelerouteGroup {
         let components = TeleroutePath.components(from: path)
         return .init(
             storage: self.storage,
             commandPrefix: self.commandPrefix + components,
-            callbackPrefix: self.callbackPrefix + components
+            callbackPrefix: self.callbackPrefix + components,
+            inheritedMiddlewares: self.inheritedMiddlewares,
+            inheritedGuards: self.inheritedGuards
         )
     }
 
     /// Creates a nested group and configures it inline.
     public func group(_ path: String, configure: (TelerouteGroup) -> Void) {
         configure(self.group(path))
+    }
+
+    /// Creates a nested group that applies the supplied middleware and guards to
+    /// every route registered within it, in addition to whatever the parent
+    /// group already contributes.
+    ///
+    /// Group-inherited middleware runs before route middleware, and
+    /// group-inherited guards are evaluated before the route guard.
+    public func group(
+        _ path: String,
+        middlewares: [any TelerouteMiddleware] = [],
+        routeGuards: [any TelerouteGuard] = [],
+        configure: (TelerouteGroup) -> Void
+    ) {
+        let components = TeleroutePath.components(from: path)
+        configure(
+            .init(
+                storage: self.storage,
+                commandPrefix: self.commandPrefix + components,
+                callbackPrefix: self.callbackPrefix + components,
+                inheritedMiddlewares: self.inheritedMiddlewares + middlewares,
+                inheritedGuards: self.inheritedGuards + routeGuards
+            )
+        )
     }
 
     /// Registers a command handler.
@@ -55,6 +87,8 @@ public final class TelerouteGroup: Sendable {
     ) {
         let name = TeleroutePath.commandName(prefix: self.commandPrefix, path: path)
         var resolvedMiddlewares = TelerouteMiddlewareComposer.resolve(
+            inheritedMiddlewares: self.inheritedMiddlewares,
+            inheritedGuards: self.inheritedGuards,
             routeGuard: routeGuard,
             middlewares: middlewares
         )
@@ -98,6 +132,8 @@ public final class TelerouteGroup: Sendable {
         use handler: @escaping TelerouteHandler
     ) {
         let resolvedMiddlewares = TelerouteMiddlewareComposer.resolve(
+            inheritedMiddlewares: self.inheritedMiddlewares,
+            inheritedGuards: self.inheritedGuards,
             routeGuard: routeGuard,
             middlewares: middlewares
         )

@@ -17,14 +17,19 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     private let replayProtectionStorage: (any TelerouteReplayProtectionStorage)?
     private let replayProtectionTTL: Duration
     private let flowCancellationPolicy: TelerouteFlowCancellationPolicy
+    private let onError: TelerouteErrorHandler?
+    private let metricsSink: any TelerouteMetricsSink
     private let handlerRegistrationState = TelerouteHandlerRegistrationState()
-    private let eventEmitter = TelerouteEventEmitter()
+    private let eventHub = TelerouteEventHub()
     private let processingTasks = Mutex<[UUID: Task<Void, Never>]>([:])
     private let replayProtectionCleanupTask: Task<Void, Never>?
 
     /// Router lifecycle events emitted as updates are received, matched, skipped, or failed.
+    ///
+    /// Multiple consumers may iterate this sequence concurrently; each one
+    /// receives the same events through its own independent iterator.
     public var events: TelerouteEventSequence {
-        self.eventEmitter.events
+        self.eventHub.sequence()
     }
 
     public var bot: TGBot {
@@ -44,7 +49,12 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     }
 
     /// Creates a router bound to a Telegram bot and logger.
-    public init(bot: TGBot, logger: Logger) {
+    public init(
+        bot: TGBot,
+        logger: Logger,
+        onError: TelerouteErrorHandler? = nil,
+        metricsSink: (any TelerouteMetricsSink)? = nil
+    ) {
         let storage = TelerouteStorage()
         let replayProtectionStorage = TelerouteInMemoryReplayProtectionStorage()
         self.dispatcher = TGDefaultDispatcher(bot: bot, logger: logger)
@@ -54,6 +64,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         self.replayProtectionStorage = replayProtectionStorage
         self.replayProtectionTTL = .seconds(2)
         self.flowCancellationPolicy = .cancelOnAnyUnmatchedCommand
+        self.onError = onError
+        self.metricsSink = metricsSink ?? TelerouteNoOpMetricsSink()
         self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
             storage: replayProtectionStorage
         )
@@ -66,7 +78,9 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         flowStorage: any TelerouteFlowStorage,
         replayProtectionStorage: (any TelerouteReplayProtectionStorage)? = TelerouteInMemoryReplayProtectionStorage(),
         replayProtectionTTL: Duration = .seconds(2),
-        flowCancellationPolicy: TelerouteFlowCancellationPolicy = .cancelOnAnyUnmatchedCommand
+        flowCancellationPolicy: TelerouteFlowCancellationPolicy = .cancelOnAnyUnmatchedCommand,
+        onError: TelerouteErrorHandler? = nil,
+        metricsSink: (any TelerouteMetricsSink)? = nil
     ) {
         let storage = TelerouteStorage()
         self.dispatcher = TGDefaultDispatcher(bot: bot, logger: logger)
@@ -76,6 +90,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         self.replayProtectionStorage = replayProtectionStorage
         self.replayProtectionTTL = replayProtectionTTL
         self.flowCancellationPolicy = flowCancellationPolicy
+        self.onError = onError
+        self.metricsSink = metricsSink ?? TelerouteNoOpMetricsSink()
         self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
             storage: replayProtectionStorage
         )
@@ -86,7 +102,7 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
             task.cancel()
         }
         self.replayProtectionCleanupTask?.cancel()
-        self.eventEmitter.finish()
+        self.eventHub.finish()
     }
 
     /// Creates a top-level route group.
@@ -98,6 +114,22 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     /// Creates and configures a top-level route group inline.
     public func group(_ path: String, configure: (TelerouteGroup) -> Void) {
         self.rootGroup.group(path, configure: configure)
+    }
+
+    /// Creates and configures a top-level route group that applies the supplied
+    /// middleware and guards to every route registered within it.
+    public func group(
+        _ path: String,
+        middlewares: [any TelerouteMiddleware] = [],
+        routeGuards: [any TelerouteGuard] = [],
+        configure: (TelerouteGroup) -> Void
+    ) {
+        self.rootGroup.group(
+            path,
+            middlewares: middlewares,
+            routeGuards: routeGuards,
+            configure: configure
+        )
     }
 
     /// Registers a top-level command handler.
@@ -198,31 +230,36 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         await self.add(
             TGBaseHandler(name: "TelerouteDispatcher") { [weak self] update in
                 guard let self else { return }
+                let startedAt = ContinuousClock().now
+                let context = TelerouteContext(bot: self.bot, update: update)
+                let routeKind = self.eventRouteKind(for: update)
                 do {
-                    self.emitEvent(.received, update: update)
+                    self.emitEvent(.received, update: update, startedAt: startedAt)
+                    await self.metricsSink.recordReceived(routeKind: routeKind, chatId: context.chatId, userId: context.userId)
                     self.log.debug("Received update", metadata: self.updateMetadata(for: update))
                     guard await self.shouldHandle(update) else {
-                        self.emitEvent(.skippedDuplicate, update: update)
+                        self.emitEvent(.skippedDuplicate, update: update, startedAt: startedAt)
+                        await self.metricsSink.recordSkippedDuplicate(routeKind: routeKind, chatId: context.chatId, userId: context.userId)
                         self.log.debug("Skipped duplicate update", metadata: self.updateMetadata(for: update))
                         return
                     }
-                    if try await self.processFlow(update) {
+                    if try await self.processFlow(update, startedAt: startedAt) {
                         self.log.debug("Handled update with flow route", metadata: self.updateMetadata(for: update))
                         return
                     }
-                    if try await self.processCallback(update) {
+                    if try await self.processCallback(update, startedAt: startedAt) {
                         self.log.debug("Handled update with callback route", metadata: self.updateMetadata(for: update))
                         return
                     }
-                    if try await self.processCommand(update) {
+                    if try await self.processCommand(update, startedAt: startedAt) {
                         self.log.debug("Handled update with command route", metadata: self.updateMetadata(for: update))
                         return
                     }
-                    self.emitEvent(.unmatched, update: update)
+                    self.emitEvent(.unmatched, update: update, startedAt: startedAt, duration: startedAt.duration(to: ContinuousClock().now))
+                    await self.metricsSink.recordUnmatched(routeKind: routeKind, chatId: context.chatId, userId: context.userId)
                     self.log.debug("No route matched update", metadata: self.updateMetadata(for: update))
                 } catch {
-                    self.emitEvent(.failed, update: update, error: error)
-                    await self.logProcessingError(error, update: update)
+                    await self.handleError(error, update: update, startedAt: startedAt)
                 }
             }
         )
@@ -246,7 +283,7 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                     do {
                         try await handler.handle(update: update)
                     } catch {
-                        self.log.error("\(BotError(error).localizedDescription)")
+                        await self.handleError(error, update: update)
                     }
                     _ = self.processingTasks.withLock {
                         $0.removeValue(forKey: uuid)
@@ -351,7 +388,7 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     }
 
     @discardableResult
-    private func processFlow(_ update: TGUpdate) async throws -> Bool {
+    private func processFlow(_ update: TGUpdate, startedAt: ContinuousClock.Instant) async throws -> Bool {
         let baseContext = TelerouteContext(
             bot: self.bot,
             update: update,
@@ -362,12 +399,16 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
             return false
         }
         return try await self.storage.flowQueue.enqueue(key: TelerouteFlowQueueKey.key(for: flowKey)) {
-            try await self.processFlow(update, flowKey: flowKey)
+            try await self.processFlow(update, flowKey: flowKey, startedAt: startedAt)
         }
     }
 
     @discardableResult
-    private func processFlow(_ update: TGUpdate, flowKey: TelerouteFlowKey) async throws -> Bool {
+    private func processFlow(
+        _ update: TGUpdate,
+        flowKey: TelerouteFlowKey,
+        startedAt: ContinuousClock.Instant
+    ) async throws -> Bool {
         guard let session = await self.flowStorage.session(for: flowKey) else {
             return false
         }
@@ -395,11 +436,11 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                     handler: route.handler
                 )
                 if handled {
-                    self.emitEvent(
-                        .handled,
+                    await self.emitHandled(
                         update: update,
                         routeKind: .flow,
-                        routeName: "\(route.flowID):\(route.step)"
+                        routeName: "\(route.flowID):\(route.step)",
+                        startedAt: startedAt
                     )
                     return true
                 }
@@ -431,11 +472,11 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                     handler: route.handler
                 )
                 if handled {
-                    self.emitEvent(
-                        .handled,
+                    await self.emitHandled(
                         update: update,
                         routeKind: .flow,
-                        routeName: "\(route.flowID):\(route.step):\(name)"
+                        routeName: "\(route.flowID):\(route.step):\(name)",
+                        startedAt: startedAt
                     )
                     return true
                 }
@@ -475,11 +516,11 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                 handler: route.handler
             )
             if handled {
-                self.emitEvent(
-                    .handled,
+                await self.emitHandled(
                     update: update,
                     routeKind: .flow,
-                    routeName: "\(route.flowID):\(route.step)"
+                    routeName: "\(route.flowID):\(route.step)",
+                    startedAt: startedAt
                 )
                 return true
             }
@@ -489,7 +530,7 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     }
 
     @discardableResult
-    private func processCommand(_ update: TGUpdate) async throws -> Bool {
+    private func processCommand(_ update: TGUpdate, startedAt: ContinuousClock.Instant) async throws -> Bool {
         guard let command = TelerouteCommandExtractor.extract(from: update) else {
             return false
         }
@@ -515,11 +556,11 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
             if handled == false {
                 continue
             }
-            self.emitEvent(
-                .handled,
+            await self.emitHandled(
                 update: update,
                 routeKind: .command,
-                routeName: route.name
+                routeName: route.name,
+                startedAt: startedAt
             )
             return true
         }
@@ -545,7 +586,7 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     }
 
     @discardableResult
-    private func processCallback(_ update: TGUpdate) async throws -> Bool {
+    private func processCallback(_ update: TGUpdate, startedAt: ContinuousClock.Instant) async throws -> Bool {
         guard let data = update.callbackQuery?.data else {
             return false
         }
@@ -570,15 +611,51 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
             if handled == false {
                 continue
             }
-            self.emitEvent(
-                .handled,
+            await self.emitHandled(
                 update: update,
                 routeKind: .callback,
-                routeName: route.pattern.routeDescription
+                routeName: route.pattern.routeDescription,
+                startedAt: startedAt
             )
             return true
         }
         return false
+    }
+
+    /// Central error path: emits a typed `.failed` event, logs with rich
+    /// metadata, records metrics, and forwards to the user-supplied `onError`
+    /// handler when set.
+    private func handleError(
+        _ error: any Error,
+        update: TGUpdate,
+        startedAt: ContinuousClock.Instant = ContinuousClock().now
+    ) async {
+        let context = TelerouteContext(bot: self.bot, update: update)
+        let duration = startedAt.duration(to: ContinuousClock().now)
+        let routeKind = self.eventRouteKind(for: update)
+        self.eventHub.emit(
+            .init(
+                kind: .failed,
+                routeKind: routeKind,
+                updateId: update.updateId,
+                chatId: context.chatId,
+                userId: context.userId,
+                startedAt: startedAt,
+                duration: duration,
+                error: error,
+                errorDescription: Self.errorDescription(for: error)
+            )
+        )
+        await self.metricsSink.recordFailed(
+            routeKind: routeKind,
+            routeName: nil,
+            chatId: context.chatId,
+            userId: context.userId,
+            duration: duration,
+            error: error
+        )
+        await self.logProcessingError(error, update: update)
+        await self.onError?(error, context)
     }
 
     private func emitEvent(
@@ -586,10 +663,11 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         update: TGUpdate,
         routeKind: TelerouteEvent.RouteKind? = nil,
         routeName: String? = nil,
-        error: (any Error)? = nil
+        startedAt: ContinuousClock.Instant = ContinuousClock().now,
+        duration: Duration? = nil
     ) {
         let context = TelerouteContext(bot: self.bot, update: update)
-        self.eventEmitter.emit(
+        self.eventHub.emit(
             .init(
                 kind: kind,
                 routeKind: routeKind ?? self.eventRouteKind(for: update),
@@ -597,8 +675,39 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                 updateId: update.updateId,
                 chatId: context.chatId,
                 userId: context.userId,
-                errorDescription: error.map(Self.errorDescription(for:))
+                startedAt: startedAt,
+                duration: duration
             )
+        )
+    }
+
+    /// Emits a `.handled` event with timing and records metrics for the matched route.
+    private func emitHandled(
+        update: TGUpdate,
+        routeKind: TelerouteEvent.RouteKind,
+        routeName: String,
+        startedAt: ContinuousClock.Instant
+    ) async {
+        let context = TelerouteContext(bot: self.bot, update: update)
+        let duration = startedAt.duration(to: ContinuousClock().now)
+        self.eventHub.emit(
+            .init(
+                kind: .handled,
+                routeKind: routeKind,
+                routeName: routeName,
+                updateId: update.updateId,
+                chatId: context.chatId,
+                userId: context.userId,
+                startedAt: startedAt,
+                duration: duration
+            )
+        )
+        await self.metricsSink.recordHandled(
+            routeKind: routeKind,
+            routeName: routeName,
+            chatId: context.chatId,
+            userId: context.userId,
+            duration: duration
         )
     }
 

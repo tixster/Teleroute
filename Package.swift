@@ -22,6 +22,10 @@ let package = Package(
             name: name,
             targets: [name]
         ),
+        .library(
+            name: "TelerouteTestSupport",
+            targets: ["TelerouteTestSupport"]
+        ),
         .executable(
             name: "TelerouteExample",
             targets: ["TelerouteExample"]
@@ -47,7 +51,18 @@ let package = Package(
         ),
         .testTarget(
             name: "TelerouteTests",
-            dependencies: [.byName(name: name)],
+            dependencies: [
+                .byName(name: name),
+                .byName(name: "TelerouteTestSupport"),
+            ],
+            swiftSettings: settings
+        ),
+        .target(
+            name: "TelerouteTestSupport",
+            dependencies: [
+                .byName(name: name),
+                .product(name: "SwiftTelegramBot", package: "swift-telegram-bot"),
+            ],
             swiftSettings: settings
         ),
         .executableTarget(
