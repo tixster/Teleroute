@@ -1,4 +1,4 @@
 interface:
   display_name: "Teleroute"
-  short_description: "Build and maintain Teleroute bots"
-  default_prompt: "Use $teleroute to implement, test, or debug Teleroute routing behavior."
+  short_description: "Implement, review, and debug Teleroute features"
+  default_prompt: "Use $teleroute to implement, test, review, document, or debug Teleroute routing, flows, middleware, guards, macros, observability, and declarative route or keyboard APIs."
