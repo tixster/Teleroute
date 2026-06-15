@@ -50,7 +50,7 @@ public struct TelerouteTimeoutMiddleware: TelerouteMiddleware {
         _ context: TelerouteContext,
         next: @escaping @Sendable (TelerouteContext) async throws -> Void
     ) async throws {
-        let result = try await withThrowingTaskGroup(of: Void.self) { group in
+        let result: Void = try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask {
                 try await next(context)
             }
@@ -127,10 +127,10 @@ public struct TelerouteRetryMiddleware: TelerouteMiddleware {
 /// Pass `nil` for `reply` to swallow errors silently (useful when a group of
 /// routes should never propagate failures to ``Teleroute/onError``).
 public struct TelerouteErrorHandlingMiddleware: TelerouteMiddleware {
-    private let handler: @Sendable (Error, TelerouteContext) async -> Void
+    private let handler: @Sendable (any Error, TelerouteContext) async -> Void
 
     /// Creates an error-handling middleware.
-    public init(handler: @escaping @Sendable (Error, TelerouteContext) async -> Void) {
+    public init(handler: @escaping @Sendable (any Error, TelerouteContext) async -> Void) {
         self.handler = handler
     }
 

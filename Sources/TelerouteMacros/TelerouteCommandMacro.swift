@@ -1,3 +1,4 @@
+import Foundation
 import SwiftSyntax
 import SwiftSyntaxMacros
 
@@ -85,7 +86,7 @@ public struct TelerouteCommandMacro: ExtensionMacro, MemberMacro {
         let isOptional: Bool
     }
 
-    private static func storedProperties(from declaration: DeclSyntaxProtocol) -> [(String, PropertyInfo)] {
+    private static func storedProperties(from declaration: any DeclSyntaxProtocol) -> [(String, PropertyInfo)] {
         guard let structDecl = declaration.as(StructDeclSyntax.self) else { return [] }
         var result: [(String, PropertyInfo)] = []
         for member in structDecl.memberBlock.members {
