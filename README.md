@@ -354,6 +354,40 @@ let button = try admin.callbackButton(
 
 Here `button.callbackData` becomes `admin/users/42/ban` because the callback is generated from the same group.
 
+#### Typed Commands And Callbacks With Macros
+
+The `@TelerouteCommand` and `@TelerouteCallback` macros synthesize the protocol conformance, `path`, the decode initializer, and a memberwise init from the stored `let` properties. The `{param}` segments in a callback path are matched to properties of the same name.
+
+```swift
+import Teleroute
+
+@TelerouteCommand("ban")
+struct BanCommand {
+    let userID: String
+    let reason: String?
+
+    func handle(update: TGUpdate, context: TelerouteContext) async throws {
+        try await context.reply(text: "ban \(self.userID): \(self.reason ?? "no reason")")
+    }
+}
+
+@TelerouteCallback("orders/{orderID}/approve")
+struct ApproveOrderCallback {
+    let orderID: String
+
+    func handle(update: TGUpdate, context: TelerouteContext) async throws {
+        try await context.answerCallbackQuery(text: "approved \(self.orderID)")
+    }
+}
+
+router.command(BanCommand.self)
+router.callback(ApproveOrderCallback.self)
+
+let button = try router.callbackButton("Approve", callback: ApproveOrderCallback(orderID: "42"))
+```
+
+Command properties are decoded by name first, then by position. Optional (`String?`) properties use `command.get(_:at:)` and fall back to `nil`. The macros require the `TelerouteMacros` compiler plugin, which ships with the package.
+
 ### 3. Published Commands And Visibility
 
 Use this when you want `Teleroute` to register Telegram command menus through `setMyCommands`.
