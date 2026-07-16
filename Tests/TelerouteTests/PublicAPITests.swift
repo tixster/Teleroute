@@ -16,7 +16,7 @@ import TelerouteTestSupport
 }
 
 @Test func publicConfigurationExposesUpdateConcurrencyLimit() {
-    var configuration = Teleroute.Configuration(maximumConcurrentUpdates: 7)
+    var configuration = TelerouteBot.Configuration(maximumConcurrentUpdates: 7)
     #expect(configuration.maximumConcurrentUpdates == 7)
     configuration.maximumConcurrentUpdates = 3
     #expect(configuration.maximumConcurrentUpdates == 3)
@@ -44,10 +44,9 @@ import TelerouteTestSupport
 }
 
 @Test func publicTypedCallbackRoutesBindButtonsToTheirRegistrationScope() async throws {
-    let bot = try await TelerouteTestSupport.makeBot()
-    let router = Teleroute(bot: bot, logger: .init(label: "public.keyboard.throwing"))
-    let rootRoute = router.callback(PublicV2Callback.self) { _, _ in }
-    let nestedRoute = router.group("nested").callback(PublicV2Callback.self) { _, _ in }
+    let router = Teleroute()
+    let rootRoute = router.onCallback(PublicV2Callback.self) { _, _ in }
+    let nestedRoute = router.group("nested").onCallback(PublicV2Callback.self) { _, _ in }
     let callback = PublicV2Callback(value: "42")
     let description = rootRoute.button(callback, "Open", style: "primary")
     let pagination = TeleroutePagination.navigationRow(rootRoute, page: 0, pageCount: 2) { page in
@@ -66,12 +65,10 @@ import TelerouteTestSupport
     #expect(button.style == "primary")
     #expect(nestedButton.callbackData == "nested/public/nested")
     #expect(try rootRoute.callbackData(for: callback) == "public/42")
-    router.shutdown()
 }
 
 @Test func publicTypedButtonsRejectMissingScopesAndForeignRouters() async throws {
-    let bot = try await TelerouteTestSupport.makeBot()
-    let router = Teleroute(bot: bot, logger: .init(label: "public.keyboard.validation"))
+    let router = Teleroute()
     let callback = PublicV2Callback(value: "42")
 
     #expect {
@@ -84,7 +81,7 @@ import TelerouteTestSupport
         return path == "public/{value}"
     }
 
-    let route = router.callback(
+    let route = router.onCallback(
         PublicV2Callback.self,
         guards: [TeleroutePrivateChatGuard()]
     ) { _, _ in }
@@ -100,8 +97,7 @@ import TelerouteTestSupport
         return path == "nested/public/{value}"
     }
 
-    let otherBot = try await TelerouteTestSupport.makeBot()
-    let otherRouter = Teleroute(bot: otherBot, logger: .init(label: "public.keyboard.foreign"))
+    let otherRouter = Teleroute()
     #expect {
         try otherRouter.render(route.button(callback, "Foreign"))
     } throws: { error in
@@ -112,8 +108,6 @@ import TelerouteTestSupport
         return path == "public/{value}"
     }
 
-    router.shutdown()
-    otherRouter.shutdown()
 }
 
 @Test func publicMacrosExposeMemberwiseInitializers() {
@@ -127,25 +121,27 @@ import TelerouteTestSupport
 @Test func publicRootSurfaceRegistersEveryRouteKindAndBuildsCallbacks() async throws {
     let bot = try await TelerouteTestSupport.makeBot()
     let recorder = TelerouteTestRecorder<String>()
-    let router = Teleroute(
+    let router = Teleroute()
+    let telerouteBot = TelerouteBot(
         bot: bot,
+        router: router,
         logger: .init(label: "public.v2"),
         configuration: .init(replayProtectionStorage: nil)
     )
 
-    router.command("raw", queue: .perChat) { context in
+    router.onCommand("raw", queue: .perChat) { context in
         await recorder.record("raw:\(context.update.updateId)")
     }
-    router.command(PublicV2Command.self) { command, _ in
+    router.onCommand(PublicV2Command.self) { command, _ in
         await recorder.record("typed:\(command.value)")
     }
-    router.callback(PublicV2Callback.self) { callback, _ in
+    router.onCallback(PublicV2Callback.self) { callback, _ in
         await recorder.record("callback:\(callback.value)")
     }
-    router.group("nested").command("ping") { _ in
+    router.group("nested").onCommand("ping") { _ in
         await recorder.record("nested")
     }
-    let moduleRoutes = router.mount(PublicV2Module(recorder: recorder))
+    let moduleRoutes = router.addRoutes(PublicV2Routes(recorder: recorder))
     router.flow(PublicV2Flow())
 
     let callback = PublicV2Callback(value: "7")
@@ -158,23 +154,24 @@ import TelerouteTestSupport
         ).callbackData == "module/public/9"
     )
 
-    router.command("duplicate") { _ in }
-    router.command("duplicate") { _ in }
+    router.onCommand("duplicate") { _ in }
+    router.onCommand("duplicate") { _ in }
     #expect(router.duplicateRouteSignatures.count == 1)
 
-    await router.handle()
-    await router.process([
-        TelerouteTestSupport.makeCommandUpdate(text: "/raw", updateId: 900),
-        TelerouteTestSupport.makeCommandUpdate(text: "/typed value", updateId: 901),
-        TelerouteTestSupport.makeCallbackUpdate(data: "public/42", updateId: 902),
-        TelerouteTestSupport.makeCommandUpdate(text: "/module_ping", updateId: 903),
-        TelerouteTestSupport.makeCommandUpdate(text: "/nested_ping", updateId: 904),
-        TelerouteTestSupport.makeCallbackUpdate(data: "module/public/9", updateId: 905),
-    ])
+    try await telerouteBot.test { client in
+        _ = await client.execute([
+            TelerouteTestSupport.makeCommandUpdate(text: "/raw", updateId: 900),
+            TelerouteTestSupport.makeCommandUpdate(text: "/typed value", updateId: 901),
+            TelerouteTestSupport.makeCallbackUpdate(data: "public/42", updateId: 902),
+            TelerouteTestSupport.makeCommandUpdate(text: "/module_ping", updateId: 903),
+            TelerouteTestSupport.makeCommandUpdate(text: "/nested_ping", updateId: 904),
+            TelerouteTestSupport.makeCallbackUpdate(data: "module/public/9", updateId: 905),
+        ])
+    }
 
     let values = await recorder.waitForCount(6, retries: 100)
     #expect(Set(values) == ["raw:900", "typed:value", "callback:42", "module", "module:9", "nested"])
-    router.shutdown()
+    await telerouteBot.shutdown()
 }
 
 @Test func publicHandlingTypedRoutesWorkAtRootAndInNestedScopes() async throws {
@@ -182,8 +179,10 @@ import TelerouteTestSupport
     await PublicHandlingCallback.recorder.reset()
 
     let bot = try await TelerouteTestSupport.makeBot()
-    let router = Teleroute(
+    let router = Teleroute()
+    let telerouteBot = TelerouteBot(
         bot: bot,
+        router: router,
         logger: .init(label: "public.self-handling"),
         configuration: .init(replayProtectionStorage: nil)
     )
@@ -195,38 +194,41 @@ import TelerouteTestSupport
     nested.command(PublicHandlingCommand.self)
     nested.callback(PublicHandlingCallback.self)
 
-    await router.handle()
-    await router.process([
-        TelerouteTestSupport.makeCommandUpdate(text: "/self_handled root", updateId: 910),
-        TelerouteTestSupport.makeCommandUpdate(text: "/nested_self_handled nested", updateId: 911),
-        TelerouteTestSupport.makeCallbackUpdate(data: "self/12", updateId: 912),
-        TelerouteTestSupport.makeCallbackUpdate(data: "nested/self/34", updateId: 913),
-    ])
+    try await telerouteBot.test { client in
+        _ = await client.execute([
+            TelerouteTestSupport.makeCommandUpdate(text: "/self_handled root", updateId: 910),
+            TelerouteTestSupport.makeCommandUpdate(text: "/nested_self_handled nested", updateId: 911),
+            TelerouteTestSupport.makeCallbackUpdate(data: "self/12", updateId: 912),
+            TelerouteTestSupport.makeCallbackUpdate(data: "nested/self/34", updateId: 913),
+        ])
+    }
 
     let commands = await PublicHandlingCommand.recorder.waitForCount(2, retries: 100)
     let callbacks = await PublicHandlingCallback.recorder.waitForCount(2, retries: 100)
     #expect(Set(commands) == ["root:910", "nested:911"])
     #expect(Set(callbacks) == ["12:912", "34:913"])
-    router.shutdown()
+    await telerouteBot.shutdown()
 }
 
 @Test func publicAttachRegistersOnceAndConnectsTheBotPipeline() async throws {
     let bot = try await TelerouteTestSupport.makeBot()
     let recorder = TelerouteTestRecorder<Int>()
-    let router = Teleroute(
+    let router = Teleroute()
+    let telerouteBot = TelerouteBot(
         bot: bot,
+        router: router,
         logger: .init(label: "public.attach"),
         configuration: .init(replayProtectionStorage: nil)
     )
 
-    router.command("ping") { context in
+    router.onCommand("ping") { context in
         await recorder.record(context.update.updateId)
     }
 
     try await withThrowingTaskGroup(of: Void.self) { group in
         for _ in 0..<8 {
             group.addTask {
-                try await router.attach()
+                try await telerouteBot.attach()
             }
         }
         try await group.waitForAll()
@@ -234,23 +236,27 @@ import TelerouteTestSupport
 
     let dispatchers = await bot.dispatchers
     #expect(dispatchers.count == 1)
-    #expect((dispatchers.first as? Teleroute) === router)
 
     await bot.processing(updates: [
         TelerouteTestSupport.makeCommandUpdate(text: "/ping", updateId: 904),
     ])
 
     #expect(await recorder.waitForCount(1) == [904])
-    router.shutdown()
+    await telerouteBot.shutdown()
 }
 
 @Test func publicEventStreamAcceptsPerSubscriberBuffering() async throws {
     let bot = try await TelerouteTestSupport.makeBot()
-    let router = Teleroute(bot: bot, logger: .init(label: "public.events"))
-    let stream = router.eventStream(buffering: .oldest(8))
+    let router = Teleroute()
+    let telerouteBot = TelerouteBot(
+        bot: bot,
+        router: router,
+        logger: .init(label: "public.events")
+    )
+    let stream = telerouteBot.eventStream(buffering: .oldest(8))
     var iterator = stream.makeAsyncIterator()
 
-    router.shutdown()
+    await telerouteBot.shutdown()
     #expect(await iterator.next() == nil)
 }
 
@@ -348,19 +354,21 @@ private struct PublicV2Flow: TelerouteFlow {
     func boot(flow: TelerouteFlowGroup<Self>) {}
 }
 
-private struct PublicV2Module: TelerouteModule {
+private struct PublicV2Routes: TelerouteRouteCollection {
     struct Exports: Sendable {
         let action: TelerouteCallbackRoute<PublicV2Callback>
     }
 
     let recorder: TelerouteTestRecorder<String>
 
-    func register(in routes: TelerouteRoutes) -> Exports {
+    func addRoutes(
+        to routes: TelerouteRouterGroup<TelerouteContext>
+    ) -> Exports {
         let module = routes.group("module")
-        module.command("ping") { _ in
+        module.onCommand("ping") { _ in
             await self.recorder.record("module")
         }
-        let action = module.callback(PublicV2Callback.self) { callback, _ in
+        let action = module.onCallback(PublicV2Callback.self) { callback, _ in
             await self.recorder.record("module:\(callback.value)")
         }
         return .init(action: action)

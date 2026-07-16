@@ -1,5 +1,5 @@
 import Testing
-@testable import Teleroute
+@_spi(Testing) @testable import Teleroute
 import TelerouteTestSupport
 import SwiftTelegramBot
 
@@ -7,7 +7,7 @@ import SwiftTelegramBot
 struct TelerouteStageETests {
     @Test func keyboardDescriptionsRenderRows() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "router.keyboard.rows"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.keyboard.rows"))
         let items = router.callback(ItemCallback.self) { _, _ in }
         let keyboard = try router.keyboard([
             [
@@ -24,7 +24,7 @@ struct TelerouteStageETests {
 
     @Test func keyboardDescriptionsAcceptRawButtons() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "router.keyboard.raw"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.keyboard.raw"))
         let keyboard = try router.keyboard([[
             .raw(.init(text: "X", callbackData: "x")),
             .raw(.init(text: "Y", callbackData: "y")),
@@ -36,7 +36,7 @@ struct TelerouteStageETests {
 
     @Test func paginationNavigationRowHidesPrevOnFirstPage() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "router.keyboard.first-page"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.keyboard.first-page"))
         let pages = router.callback(PageCallback.self) { _, _ in }
         let buttons = TeleroutePagination.navigationRow(pages, page: 0, pageCount: 3) {
             PageCallback(page: $0)
@@ -50,7 +50,7 @@ struct TelerouteStageETests {
 
     @Test func paginationNavigationRowHidesNextOnLastPage() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "router.keyboard.last-page"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.keyboard.last-page"))
         let pages = router.callback(PageCallback.self) { _, _ in }
         let buttons = TeleroutePagination.navigationRow(pages, page: 2, pageCount: 3) {
             PageCallback(page: $0)
@@ -64,7 +64,7 @@ struct TelerouteStageETests {
 
     @Test func flowTypedCallbackRoutesAndBuildsButton() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "router.flow.typed-callback"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.flow.typed-callback"))
 
         router.flow(TypedCallbackFlow())
 
@@ -88,7 +88,7 @@ struct TelerouteStageETests {
     @Test func metricsSinkReceivesHandledEventWithDuration() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
         let sink = RecordingMetricsSink()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "router.metrics"),
             configuration: .init(metricsSink: sink)
@@ -111,7 +111,7 @@ struct TelerouteStageETests {
 
     @Test func handledEventCarriesDuration() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "router.timing"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.timing"))
         let recorder = TelerouteTestRecorder<TelerouteEvent>()
 
         let eventTask = Task {
@@ -138,7 +138,7 @@ struct TelerouteStageETests {
 
     @Test func routeScopesRegisterCommandsAndGroups() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "router.dsl"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.dsl"))
         let recorder = TelerouteTestRecorder<String>()
 
         router.command("start", description: "Begin") { _ in

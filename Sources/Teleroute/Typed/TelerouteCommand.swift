@@ -22,7 +22,7 @@ public protocol TelerouteCommand: Sendable {
 /// A typed command that handles its own matched update.
 ///
 /// This is convenient for small, self-contained commands. Prefer registering an
-/// explicit handler from a ``TelerouteModule`` when the handler owns injected
+/// explicit handler from a ``TelerouteRouteCollection`` when the handler owns injected
 /// dependencies or coordinates multiple routes.
 public protocol TelerouteHandlingCommand: TelerouteCommand {
     /// Handles the update after the command value has been decoded.

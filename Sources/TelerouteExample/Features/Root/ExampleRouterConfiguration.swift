@@ -1,19 +1,22 @@
 import Teleroute
 
-/// Root controller that composes the example's routes, modules, and flows.
-struct ExampleRouterConfiguration: TelerouteModule {
-    func register(in routes: TelerouteRoutes) {
-        let admin = routes.group("admin")
-        let billing = routes.group("billing").mount(BillingModule())
+/// Root controller that composes the example's route collections and flows.
+struct ExampleRouterConfiguration: TelerouteRouteCollection {
+    func addRoutes(to routes: ExampleRoutes) {
+        let admin = routes.group("admin", context: ExampleUserContext.self)
+        admin.middlewares.add(TelerouteAccessLogMiddleware(label: "admin"))
+        admin.guards.add(TelerouteAdminGuard())
+
+        let billing = routes.group("billing").addRoutes(BillingRoutes())
         let callbacks = self.registerCallbacks(routes: routes, admin: admin, billing: billing)
 
         self.registerRootCommands(routes: routes, callbacks: callbacks)
         self.registerAdminCommands(admin: admin)
-        self.mountModulesAndFlows(in: routes)
+        self.addCollectionsAndFlows(to: routes)
     }
 
     private func registerRootCommands(
-        routes: TelerouteRoutes,
+        routes: ExampleRoutes,
         callbacks: ExampleStartScreen.CallbackRoutes
     ) {
         routes.command(
@@ -26,21 +29,21 @@ struct ExampleRouterConfiguration: TelerouteModule {
             try await self.start(context, routes: routes, callbacks: callbacks)
         }
 
-        routes.command(
+        routes.onCommand(
             "resume_signup",
             description: "Restart the signup flow",
             visibility: [.allPrivateChats],
             use: self.resumeSignup
         )
 
-        routes.command(
+        routes.onCommand(
             "cancel_signup",
             description: "Cancel the active signup flow",
             visibility: [.allPrivateChats],
             use: self.cancelSignup
         )
 
-        routes.command(
+        routes.onCommand(
             "refresh_menu",
             description: "Reset and republish this chat's menu",
             visibility: [.allPrivateChats],
@@ -57,9 +60,9 @@ struct ExampleRouterConfiguration: TelerouteModule {
     }
 
     private func registerCallbacks(
-        routes: TelerouteRoutes,
-        admin: TelerouteRoutes,
-        billing: BillingModule.Routes
+        routes: ExampleRoutes,
+        admin: ExampleUserRoutes,
+        billing: BillingRoutes.Routes
     ) -> ExampleStartScreen.CallbackRoutes {
         let approveOrder = routes.callback(
             ApproveOrderCallback.self,
@@ -78,7 +81,6 @@ struct ExampleRouterConfiguration: TelerouteModule {
 
         let adminBan = admin.callback(
             AdminBanCallback.self,
-            middlewares: [TelerouteAccessLogMiddleware(label: "admin-callback-ban")],
             use: self.banUser
         )
 
@@ -91,41 +93,43 @@ struct ExampleRouterConfiguration: TelerouteModule {
         )
     }
 
-    private func registerAdminCommands(admin: TelerouteRoutes) {
+    private func registerAdminCommands(admin: ExampleUserRoutes) {
         admin.command(
             AdminBanCommand.self,
             description: "Ban a user inside the admin namespace",
-            visibility: [.allChatAdministrators],
-            middlewares: [TelerouteAccessLogMiddleware(label: "admin-ban")]
+            visibility: [.allChatAdministrators]
         )
     }
 
-    private func mountModulesAndFlows(in routes: TelerouteRoutes) {
-        routes.group("diag").mount(DiagnosticsModule())
-        routes.group("moderation").mount(ModerationModule())
+    private func addCollectionsAndFlows(to routes: ExampleRoutes) {
+        routes.group("diag").addRoutes(DiagnosticsRoutes())
+        routes.group("moderation").addRoutes(ModerationRoutes())
         routes.flow(SignupFlow())
     }
 
     private func start(
-        _ context: TelerouteContext,
-        routes: TelerouteRoutes,
+        _ context: ExampleRequestContext,
+        routes: ExampleRoutes,
         callbacks: ExampleStartScreen.CallbackRoutes
-    ) async throws {
+    ) async throws -> TelerouteResponse {
         let screen = try ExampleStartScreen(routes: routes, callbacks: callbacks)
-        try await context.reply(screen.text, replyMarkup: screen.replyMarkup)
+        return .reply(
+            "\(screen.text)\n\nRequest: \(context.requestID)",
+            replyMarkup: screen.replyMarkup
+        )
     }
 
-    private func resumeSignup(_ context: TelerouteContext) async throws {
+    private func resumeSignup(_ context: ExampleRequestContext) async throws {
         try await context.start(SignupFlow.self, at: .name)
         try await context.reply("Signup flow restarted. Send your name.")
     }
 
-    private func cancelSignup(_ context: TelerouteContext) async throws {
+    private func cancelSignup(_ context: ExampleRequestContext) async throws {
         try await context.cancelFlow()
         try await context.reply("Active flow cancelled.")
     }
 
-    private func refreshMenu(_ context: TelerouteContext) async throws {
+    private func refreshMenu(_ context: ExampleRequestContext) async throws {
         guard let chatId = context.chatId else {
             try await context.reply("Unable to determine chat for menu refresh.")
             return
@@ -138,7 +142,7 @@ struct ExampleRouterConfiguration: TelerouteModule {
                 )
             )
         )
-        try await context.publishCommands(
+        try await context.coreContext.publishCommands(
             ExampleCommandMenus.privateChat,
             visibility: .chat(.id(chatId))
         )
@@ -147,17 +151,21 @@ struct ExampleRouterConfiguration: TelerouteModule {
 
     private func openSupport(
         _ callback: SupportCallback,
-        _ context: TelerouteContext
-    ) async throws {
-        try await context.answerCallbackQuery("Opening \(callback.topic)")
-        try await context.edit("Support topic: \(callback.topic)")
+        _ context: ExampleRequestContext
+    ) async throws -> TelerouteResponse {
+        .sequence([
+            .answerCallback("Opening \(callback.topic)"),
+            .edit("Support topic: \(callback.topic)"),
+        ])
     }
 
     private func banUser(
         _ callback: AdminBanCallback,
-        _ context: TelerouteContext
-    ) async throws {
-        try await context.answerCallbackQuery("User \(callback.userID) banned")
-        try await context.edit("Admin action completed for user \(callback.userID)")
+        _ context: ExampleUserContext
+    ) async throws -> TelerouteResponse {
+        .sequence([
+            .answerCallback("User \(callback.userID) banned by \(context.userID)"),
+            .edit("Admin action completed for user \(callback.userID)"),
+        ])
     }
 }

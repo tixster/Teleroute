@@ -1,5 +1,5 @@
 import Testing
-@testable import Teleroute
+@_spi(Testing) @testable import Teleroute
 import TelerouteMacros
 import TelerouteTestSupport
 import SwiftTelegramBot
@@ -8,7 +8,7 @@ import SwiftTelegramBot
 struct TelerouteMacroTests {
     @Test func commandMacroSynthesizesPathAndInit() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "router.macro.command"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.macro.command"))
         let recorder = TelerouteTestRecorder<[String]>()
 
         router.command(MacroBanCommand.self) { command, _ in
@@ -48,7 +48,7 @@ struct TelerouteMacroTests {
 
     @Test func callbackMacroSynthesizesPathAndRoundTrips() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "router.macro.callback"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.macro.callback"))
         let recorder = TelerouteTestRecorder<String>()
 
         router.callback(MacroApproveCallback.self) { callback, _ in
@@ -67,7 +67,7 @@ struct TelerouteMacroTests {
 
     @Test func callbackMacroParametersRoundTrip() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "router.macro.callback-rt"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.macro.callback-rt"))
 
         let original = MacroApproveCallback(orderID: "42")
         let data = try router.callbackData(for: original)
@@ -85,7 +85,7 @@ struct TelerouteMacroTests {
         await MacroHandlingCallback.recorder.reset()
 
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "router.macro.self-handling"),
             configuration: .init(replayProtectionStorage: nil)

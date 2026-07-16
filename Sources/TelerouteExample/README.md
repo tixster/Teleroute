@@ -1,204 +1,188 @@
 # TelerouteExample
 
-`TelerouteExample` is a runnable reference application bundled with the package.
-Its purpose is not to be a production bot, but to demonstrate every major Teleroute
-capability in one executable target with enough structure to use as a starting point.
-
-## Goals
-
-- show string commands and typed callbacks
-- show explicit and self-handling typed routes
-- show optional macro-backed route declarations without coupling keyboards or flows to macros
-- show route groups
-- show controller-style modules with handler methods
-- show a module exporting selected callback route handles to parent composition
-- show scope-bound callback route handles and validated keyboards
-- show guards and middleware
-- show command queues
-- show published command sync
-- show stateful multi-step flows
-- show router-level debug logging and error diagnostics
+The executable demonstrates the recommended `Teleroute`/`TelerouteBot`
+architecture in a realistic feature layout. It deliberately includes both
+compact convenience APIs and dependency-friendly controllers.
 
 ## Run
 
 ```bash
-TELEGRAM_BOT_TOKEN=123456:abc swift run TelerouteExample
+TELEGRAM_BOT_TOKEN=<token> swift run TelerouteExample
 ```
 
-The bot starts in long-polling mode and keeps the process alive after startup.
+The routed bot uses long polling. `TelerouteBot.run()` keeps the process alive
+and performs graceful shutdown when its task is cancelled.
 
-The example target depends on both `Teleroute` and the optional
-`TelerouteMacros` product because some transport types use annotations for
-brevity. Commands, callbacks, keyboards, modules, and flows can all be used with
-explicit protocol conformances and only the core `Teleroute` product, as shown
-in the root README.
+## Startup Flow
+
+```swift
+let telegramBot = try await ExampleBootstrap.makeTelegramBot(environment: environment)
+let router = ExampleBootstrap.makeRouter()
+let bot = ExampleBootstrap.makeTelerouteBot(
+    telegramBot: telegramBot,
+    router: router
+)
+
+try await ExampleBootstrap.run(bot: bot, router: router)
+```
+
+`makeRouter()` has no bot parameter. It:
+
+1. creates `Teleroute<ExampleRequestContext>`;
+2. adds `ExampleRequestIDMiddleware` through `router.middlewares.add`;
+3. adds `ExampleRouterConfiguration` as a route collection.
+
+`makeTelerouteBot()` injects the Telegram transport, logger, flow/replay
+configuration, update concurrency limit, and automatic command-menu
+synchronization.
 
 ## Folder Layout
 
 ```text
-Sources/TelerouteExample
-├── App
-│   ├── ExampleBootstrap.swift
-│   └── TelerouteExampleApp.swift
-├── Features
-│   ├── Callbacks
-│   │   └── ExampleCallbacks.swift
-│   ├── Modules
-│   │   ├── BillingModule.swift
-│   │   ├── DiagnosticsModule.swift
-│   │   └── ModerationModule.swift
-│   ├── Commands
+TelerouteExample/
+├── App/
+│   ├── TelerouteExampleApp.swift
+│   └── ExampleBootstrap.swift
+├── Features/
+│   ├── Root/
+│   │   ├── ExampleRouterConfiguration.swift
+│   │   └── ExampleStartScreen.swift
+│   ├── Commands/
 │   │   └── ExampleCommands.swift
-│   ├── Flows
-│   │   └── SignupFlow.swift
-│   └── Root
-│       ├── ExampleRouterConfiguration.swift
-│       └── ExampleStartScreen.swift
-├── Support
-│   ├── ExampleEnvironment.swift
-│   ├── ExampleError.swift
-│   ├── ExampleLoggerFactory.swift
-│   └── ExampleRoutingSupport.swift
-└── README.md
+│   ├── Callbacks/
+│   │   └── ExampleCallbacks.swift
+│   ├── Routes/
+│   │   ├── BillingRoutes.swift
+│   │   ├── DiagnosticsRoutes.swift
+│   │   └── ModerationRoutes.swift
+│   └── Flows/
+│       └── SignupFlow.swift
+└── Support/
+    ├── ExampleRoutingSupport.swift
+    ├── ExampleCommandMenus.swift
+    ├── ExampleEnvironment.swift
+    ├── ExampleError.swift
+    └── ExampleLoggerFactory.swift
 ```
 
 ## Architecture
 
-### App
+### Request Contexts
 
-- `TelerouteExampleApp.swift` is the executable entry point.
-- `ExampleBootstrap.swift` owns process startup, command publishing, and bot lifetime.
+`ExampleRequestContext` wraps the framework context and carries a request ID.
+`ExampleRequestIDMiddleware` transforms it before handlers run:
 
-### Support
+```swift
+struct ExampleRequestContext: TelerouteInitializableRequestContext {
+    let coreContext: TelerouteContext
+    var requestID: String
+}
 
-- `ExampleEnvironment.swift` loads the bot token.
-- `ExampleError.swift` defines startup errors.
-- `ExampleLoggerFactory.swift` centralizes logger creation and log levels.
-- `ExampleRoutingSupport.swift` holds generic route infrastructure shared across features.
+router.middlewares.add(ExampleRequestIDMiddleware())
+```
 
-### Features
+The `admin` group refines that context into `ExampleUserContext`, which
+guarantees a non-optional Telegram user ID:
 
-- `Commands/ExampleCommands.swift` contains self-handling typed commands.
-- `Callbacks/ExampleCallbacks.swift` contains self-handling and controller-handled typed callbacks.
-- `Modules/*` contains controller-style features using `TelerouteModule`; app
-  composition owns their route prefixes.
-- `Flows/SignupFlow.swift` contains the multi-step flow example.
-- `Root/ExampleRouterConfiguration.swift` is the root module/controller and owns
-  scopes, route registration, and ordinary handlers with dependencies.
-- `Root/ExampleStartScreen.swift` receives registered callback route handles and
-  builds the `/start` response without knowing callback paths or handlers.
+```swift
+let admin = routes.group("admin", context: ExampleUserContext.self)
+admin.middlewares.add(TelerouteAccessLogMiddleware(label: "admin"))
+admin.guards.add(TelerouteAdminGuard())
+```
 
-This structure is intentional:
+The parent request-ID middleware runs before the child context is created.
 
-- infrastructure concerns stay out of feature files
-- route composition stays out of the executable entry point
-- handlers with dependencies can stay on their module/controller structure
-- small stateless typed routes can own behavior and register without closures
-- callback registration and button construction stay connected by
-  `TelerouteCallbackRoute<Callback>`
-- each Teleroute concept is isolated enough to be copied independently
+### Route Collections
 
-The `/start` feature shows the full composition path:
+`ExampleRouterConfiguration` is the root `TelerouteRouteCollection`.
+`BillingRoutes`, `DiagnosticsRoutes`, and `ModerationRoutes` are reusable feature
+collections.
 
-1. `ExampleRouterConfiguration` creates root and `admin` scopes.
-2. Root composition mounts `BillingModule` and receives its exported route handles.
-3. Typed callback registration returns route handles for their exact scopes.
-4. Root, admin, and billing handles are grouped in `ExampleStartScreen.CallbackRoutes`.
-5. `ExampleStartScreen` builds one keyboard containing callbacks from all three
-   features; no path strings or manual nested-scope rendering are needed.
+`BillingRoutes` exports typed callback handles:
 
-`BillingModule` shows the same pattern inside a reusable feature: root
-composition mounts it into `billing`, the module registers callbacks before its
-command, and the command captures those handles for keyboard construction. Its
-`Routes` export intentionally exposes the pay/fail actions to parent composition;
-the `/start` screen reuses `pay` as a cross-feature shortcut.
+```swift
+let billing = routes.group("billing").addRoutes(BillingRoutes())
 
-## Capability Matrix
+let button = billing.pay.button(
+    PayInvoiceCallback(invoiceID: "42"),
+    "Pay invoice #42"
+)
+```
 
-| Capability | Example file |
-| --- | --- |
-| Router startup | `App/ExampleBootstrap.swift` |
-| String command | `Features/Root/ExampleRouterConfiguration.swift` |
-| Self-handling typed command | `Features/Commands/ExampleCommands.swift` |
-| Controller-handled typed callback | `Features/Root/ExampleRouterConfiguration.swift` |
-| Self-handling typed callback | `Features/Callbacks/ExampleCallbacks.swift` |
-| Scope-bound callback buttons | `Features/Root/ExampleStartScreen.swift` |
-| Grouped routes | `Features/Root/ExampleRouterConfiguration.swift` |
-| Reusable modules and exports | `Features/Modules/*Module.swift`, `Features/Root/ExampleRouterConfiguration.swift` |
-| Guard | `Support/ExampleRoutingSupport.swift` |
-| Middleware | `Support/ExampleRoutingSupport.swift` |
-| Command queues | `Features/Commands/ExampleCommands.swift`, `Features/Flows/SignupFlow.swift` |
-| Published commands | `App/ExampleBootstrap.swift` |
-| Flow | `Features/Flows/SignupFlow.swift` |
-| Debug logging | `Support/ExampleLoggerFactory.swift`, `Sources/Teleroute/Core/Teleroute.swift` |
+The start-screen composer depends on these handles, not callback path strings or
+controller implementation details.
+
+### Responses and Side Effects
+
+Most handlers return `TelerouteResponse`:
+
+```swift
+private func markInvoicePaid(
+    _ callback: PayInvoiceCallback,
+    _ context: ExampleRequestContext
+) async throws -> TelerouteResponse {
+    .sequence([
+        .answerCallback("Invoice \(callback.invoiceID) paid"),
+        .edit("Invoice \(callback.invoiceID) paid"),
+    ])
+}
+```
+
+Handlers that manipulate flow state or issue APIs outside the response model use
+`onCommand` and call context methods directly.
+
+### Typed Routes With and Without Macros
+
+`ExampleCommands.swift` and `ExampleCallbacks.swift` contain manual protocol
+conformances and macro-generated types. Both register through the same router
+methods.
+
+- `ProfileCommand`, `ApproveOrderCallback`, and `ArchiveTicketCallback` show
+  self-handling routes.
+- `SupportCallback` and `AdminBanCallback` are data-only values handled by the
+  root controller.
+- `PayInvoiceCallback` and `FailInvoiceCallback` use `@TelerouteCallback` from
+  the optional `TelerouteMacros` product.
+
+### Flows
+
+`SignupFlow` demonstrates:
+
+- `/signup` starting a session;
+- message steps storing and merging values;
+- callback and flow-local command routes;
+- explicit transition, finish, restart, and cancellation;
+- `.manual` flow cancellation policy.
 
 ## Route Inventory
 
-### Top-level Commands
+Top-level commands:
 
-- `/start`: sends a validated menu built entirely from registered typed callback handles.
-- `/resume_signup`: force-starts the signup flow at the first step.
-- `/cancel_signup`: cancels any active flow session for the current chat/user.
-- `/refresh_menu`: deletes stale chat-scoped commands and republishes the expected private-chat menu.
-- `/profile <name>`: typed command argument parsing example.
-- `/sync_catalog`: typed command with a per-chat-and-user queue.
+- `/start`
+- `/profile <name>`
+- `/signup`
+- `/sync_catalog`
+- `/resume_signup`
+- `/cancel_signup`
+- `/refresh_menu`
 
-### Grouped Commands
+Grouped commands:
 
-- `/admin_ban <userID> [reason]`: typed command mounted inside `router.group("admin")`.
-- `/billing_invoice <id>`: string command mounted by `BillingModule`.
-- `/moderation_audit`: command owned by `ModerationModule`.
-- `/diag_ping`: command mounted by `DiagnosticsModule`.
+- `/admin_ban <userID> [reason]`
+- `/billing_invoice <invoiceID>`
+- `/moderation_audit`
+- `/diag_ping`
 
-### Top-level Callbacks
+Callbacks include support topics, order approval, ticket archival, admin bans,
+and invoice success/failure actions. All keyboard callback data is generated
+from registered typed route handles.
 
-- `support/{topic}`: typed callback decoded for a controller handler.
-- `orders/{orderID}/approve`: self-handling typed callback.
-- `tickets/{ticketID}/archive`: self-handling typed callback.
+## Manual Check
 
-### Grouped Callbacks
-
-- `admin/users/{userID}/ban`: typed callback rendered in the `admin` group.
-- `billing/invoice/{invoiceID}/pay`: module-owned typed callback.
-- `billing/invoice/{invoiceID}/fail`: module-owned typed callback.
-
-### Flow Routes
-
-- `/signup`: starts the flow and stores a session.
-- message at step `name`: captures the user name.
-- typed callback `confirm/{decision}` at step `confirm`: confirms or restarts the flow.
-- `/cancel` during step `confirm`: exits the flow.
-
-## Manual Test Script
-
-Run these in order against the example bot:
-
-1. Send `/start`.
-2. Tap `Billing FAQ`, `Approve order #42`, `Archive ticket #42`, and `Pay invoice #42`.
-3. Send `/refresh_menu` if the private-chat command menu looks stale or incomplete.
-4. Send `/profile name`.
-5. Send `/sync_catalog`.
-6. Send `/billing_invoice 123`.
-7. Send `/signup`, then send a name, then tap `Approve`.
-8. Repeat `/signup`, then tap `Restart`.
-9. Send `/signup`, then after entering a name send `/cancel_signup`.
-10. In a suitable admin/group context, test `/admin_ban` and `/moderation_audit`.
-
-## Logging
-
-The example enables `debug` logging for both the bot and the router.
-
-Router debug logs show:
-
-- every received update
-- when replay protection skips a duplicate update
-- whether the update matched a flow, callback, command, or nothing
-- structured metadata such as `chat_id`, `user_id`, `command`, and `callback_data`
-
-Router error logs additionally include:
-
-- `flow_id`
-- `flow_step`
-- `error_type`
-
-This makes the example useful as a diagnostic harness when changing Teleroute itself.
+1. Run `/start` and inspect the generated keyboard.
+2. Press support, order, ticket, and invoice buttons.
+3. Run `/signup`, send a name, and confirm or cancel.
+4. Run `/resume_signup` and `/cancel_signup` to exercise direct side effects.
+5. In a group where the bot can inspect members, exercise `/admin_ban`.
+6. Inspect logs for request IDs, inherited admin access logs, route names, and
+   lifecycle events.

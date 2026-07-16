@@ -125,7 +125,8 @@ public struct TelerouteRetryMiddleware: TelerouteMiddleware {
 /// Catches errors thrown downstream and optionally converts them into a reply.
 ///
 /// Pass `nil` for `reply` to swallow errors silently (useful when a group of
-/// routes should never propagate failures to ``Teleroute/onError``).
+/// routes should never propagate failures to
+/// ``TelerouteConfiguration/onError``).
 public struct TelerouteErrorHandlingMiddleware: TelerouteMiddleware {
     private let handler: @Sendable (any Error, TelerouteContext) async -> Void
 

@@ -5,12 +5,12 @@ import Teleroute
 ///
 /// This file owns process-level concerns:
 /// - constructing loggers
-/// - creating the bot and router
-/// - publishing command menus
-/// - keeping the process alive after long polling starts
+/// - creating the bot-independent route graph and running `TelerouteBot`
 enum ExampleBootstrap {
-    /// Creates the Telegram bot used by the example.
-    static func makeBot(environment: ExampleEnvironment) async throws -> TGBot {
+    /// Creates the underlying Telegram transport used by the example.
+    static func makeTelegramBot(
+        environment: ExampleEnvironment
+    ) async throws -> TGBot {
         try await TGBot(
             connectionType: .longpolling(),
             tgClient: TGClientDefault(),
@@ -19,10 +19,22 @@ enum ExampleBootstrap {
         )
     }
 
-    /// Creates the router with example-friendly debug instrumentation.
-    static func makeRouter(bot: TGBot) -> Teleroute {
-        Teleroute(
-            bot: bot,
+    /// Creates and configures the bot-independent route graph.
+    static func makeRouter() -> Teleroute<ExampleRequestContext> {
+        let router = Teleroute(context: ExampleRequestContext.self)
+        router.middlewares.add(ExampleRequestIDMiddleware())
+        router.addRoutes(ExampleRouterConfiguration())
+        return router
+    }
+
+    /// Creates the routed bot that owns the Telegram lifecycle.
+    static func makeTelerouteBot(
+        telegramBot: TGBot,
+        router: Teleroute<ExampleRequestContext>
+    ) -> TelerouteBot {
+        TelerouteBot(
+            bot: telegramBot,
+            router: router,
             logger: ExampleLoggerFactory.makeRouterLogger(),
             configuration: .init(
                 flowStorage: TelerouteInMemoryFlowStorage(),
@@ -31,34 +43,24 @@ enum ExampleBootstrap {
                 maximumConcurrentUpdates: 32,
                 // The example exposes explicit `/cancel_signup` and `/resume_signup`
                 // commands, so unrelated commands do not tear down the flow.
-                flowCancellationPolicy: .manual
+                flowCancellationPolicy: .manual,
+                syncPublishedCommandsOnStart: true
             )
         )
     }
 
-    /// Publishes command menus, attaches the router to the bot, and starts polling.
-    static func publishCommandsAndStart(router: Teleroute, bot: TGBot) async throws {
+    /// Logs the generated command menus and runs long polling until cancelled.
+    static func run(
+        bot: TelerouteBot,
+        router: Teleroute<ExampleRequestContext>
+    ) async throws {
         for commandSet in try router.publishedCommandSets() {
-            router.log.info(
+            bot.logger.info(
                 "Prepared \(commandSet.commands.count) published commands for scope \(String(describing: commandSet.visibility.scope))"
             )
         }
 
-        try await router.publishCommands(
-            [("health", "Check bot health")],
-            visibility: .allChatAdministrators
-        )
-        try await router.publishCommands([ProfileCommand.self])
-        try await router.syncPublishedCommands()
-        try await router.attach()
-
-        router.log.info("Starting TelerouteExample")
-        _ = try await bot.start()
-
-        // `swift-telegram-bot` starts long polling in a detached task and returns immediately.
-        // Keep the executable alive so the polling task is not torn down when `main` exits.
-        while true {
-            try await Task.sleep(for: .seconds(86_400))
-        }
+        bot.logger.info("Starting TelerouteExample")
+        try await bot.run()
     }
 }

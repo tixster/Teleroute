@@ -8,6 +8,7 @@ import SwiftTelegramBot
 /// ``group(_:middlewares:guards:)`` creates a `TelerouteRoutes` value with
 /// inherited prefixes, middleware, and guards. Modules also receive this type
 /// so they can mount into either the router root or a nested scope.
+@_spi(Testing)
 public final class TelerouteRoutes: Sendable {
     let storage: TelerouteStorage
     let commandPrefix: [String]

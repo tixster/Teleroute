@@ -1,7 +1,8 @@
 import Foundation
 import Synchronization
 
-/// Buffering used independently by each ``Teleroute/eventStream(buffering:)`` subscriber.
+/// Buffering used independently by each
+/// ``TelerouteBot/eventStream(buffering:)`` subscriber.
 public enum TelerouteEventBufferingPolicy: Equatable, Sendable {
     /// Retains every event until the subscriber consumes it.
     case unbounded
@@ -22,7 +23,7 @@ public enum TelerouteEventBufferingPolicy: Equatable, Sendable {
     }
 }
 
-/// Router lifecycle event emitted while an update moves through `Teleroute`.
+/// Lifecycle event emitted while an update moves through a Teleroute application.
 public struct TelerouteEvent: Equatable, Sendable {
     public enum Kind: Equatable, Sendable {
         case received

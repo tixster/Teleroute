@@ -1,7 +1,7 @@
 import SwiftTelegramBot
 import Foundation
 
-/// A stateful multi-step interaction mounted into `Teleroute`.
+/// A stateful multi-step interaction mounted into a ``Teleroute``.
 ///
 /// Flows keep one session per `chatId + userId` pair in the router's configured
 /// `TelerouteFlowStorage` and can route messages, commands, and callback queries
@@ -433,7 +433,8 @@ public extension TelerouteRoutes {
     }
 }
 
-public extension Teleroute {
+@_spi(Testing)
+public extension TelerouteRuntime {
     /// Mounts a flow at the router root.
     func flow<Flow: TelerouteFlow>(_ flow: Flow) {
         self.routeScope.flow(flow)

@@ -15,7 +15,10 @@ struct ExampleStartScreen {
     let text: String
     let replyMarkup: TGReplyMarkup
 
-    init(routes: TelerouteRoutes, callbacks: CallbackRoutes) throws {
+    init<Context: TelerouteRequestContext>(
+        routes: TelerouteRouterGroup<Context>,
+        callbacks: CallbackRoutes
+    ) throws {
         let keyboard = try routes.keyboard([
             [
                 callbacks.support.button(SupportCallback(topic: "billing"), "Billing FAQ"),

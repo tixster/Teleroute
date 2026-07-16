@@ -1,17 +1,17 @@
 import Teleroute
 import TelerouteMacros
 
-/// Reusable feature module with nested command and callback routes.
+/// Reusable route collection with nested command and callback routes.
 ///
-/// The module owns its route declarations and handler methods without exposing
+/// The collection owns its route declarations and handler methods without exposing
 /// either to the top-level app configuration.
-struct BillingModule: TelerouteModule {
+struct BillingRoutes: TelerouteRouteCollection {
     struct Routes: Sendable {
         let pay: TelerouteCallbackRoute<PayInvoiceCallback>
         let fail: TelerouteCallbackRoute<FailInvoiceCallback>
     }
 
-    func register(in routes: TelerouteRoutes) -> Routes {
+    func addRoutes(to routes: ExampleRoutes) -> Routes {
         let callbacks = Routes(
             pay: routes.callback(PayInvoiceCallback.self, use: self.markInvoicePaid),
             fail: routes.callback(FailInvoiceCallback.self, use: self.markInvoiceFailed)
@@ -29,17 +29,17 @@ struct BillingModule: TelerouteModule {
     }
 
     private func openInvoice(
-        _ context: TelerouteContext,
-        routes: TelerouteRoutes,
+        _ context: ExampleRequestContext,
+        routes: ExampleRoutes,
         callbacks: Routes
-    ) async throws {
+    ) async throws -> TelerouteResponse {
         let invoiceID = context.command?.get("invoiceID") ?? "unknown"
         let keyboard = try routes.keyboard([[
             callbacks.pay.button(PayInvoiceCallback(invoiceID: invoiceID), "Mark paid"),
             callbacks.fail.button(FailInvoiceCallback(invoiceID: invoiceID), "Mark failed"),
         ]])
 
-        try await context.reply(
+        return .reply(
             "Invoice \(invoiceID)",
             replyMarkup: .inlineKeyboardMarkup(keyboard)
         )
@@ -47,18 +47,22 @@ struct BillingModule: TelerouteModule {
 
     private func markInvoicePaid(
         _ callback: PayInvoiceCallback,
-        _ context: TelerouteContext
-    ) async throws {
-        try await context.answerCallbackQuery("Invoice \(callback.invoiceID) paid")
-        try await context.edit("Invoice \(callback.invoiceID) paid")
+        _ context: ExampleRequestContext
+    ) async throws -> TelerouteResponse {
+        .sequence([
+            .answerCallback("Invoice \(callback.invoiceID) paid"),
+            .edit("Invoice \(callback.invoiceID) paid"),
+        ])
     }
 
     private func markInvoiceFailed(
         _ callback: FailInvoiceCallback,
-        _ context: TelerouteContext
-    ) async throws {
-        try await context.answerCallbackQuery("Invoice \(callback.invoiceID) failed")
-        try await context.edit("Invoice \(callback.invoiceID) failed")
+        _ context: ExampleRequestContext
+    ) async throws -> TelerouteResponse {
+        .sequence([
+            .answerCallback("Invoice \(callback.invoiceID) failed"),
+            .edit("Invoice \(callback.invoiceID) failed"),
+        ])
     }
 }
 

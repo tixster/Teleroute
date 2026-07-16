@@ -1,5 +1,5 @@
 import Testing
-@testable import Teleroute
+@_spi(Testing) @testable import Teleroute
 import TelerouteTestSupport
 
 @Suite(.serialized)
@@ -8,7 +8,7 @@ struct TelerouteRegressionTests {
         let bot = try await TelerouteTestSupport.makeBot()
         let storage = TelerouteInMemoryFlowStorage()
         let recorder = RegressionRecorder<String>()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "regression.flow.guard"),
             configuration: .init(
@@ -40,7 +40,7 @@ struct TelerouteRegressionTests {
     @Test func flowMountedInGroupRunsInheritedMiddleware() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
         let recorder = RegressionRecorder<String>()
-        let router = Teleroute(bot: bot, logger: .init(label: "regression.flow.middleware"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "regression.flow.middleware"))
 
         router.group(
             "observed",
@@ -62,7 +62,7 @@ struct TelerouteRegressionTests {
         let bot = try await TelerouteTestSupport.makeBot()
         let storage = TelerouteInMemoryFlowStorage()
         let recorder = RegressionRecorder<String>()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "regression.flow.atomic-update"),
             configuration: .init(
@@ -91,7 +91,7 @@ struct TelerouteRegressionTests {
 
     @Test func inheritedGuardExcludesDuplicatesAndStaysAheadOfQueueMiddleware() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
-        let router = Teleroute(bot: bot, logger: .init(label: "regression.group.queue-order"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "regression.group.queue-order"))
 
         router.group("guarded", guards: [RegressionAllowGuard()]) { group in
             group.command("same", queue: .perChatAndUser) { _ in }
@@ -135,7 +135,7 @@ struct TelerouteRegressionTests {
 
         let bot = try await TelerouteTestSupport.makeBot()
         let errors = RegressionRecorder<RegressionErrorObservation>()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "regression.error.callback"),
             configuration: .init(onError: { _, context in
@@ -176,7 +176,7 @@ struct TelerouteRegressionTests {
         let starts = RegressionRecorder<String>()
         let errors = RegressionRecorder<RegressionErrorObservation>()
         let metrics = RegressionMetricsSink()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "regression.error.flow"),
             configuration: .init(
@@ -253,7 +253,7 @@ struct TelerouteRegressionTests {
     @Test func shutdownCancelsInFlightHandlersWithoutFailedEvent() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
         let probe = RegressionShutdownProbe()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "regression.shutdown"),
             configuration: .init(replayProtectionStorage: nil)
@@ -296,7 +296,7 @@ struct TelerouteRegressionTests {
     @Test func shutdownResumesProducerWaitingForExecutorCapacity() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
         let probe = RegressionShutdownProbe()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "regression.shutdown.backpressure"),
             configuration: .init(
@@ -334,7 +334,7 @@ struct TelerouteRegressionTests {
     @Test func completedProcessingTasksAreRemovedFromExecutor() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
         let recorder = RegressionRecorder<Int>()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "regression.update-executor"),
             configuration: .init(replayProtectionStorage: nil)
@@ -360,7 +360,7 @@ struct TelerouteRegressionTests {
     @Test func updateExecutorAppliesBackpressureAtConfiguredLimit() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
         let probe = RegressionConcurrencyProbe()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "regression.executor.limit"),
             configuration: .init(
@@ -399,7 +399,7 @@ struct TelerouteRegressionTests {
     @Test func callbackIndexPreservesWildcardAndLiteralRegistrationOrder() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
         let recorder = RegressionRecorder<String>()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "regression.callback-index.order"),
             configuration: .init(
@@ -432,7 +432,7 @@ struct TelerouteRegressionTests {
         let bot = try await TelerouteTestSupport.makeBot()
         let flowStorage = RegressionCountingFlowStorage()
         let recorder = RegressionRecorder<String>()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "regression.flow.fast-path"),
             configuration: .init(

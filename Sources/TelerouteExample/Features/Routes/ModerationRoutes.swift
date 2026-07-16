@@ -1,8 +1,8 @@
 import Teleroute
 
 /// Self-contained controller mounted into a scope owned by app composition.
-struct ModerationModule: TelerouteModule {
-    func register(in routes: TelerouteRoutes) {
+struct ModerationRoutes: TelerouteRouteCollection {
+    func addRoutes(to routes: ExampleRoutes) {
         routes.command(
             "audit",
             description: "Show moderation diagnostics",
@@ -11,7 +11,7 @@ struct ModerationModule: TelerouteModule {
         )
     }
 
-    private func audit(_ context: TelerouteContext) async throws {
-        try await context.reply("Moderation audit ready.")
+    private func audit(_ context: ExampleRequestContext) async throws -> TelerouteResponse {
+        .reply("Moderation audit ready (\(context.requestID)).")
     }
 }

@@ -1,19 +1,21 @@
 import Foundation
 import SwiftTelegramBot
+import Synchronization
 import Teleroute
 
 /// Test doubles and helpers for users (and the Teleroute test suite) to exercise
 /// routes, middleware, and flows without a live Telegram connection.
 ///
 /// Add `TelerouteTestSupport` to your test target dependencies, then use
-/// ``TelerouteTestSupport/makeBot(client:)`` to build a router backed by a
-/// ``TelerouteStubClient`` or your own `TGClientPrtcl` fake.
+/// ``TelerouteTestSupport/makeTelerouteBot(router:configuration:label:)`` for a
+/// complete in-process routed bot or ``TelerouteTestSupport/makeBot(client:connectionType:label:)``
+/// with your own `TGClientPrtcl` fake.
 
 /// A no-op `TGClientPrtcl` that throws on every network call.
 ///
 /// Use it for routing/middleware tests that never reach the Telegram API. For
-/// tests that must observe outgoing API calls (for example `setMyCommands`),
-/// subclass or use ``TelerouteRecordingCommandsClient`` instead.
+/// tests that must observe outgoing API calls, use
+/// ``TelerouteRecordingClient`` instead.
 public struct TelerouteStubClient: TGClientPrtcl {
     public init() {}
 
@@ -34,6 +36,212 @@ public struct TelerouteStubClient: TGClientPrtcl {
 public enum TelerouteTestNetworkError: Error, Equatable, Sendable {
     /// Raised by ``TelerouteStubClient`` on any API call.
     case unexpectedCall
+    /// Raised when the recording client does not know how to fake a Telegram
+    /// method's response.
+    case unsupportedMethod(String)
+    /// Raised when a Telegram client response type is not the expected type.
+    case unexpectedResponseType(String)
+}
+
+/// Text message sent by a route during an in-process test.
+public struct TelerouteRecordedMessage: Sendable {
+    public let chatId: TGChatId
+    public let text: String
+    public let replyMarkup: TGReplyMarkup?
+}
+
+/// Message edit performed by a route during an in-process test.
+public struct TelerouteRecordedEdit: Sendable {
+    public let chatId: TGChatId?
+    public let messageId: Int?
+    public let text: String
+    public let replyMarkup: TGInlineKeyboardMarkup?
+}
+
+/// Callback-query answer performed during an in-process test.
+public struct TelerouteRecordedCallbackAnswer: Sendable {
+    public let callbackQueryId: String
+    public let text: String?
+    public let showAlert: Bool?
+}
+
+/// Telegram side effect captured by ``TelerouteRecordingClient``.
+public enum TelerouteRecordedEffect: Sendable {
+    case sentMessage(TelerouteRecordedMessage)
+    case editedMessage(TelerouteRecordedEdit)
+    case answeredCallback(TelerouteRecordedCallbackAnswer)
+    case commandMenuUpdated
+}
+
+/// In-memory Telegram client that records common text, keyboard, callback, and
+/// command-menu operations while returning synthetic successful responses.
+public final class TelerouteRecordingClient: TGClientPrtcl, Sendable {
+    private struct State: Sendable {
+        var effects: [TelerouteRecordedEffect] = []
+        var nextMessageId = 1
+    }
+
+    private let state = Mutex(State())
+
+    public init() {}
+
+    /// Effects recorded in request order.
+    public var effects: [TelerouteRecordedEffect] {
+        self.state.withLock { $0.effects }
+    }
+
+    /// Removes all previously recorded effects.
+    public func reset() {
+        self.state.withLock { $0.effects.removeAll(keepingCapacity: true) }
+    }
+
+    public func post<Params: Encodable, Response: Decodable>(
+        _ url: URL,
+        params: Params?,
+        as mediaType: HTTPMediaType?
+    ) async throws -> Response {
+        let method = url.lastPathComponent
+        let data = try params.map { try JSONEncoder().encode($0) }
+
+        switch method {
+        case "sendMessage":
+            let value = try self.decode(RecordedSendMessageParams.self, from: data)
+            self.state.withLock {
+                $0.effects.append(
+                    .sentMessage(
+                        .init(
+                            chatId: value.chatId,
+                            text: value.text,
+                            replyMarkup: value.replyMarkup
+                        )
+                    )
+                )
+            }
+            let message = self.makeMessage(chatId: value.chatId, text: value.text)
+            return try self.cast(message, method: method)
+
+        case "editMessageText":
+            let value = try self.decode(RecordedEditMessageParams.self, from: data)
+            self.state.withLock {
+                $0.effects.append(
+                    .editedMessage(
+                        .init(
+                            chatId: value.chatId,
+                            messageId: value.messageId,
+                            text: value.text,
+                            replyMarkup: value.replyMarkup
+                        )
+                    )
+                )
+            }
+            return try self.cast(TGMessageOrBool.bool(true), method: method)
+
+        case "answerCallbackQuery":
+            let value = try self.decode(RecordedAnswerCallbackParams.self, from: data)
+            self.state.withLock {
+                $0.effects.append(
+                    .answeredCallback(
+                        .init(
+                            callbackQueryId: value.callbackQueryId,
+                            text: value.text,
+                            showAlert: value.showAlert
+                        )
+                    )
+                )
+            }
+            return try self.cast(true, method: method)
+
+        case "setMyCommands", "deleteMyCommands":
+            self.state.withLock { $0.effects.append(.commandMenuUpdated) }
+            return try self.cast(true, method: method)
+
+        case "setWebhook", "deleteWebhook":
+            return try self.cast(true, method: method)
+
+        default:
+            throw TelerouteTestNetworkError.unsupportedMethod(method)
+        }
+    }
+
+    public func post<Response: Decodable>(_ url: URL) async throws -> Response {
+        throw TelerouteTestNetworkError.unsupportedMethod(url.lastPathComponent)
+    }
+
+    private func decode<Value: Decodable>(
+        _ type: Value.Type,
+        from data: Data?
+    ) throws -> Value {
+        guard let data else {
+            throw TelerouteTestNetworkError.unexpectedCall
+        }
+        return try JSONDecoder().decode(type, from: data)
+    }
+
+    private func cast<Value, Response: Decodable>(
+        _ value: Value,
+        method: String
+    ) throws -> Response {
+        guard let response = value as? Response else {
+            throw TelerouteTestNetworkError.unexpectedResponseType(method)
+        }
+        return response
+    }
+
+    private func makeMessage(chatId: TGChatId, text: String) -> TGMessage {
+        let resolvedChatId: Int64 = switch chatId {
+        case let .chat(value): value
+        case .username, .undefined: 0
+        }
+        let messageId = self.state.withLock { state in
+            defer { state.nextMessageId += 1 }
+            return state.nextMessageId
+        }
+        return TGMessage(
+            messageId: messageId,
+            from: TGUser(id: 0, isBot: true, firstName: "Teleroute"),
+            date: 0,
+            chat: TGChat(id: resolvedChatId, type: .private),
+            text: text
+        )
+    }
+}
+
+private struct RecordedSendMessageParams: Decodable {
+    let chatId: TGChatId
+    let text: String
+    let replyMarkup: TGReplyMarkup?
+
+    enum CodingKeys: String, CodingKey {
+        case chatId = "chat_id"
+        case text
+        case replyMarkup = "reply_markup"
+    }
+}
+
+private struct RecordedEditMessageParams: Decodable {
+    let chatId: TGChatId?
+    let messageId: Int?
+    let text: String
+    let replyMarkup: TGInlineKeyboardMarkup?
+
+    enum CodingKeys: String, CodingKey {
+        case chatId = "chat_id"
+        case messageId = "message_id"
+        case text
+        case replyMarkup = "reply_markup"
+    }
+}
+
+private struct RecordedAnswerCallbackParams: Decodable {
+    let callbackQueryId: String
+    let text: String?
+    let showAlert: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case callbackQueryId = "callback_query_id"
+        case text
+        case showAlert = "show_alert"
+    }
 }
 
 /// Records values of any `Sendable` type for async test assertions.
@@ -111,20 +319,46 @@ public actor TelerouteMockFlowStorage: TelerouteFlowStorage {
 
 /// Builds a `TGBot` suitable for tests, optionally backed by a custom client.
 ///
-/// The bot uses a long-polling connection type but never starts polling unless
-/// `bot.start()` is invoked, so it is safe to construct in routing tests.
+/// The default connection is long polling, but it never starts unless
+/// `bot.start()` is invoked. Tests may supply a webhook connection explicitly.
 public enum TelerouteTestSupport {
     /// Creates a bot backed by the supplied client (defaults to ``TelerouteStubClient``).
     public static func makeBot(
         client: any TGClientPrtcl = TelerouteStubClient(),
+        connectionType: TGConnectionType = .longpolling(),
         label: String = "teleroute.tests.bot"
     ) async throws -> TGBot {
         try await TGBot(
-            connectionType: .longpolling(),
+            connectionType: connectionType,
             tgClient: client,
             botId: "123456:test-token",
             log: .init(label: label)
         )
+    }
+
+    /// Creates a routed bot and recording Telegram client for in-process tests.
+    public static func makeTelerouteBot<Context: TelerouteRequestContext>(
+        router: Teleroute<Context>,
+        configuration: TelerouteBot.Configuration = .init(
+            replayProtectionStorage: nil
+        ),
+        label: String = "teleroute.tests.bot"
+    ) async throws -> (
+        bot: TelerouteBot,
+        telegram: TelerouteRecordingClient
+    ) {
+        let telegram = TelerouteRecordingClient()
+        let transport = try await self.makeBot(
+            client: telegram,
+            label: "\(label).transport"
+        )
+        let bot = TelerouteBot(
+            bot: transport,
+            router: router,
+            logger: .init(label: label),
+            configuration: configuration
+        )
+        return (bot, telegram)
     }
 
     /// Builds a synthetic command update (`/name args`).
@@ -191,5 +425,65 @@ public enum TelerouteTestSupport {
             data: data
         )
         return TGUpdate(updateId: updateId, callbackQuery: callbackQuery)
+    }
+}
+
+public extension TelerouteBotTestClient {
+    /// Sends a synthetic `/command arguments` update.
+    func sendCommand(
+        _ text: String,
+        chatType: TGChatType = .private,
+        userId: Int64 = 1,
+        chatId: Int64 = 1,
+        updateId: Int = 1
+    ) async -> TelerouteBotTestResult {
+        let command = text.hasPrefix("/") ? text : "/\(text)"
+        return await self.execute(
+            TelerouteTestSupport.makeCommandUpdate(
+                text: command,
+                chatType: chatType,
+                userId: userId,
+                chatId: chatId,
+                updateId: updateId
+            )
+        )
+    }
+
+    /// Sends a synthetic plain-text message update.
+    func sendMessage(
+        _ text: String,
+        chatType: TGChatType = .private,
+        userId: Int64 = 1,
+        chatId: Int64 = 1,
+        updateId: Int = 2
+    ) async -> TelerouteBotTestResult {
+        await self.execute(
+            TelerouteTestSupport.makeMessageUpdate(
+                text: text,
+                chatType: chatType,
+                userId: userId,
+                chatId: chatId,
+                updateId: updateId
+            )
+        )
+    }
+
+    /// Sends a synthetic callback-query update.
+    func pressCallback(
+        _ data: String,
+        chatType: TGChatType = .private,
+        callbackUserId: Int64 = 1,
+        chatId: Int64 = 1,
+        updateId: Int = 3
+    ) async -> TelerouteBotTestResult {
+        await self.execute(
+            TelerouteTestSupport.makeCallbackUpdate(
+                data: data,
+                chatType: chatType,
+                callbackUserId: callbackUserId,
+                chatId: chatId,
+                updateId: updateId
+            )
+        )
     }
 }

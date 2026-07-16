@@ -1,8 +1,8 @@
 import Foundation
 import SwiftTelegramBot
 
-/// A typed callback button description rendered by `Teleroute` or a nested
-/// `TelerouteRoutes` scope.
+/// A typed callback button description rendered by a ``Teleroute`` or
+/// nested ``TelerouteRouterGroup``.
 public struct TelerouteButton: Sendable {
     private enum Destination: Sendable {
         case callback(any TelerouteCallback)

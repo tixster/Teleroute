@@ -1,6 +1,7 @@
 import SwiftTelegramBot
 
-public extension Teleroute {
+@_spi(Testing)
+public extension TelerouteRuntime {
     /// Creates a nested route scope from the router root.
     @discardableResult
     func group(

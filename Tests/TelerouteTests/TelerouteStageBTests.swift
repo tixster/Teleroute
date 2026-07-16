@@ -1,5 +1,5 @@
 import Testing
-@testable import Teleroute
+@_spi(Testing) @testable import Teleroute
 import TelerouteTestSupport
 import SwiftTelegramBot
 import Synchronization
@@ -8,7 +8,7 @@ import Synchronization
 struct TelerouteStageBTests {
     @Test func groupScopedMiddlewareRunsBeforeRouteMiddleware() async throws {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.group.middleware")
-        let router = Teleroute(bot: bot, logger: .init(label: "router.group.middleware"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.group.middleware"))
         let recorder = TelerouteTestRecorder<[String]>()
 
         router.group("admin", middlewares: [RecordingMiddleware(recorder: recorder, label: "group")]) { admin in
@@ -26,7 +26,7 @@ struct TelerouteStageBTests {
 
     @Test func groupScopedGuardRejectsChildRoute() async throws {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.group.guard")
-        let router = Teleroute(bot: bot, logger: .init(label: "router.group.guard"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.group.guard"))
         let recorder = TelerouteTestRecorder<String>()
 
         router.group("admin", guards: [TelerouteChatTypeGuard(.group)]) { admin in
@@ -44,7 +44,7 @@ struct TelerouteStageBTests {
     @Test func retryMiddlewareReinvokesHandlerUntilSuccess() async throws {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.retry")
         let attempts = Mutex(0)
-        let router = Teleroute(bot: bot, logger: .init(label: "router.retry"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.retry"))
 
         router.command(
             "flaky",
@@ -67,7 +67,7 @@ struct TelerouteStageBTests {
     @Test func compiledMiddlewareCanInvokeDownstreamMoreThanOnce() async throws {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.middleware.multiple-next")
         let recorder = TelerouteTestRecorder<String>()
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "router.middleware.multiple-next"),
             configuration: .init(replayProtectionStorage: nil)
@@ -92,7 +92,7 @@ struct TelerouteStageBTests {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.timeout")
         let sawTimeout = Mutex(false)
 
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "router.timeout.onerror"),
             configuration: .init(onError: { error, _ in
@@ -118,7 +118,7 @@ struct TelerouteStageBTests {
 
     @Test func privateChatGuardPassesOnlyForPrivateChats() async throws {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.guard.private")
-        let router = Teleroute(bot: bot, logger: .init(label: "router.guard.private"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.guard.private"))
         let recorder = TelerouteTestRecorder<String>()
 
         router.command("dm", guards: [TeleroutePrivateChatGuard()]) { _ in
@@ -135,7 +135,7 @@ struct TelerouteStageBTests {
 
     @Test func userAllowlistGuardRestrictsToKnownUsers() async throws {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.guard.allowlist")
-        let router = Teleroute(bot: bot, logger: .init(label: "router.guard.allowlist"))
+        let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.guard.allowlist"))
         let recorder = TelerouteTestRecorder<Int64>()
 
         router.command("vip", guards: [TelerouteUserAllowlistGuard([42, 99])]) { context in
@@ -157,7 +157,7 @@ struct TelerouteStageBTests {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.error-mw")
         let recorder = TelerouteTestRecorder<String>()
 
-        let router = Teleroute(
+        let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "router.error-mw"),
             configuration: .init(onError: { error, _ in

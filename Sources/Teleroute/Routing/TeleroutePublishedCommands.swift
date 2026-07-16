@@ -159,7 +159,95 @@ struct TeleroutePublishedCommand: Sendable {
     let visibility: TelerouteCommandVisibility
 }
 
-public extension Teleroute {
+enum TeleroutePublishedCommandBuilder {
+    typealias GroupedCommands = OrderedDictionary<
+        String,
+        (visibility: TelerouteCommandVisibility, commands: OrderedDictionary<String, String>)
+    >
+
+    static func registeredSets(
+        from commands: [TeleroutePublishedCommand]
+    ) throws -> [TeleroutePublishedCommandSet] {
+        var grouped: GroupedCommands = [:]
+        for command in commands {
+            try self.append(
+                .init(command: command.name, description: command.description),
+                visibility: command.visibility,
+                to: &grouped
+            )
+        }
+        return self.sets(from: grouped)
+    }
+
+    static func makeBotCommand(
+        _ command: any TelerouteCommand.Type
+    ) throws -> TGBotCommand {
+        guard let description = command.commandDescription else {
+            throw TelerouteError.missingPublishedCommandDescription(command.path)
+        }
+        return .init(command: command.path, description: description)
+    }
+
+    static func typedSets(
+        for commands: [any TelerouteCommand.Type]
+    ) throws -> [TeleroutePublishedCommandSet] {
+        var grouped: GroupedCommands = [:]
+        for command in commands {
+            let botCommand = try self.makeBotCommand(command)
+            for visibility in command.visibility {
+                try self.append(botCommand, visibility: visibility, to: &grouped)
+            }
+        }
+        return self.sets(from: grouped)
+    }
+
+    private static func append(
+        _ botCommand: TGBotCommand,
+        visibility: TelerouteCommandVisibility,
+        to grouped: inout GroupedCommands
+    ) throws {
+        let visibilityKey = visibility.storageKey()
+        var group = grouped[visibilityKey] ?? (visibility, [:])
+        if let existingDescription = group.commands[botCommand.command] {
+            guard existingDescription == botCommand.description else {
+                throw TelerouteError.duplicatePublishedCommand(
+                    botCommand.command,
+                    visibility: visibilityKey
+                )
+            }
+            grouped[visibilityKey] = group
+            return
+        }
+        group.commands[botCommand.command] = botCommand.description
+        grouped[visibilityKey] = group
+    }
+
+    private static func sets(
+        from grouped: GroupedCommands
+    ) -> [TeleroutePublishedCommandSet] {
+        grouped.values.map { value in
+            .init(
+                visibility: value.visibility,
+                commands: value.commands.map { command, description in
+                    .init(command: command, description: description)
+                }
+            )
+        }
+    }
+}
+
+public extension TelerouteRouterGroup {
+    /// Returns commands registered in this router, grouped by Telegram
+    /// visibility scope.
+    func publishedCommandSets() throws -> [TeleroutePublishedCommandSet] {
+        try TeleroutePublishedCommandBuilder.registeredSets(
+            from: self.routes.storage.publishedCommands
+        )
+    }
+}
+
+@_spi(Testing)
+public extension TelerouteRuntime {
     /// Publishes an explicit list of commands for the supplied visibility scope.
     ///
     /// Use this when command visibility must change at runtime, for example after
@@ -189,7 +277,7 @@ public extension Teleroute {
     func publishCommands(
         _ commands: [any TelerouteCommand.Type]
     ) async throws {
-        for commandSet in try Self.publishedCommandSets(for: commands) {
+        for commandSet in try TeleroutePublishedCommandBuilder.typedSets(for: commands) {
             try await self.publishCommands(
                 commandSet.commands,
                 visibility: commandSet.visibility
@@ -203,65 +291,16 @@ public extension Teleroute {
         visibility: TelerouteCommandVisibility
     ) async throws {
         try await self.publishCommands(
-            try commands.map(Self.makePublishedBotCommand),
+            try commands.map(TeleroutePublishedCommandBuilder.makeBotCommand),
             visibility: visibility
         )
     }
 
     /// Returns registered Telegram bot commands grouped by their visibility scope.
     func publishedCommandSets() throws -> [TeleroutePublishedCommandSet] {
-        var grouped: OrderedDictionary<
-            String,
-            (visibility: TelerouteCommandVisibility, commands: OrderedDictionary<String, String>)
-        > = [:]
-
-        for command in self.storage.publishedCommands {
-            let visibilityKey = command.visibility.storageKey()
-
-            var group = grouped[visibilityKey] ?? (command.visibility, [:])
-            if let existingDescription = group.commands[command.name] {
-                guard existingDescription == command.description else {
-                    throw TelerouteError.duplicatePublishedCommand(
-                        command.name,
-                        visibility: visibilityKey
-                    )
-                }
-                continue
-            }
-
-            group.commands[command.name] = command.description
-            grouped[visibilityKey] = group
-        }
-
-        return grouped.values.map { value in
-            .init(
-                visibility: value.visibility,
-                commands: value.commands.map { command, description in
-                    .init(command: command, description: description)
-                }
-            )
-        }
-    }
-
-    private static func appendPublishedBotCommand(
-        _ botCommand: TGBotCommand,
-        visibility: TelerouteCommandVisibility,
-        to grouped: inout OrderedDictionary<String, (visibility: TelerouteCommandVisibility, commands: OrderedDictionary<String, String>)>
-    ) throws {
-        let visibilityKey = visibility.storageKey()
-        var group = grouped[visibilityKey] ?? (visibility, [:])
-        if let existingDescription = group.commands[botCommand.command] {
-            guard existingDescription == botCommand.description else {
-                throw TelerouteError.duplicatePublishedCommand(
-                    botCommand.command,
-                    visibility: visibilityKey
-                )
-            }
-            grouped[visibilityKey] = group
-            return
-        }
-        group.commands[botCommand.command] = botCommand.description
-        grouped[visibilityKey] = group
+        try TeleroutePublishedCommandBuilder.registeredSets(
+            from: self.storage.publishedCommands
+        )
     }
 
     /// Publishes registered Telegram bot commands via `setMyCommands`.
@@ -278,10 +317,7 @@ public extension Teleroute {
     static func makePublishedBotCommand(
         _ command: any TelerouteCommand.Type
     ) throws -> TGBotCommand {
-        guard let description = command.commandDescription else {
-            throw TelerouteError.missingPublishedCommandDescription(command.path)
-        }
-        return .init(command: command.path, description: description)
+        try TeleroutePublishedCommandBuilder.makeBotCommand(command)
     }
 
     /// Groups typed commands into the visibility-scoped sets that should be
@@ -289,30 +325,7 @@ public extension Teleroute {
     static func publishedCommandSets(
         for commands: [any TelerouteCommand.Type]
     ) throws -> [TeleroutePublishedCommandSet] {
-        var grouped: OrderedDictionary<
-            String,
-            (visibility: TelerouteCommandVisibility, commands: OrderedDictionary<String, String>)
-        > = [:]
-
-        for command in commands {
-            let botCommand = try Self.makePublishedBotCommand(command)
-            for visibility in command.visibility {
-                try Self.appendPublishedBotCommand(
-                    botCommand,
-                    visibility: visibility,
-                    to: &grouped
-                )
-            }
-        }
-
-        return grouped.values.map { value in
-            .init(
-                visibility: value.visibility,
-                commands: value.commands.map { command, description in
-                    .init(command: command, description: description)
-                }
-            )
-        }
+        try TeleroutePublishedCommandBuilder.typedSets(for: commands)
     }
 }
 
@@ -346,7 +359,7 @@ public extension TelerouteContext {
     func publishCommands(
         _ commands: [any TelerouteCommand.Type]
     ) async throws {
-        for commandSet in try Teleroute.publishedCommandSets(for: commands) {
+        for commandSet in try TeleroutePublishedCommandBuilder.typedSets(for: commands) {
             _ = try await self.bot.setMyCommands(params: commandSet.telegramParams)
         }
     }
@@ -357,7 +370,7 @@ public extension TelerouteContext {
         visibility: TelerouteCommandVisibility
     ) async throws {
         try await self.publishCommands(
-            try commands.map(Teleroute.makePublishedBotCommand),
+            try commands.map(TeleroutePublishedCommandBuilder.makeBotCommand),
             visibility: visibility
         )
     }

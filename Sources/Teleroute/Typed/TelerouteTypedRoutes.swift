@@ -81,7 +81,8 @@ public extension TelerouteRoutes {
     }
 }
 
-public extension Teleroute {
+@_spi(Testing)
+public extension TelerouteRuntime {
     /// Registers a typed command that handles itself at the router root.
     func command<Command: TelerouteHandlingCommand>(
         _ commandType: Command.Type,

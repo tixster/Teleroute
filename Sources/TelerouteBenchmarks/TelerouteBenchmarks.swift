@@ -24,25 +24,29 @@ struct TelerouteBenchmarks {
     }
 
     private static func measureCommands(routeCount: Int) async throws -> Duration {
-        let bot = try await TelerouteTestSupport.makeBot(label: "teleroute.benchmark.command")
+        let telegramBot = try await TelerouteTestSupport.makeBot(
+            label: "teleroute.benchmark.command"
+        )
         var logger = Logger(label: "teleroute.benchmark.command")
         logger.logLevel = .critical
-        let router = Teleroute(
-            bot: bot,
+        let router = Teleroute()
+        let bot = TelerouteBot(
+            bot: telegramBot,
+            router: router,
             logger: logger,
             configuration: .init(replayProtectionStorage: nil)
         )
         let completion = BenchmarkCompletion()
 
         for index in 0..<routeCount {
-            router.command("route\(index)") { _ in
+            router.onCommand("route\(index)") { _ in
                 if index == routeCount - 1 {
                     await completion.record()
                 }
             }
         }
 
-        await router.handle()
+        try await bot.attach()
         let updates = (0..<self.updateCount).map { index in
             TelerouteTestSupport.makeCommandUpdate(
                 text: "/route\(routeCount - 1)",
@@ -50,33 +54,37 @@ struct TelerouteBenchmarks {
             )
         }
         let duration = await ContinuousClock().measure {
-            await router.process(updates)
+            await bot.process(updates)
             await completion.wait(until: self.updateCount)
         }
-        router.shutdown()
+        await bot.shutdown()
         return duration
     }
 
     private static func measureCallbacks(routeCount: Int) async throws -> Duration {
-        let bot = try await TelerouteTestSupport.makeBot(label: "teleroute.benchmark.callback")
+        let telegramBot = try await TelerouteTestSupport.makeBot(
+            label: "teleroute.benchmark.callback"
+        )
         var logger = Logger(label: "teleroute.benchmark.callback")
         logger.logLevel = .critical
-        let router = Teleroute(
-            bot: bot,
+        let router = Teleroute()
+        let bot = TelerouteBot(
+            bot: telegramBot,
+            router: router,
             logger: logger,
             configuration: .init(replayProtectionStorage: nil)
         )
         let completion = BenchmarkCompletion()
 
         for index in 0..<routeCount {
-            router.callback("route\(index)/{value}") { _ in
+            router.onCallback("route\(index)/{value}") { _ in
                 if index == routeCount - 1 {
                     await completion.record()
                 }
             }
         }
 
-        await router.handle()
+        try await bot.attach()
         let updates = (0..<self.updateCount).map { index in
             TelerouteTestSupport.makeCallbackUpdate(
                 data: "route\(routeCount - 1)/\(index)",
@@ -84,10 +92,10 @@ struct TelerouteBenchmarks {
             )
         }
         let duration = await ContinuousClock().measure {
-            await router.process(updates)
+            await bot.process(updates)
             await completion.wait(until: self.updateCount)
         }
-        router.shutdown()
+        await bot.shutdown()
         return duration
     }
 

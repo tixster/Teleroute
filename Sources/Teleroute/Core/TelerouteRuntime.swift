@@ -5,39 +5,11 @@ import Synchronization
 @_exported import Logging
 @_exported import SwiftTelegramBot
 
-/// Router for `swift-telegram-bot`.
-///
-/// Register routes directly on the router, then call ``attach()`` before starting the bot.
-public final class Teleroute: TGDefaultDispatcherPrtcl {
-    /// Advanced router dependencies and processing policies.
-    public struct Configuration: Sendable {
-        public var flowStorage: any TelerouteFlowStorage
-        public var replayProtectionStorage: (any TelerouteReplayProtectionStorage)?
-        public var replayProtectionTTL: Duration
-        /// Maximum number of update handlers allowed to execute concurrently. Must be positive.
-        public var maximumConcurrentUpdates: Int
-        public var flowCancellationPolicy: TelerouteFlowCancellationPolicy
-        public var metricsSink: any TelerouteMetricsSink
-        public var onError: TelerouteErrorHandler?
-
-        public init(
-            flowStorage: any TelerouteFlowStorage = TelerouteInMemoryFlowStorage(),
-            replayProtectionStorage: (any TelerouteReplayProtectionStorage)? = TelerouteInMemoryReplayProtectionStorage(),
-            replayProtectionTTL: Duration = .seconds(2),
-            maximumConcurrentUpdates: Int = 64,
-            flowCancellationPolicy: TelerouteFlowCancellationPolicy = .cancelOnAnyUnmatchedCommand,
-            metricsSink: any TelerouteMetricsSink = TelerouteNoOpMetricsSink(),
-            onError: TelerouteErrorHandler? = nil
-        ) {
-            self.flowStorage = flowStorage
-            self.replayProtectionStorage = replayProtectionStorage
-            self.replayProtectionTTL = replayProtectionTTL
-            self.maximumConcurrentUpdates = maximumConcurrentUpdates
-            self.flowCancellationPolicy = flowCancellationPolicy
-            self.metricsSink = metricsSink
-            self.onError = onError
-        }
-    }
+/// Internal dispatcher runtime. Public applications are built with
+/// ``Teleroute`` and ``TelerouteBot``.
+@_spi(Testing)
+public final class TelerouteRuntime: TGDefaultDispatcherPrtcl {
+    public typealias Configuration = TelerouteConfiguration
 
     private let dispatcher: TGDefaultDispatcher
     let storage: TelerouteStorage
@@ -71,12 +43,25 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     }
 
     /// Creates a router with one explicit configuration object for advanced dependencies.
-    public init(
+    public convenience init(
         bot: TGBot,
         logger: Logger,
         configuration: Configuration = .init()
     ) {
-        let storage = TelerouteStorage()
+        self.init(
+            bot: bot,
+            logger: logger,
+            configuration: configuration,
+            storage: TelerouteStorage()
+        )
+    }
+
+    init(
+        bot: TGBot,
+        logger: Logger,
+        configuration: Configuration,
+        storage: TelerouteStorage
+    ) {
         self.dispatcher = TGDefaultDispatcher(bot: bot, logger: logger)
         self.storage = storage
         self.routeScope = TelerouteRoutes(storage: storage)
@@ -215,6 +200,10 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
 
     var processingTaskCount: Int {
         self.updateExecutor.count
+    }
+
+    func waitUntilIdle() async {
+        await self.updateExecutor.waitUntilIdle()
     }
 
     private func updateMetadata(for parsedUpdate: TelerouteParsedUpdate) -> Logger.Metadata {

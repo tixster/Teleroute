@@ -13,7 +13,7 @@ public protocol TelerouteCallback: Sendable {
 /// A typed callback that handles its own matched update.
 ///
 /// This is convenient for small, self-contained callbacks. Prefer registering
-/// an explicit handler from a ``TelerouteModule`` when the handler owns injected
+/// an explicit handler from a ``TelerouteRouteCollection`` when the handler owns injected
 /// dependencies or coordinates multiple routes.
 public protocol TelerouteHandlingCallback: TelerouteCallback {
     /// Handles the update after the callback value has been decoded.

@@ -18,6 +18,7 @@ final class TelerouteUpdateExecutor: Sendable {
         var waiters: [Waiter] = []
         var waiterHead = 0
         var cancelledWaiters: Set<UUID> = []
+        var idleWaiters: [CheckedContinuation<Void, Never>] = []
         var isShutdown = false
     }
 
@@ -66,9 +67,10 @@ final class TelerouteUpdateExecutor: Sendable {
         let cancellation = self.state.withLock { state -> (
             tasks: [Task<Void, Never>],
             gates: [TelerouteTaskStartGate],
-            waiters: [CheckedContinuation<UUID?, Never>]
+            waiters: [CheckedContinuation<UUID?, Never>],
+            idleWaiters: [CheckedContinuation<Void, Never>]
         ) in
-            guard state.isShutdown == false else { return ([], [], []) }
+            guard state.isShutdown == false else { return ([], [], [], []) }
             state.isShutdown = true
 
             var tasks: [Task<Void, Never>] = []
@@ -83,7 +85,9 @@ final class TelerouteUpdateExecutor: Sendable {
             state.waiters.removeAll(keepingCapacity: false)
             state.waiterHead = 0
             state.cancelledWaiters.removeAll(keepingCapacity: false)
-            return (tasks, gates, waiters)
+            let idleWaiters = state.idleWaiters
+            state.idleWaiters.removeAll(keepingCapacity: false)
+            return (tasks, gates, waiters, idleWaiters)
         }
 
         for gate in cancellation.gates {
@@ -94,6 +98,23 @@ final class TelerouteUpdateExecutor: Sendable {
         }
         for waiter in cancellation.waiters {
             waiter.resume(returning: nil)
+        }
+        for waiter in cancellation.idleWaiters {
+            waiter.resume()
+        }
+    }
+
+    /// Suspends until every accepted update handler has completed.
+    func waitUntilIdle() async {
+        await withCheckedContinuation { continuation in
+            let isIdle = self.state.withLock { state in
+                guard state.slots.isEmpty == false else { return true }
+                state.idleWaiters.append(continuation)
+                return false
+            }
+            if isIdle {
+                continuation.resume()
+            }
         }
     }
 
@@ -166,29 +187,48 @@ final class TelerouteUpdateExecutor: Sendable {
     }
 
     private func finish(id: UUID) {
-        let promoted = self.state.withLock { state -> (
-            CheckedContinuation<UUID?, Never>, UUID
-        )? in
+        let result = self.state.withLock { state -> (
+            promoted: (CheckedContinuation<UUID?, Never>, UUID)?,
+            idleWaiters: [CheckedContinuation<Void, Never>]
+        ) in
             state.slots[id] = nil
-            return self.promoteWaiter(in: &state)
+            let promoted = self.promoteWaiter(in: &state)
+            return (promoted, self.takeIdleWaitersIfNeeded(in: &state))
         }
-        if let (continuation, id) = promoted {
+        if let (continuation, id) = result.promoted {
             continuation.resume(returning: id)
+        }
+        for waiter in result.idleWaiters {
+            waiter.resume()
         }
     }
 
     private func releaseReservation(id: UUID) {
-        let promoted = self.state.withLock { state -> (
-            CheckedContinuation<UUID?, Never>, UUID
-        )? in
+        let result = self.state.withLock { state -> (
+            promoted: (CheckedContinuation<UUID?, Never>, UUID)?,
+            idleWaiters: [CheckedContinuation<Void, Never>]
+        ) in
             guard case .some(.reserved) = state.slots.removeValue(forKey: id) else {
-                return nil
+                return (nil, self.takeIdleWaitersIfNeeded(in: &state))
             }
-            return self.promoteWaiter(in: &state)
+            let promoted = self.promoteWaiter(in: &state)
+            return (promoted, self.takeIdleWaitersIfNeeded(in: &state))
         }
-        if let (continuation, id) = promoted {
+        if let (continuation, id) = result.promoted {
             continuation.resume(returning: id)
         }
+        for waiter in result.idleWaiters {
+            waiter.resume()
+        }
+    }
+
+    private func takeIdleWaitersIfNeeded(
+        in state: inout State
+    ) -> [CheckedContinuation<Void, Never>] {
+        guard state.slots.isEmpty else { return [] }
+        let waiters = state.idleWaiters
+        state.idleWaiters.removeAll(keepingCapacity: true)
+        return waiters
     }
 
     private func promoteWaiter(
