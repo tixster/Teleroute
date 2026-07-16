@@ -17,10 +17,6 @@ architecture follows the same useful separation as Hummingbird:
 Teleroute also provides typed commands and callbacks, scope-bound keyboards,
 flows, command queues, replay protection, events, metrics, and in-process tests.
 
-> The `Teleroute`/`TelerouteBot` API is intentionally breaking. The former combined
-> `Teleroute(bot:logger:)`, public `TelerouteRoutes`, and `TelerouteModule` API
-> are not compatibility aliases.
-
 ## Requirements
 
 - Swift 6.3
