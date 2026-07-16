@@ -24,13 +24,14 @@ enum ExampleBootstrap {
         Teleroute(
             bot: bot,
             logger: ExampleLoggerFactory.makeRouterLogger(),
-            flowStorage: TelerouteInMemoryFlowStorage(),
-            replayProtectionStorage: TelerouteInMemoryReplayProtectionStorage(),
-            replayProtectionTTL: .seconds(3),
-            // The example exposes explicit `/cancel_signup` and `/resume_signup`
-            // commands, so flows are cancelled manually rather than torn down by
-            // any unrelated command the user might type mid-flow (e.g. `/help`).
-            flowCancellationPolicy: .manual
+            configuration: .init(
+                flowStorage: TelerouteInMemoryFlowStorage(),
+                replayProtectionStorage: TelerouteInMemoryReplayProtectionStorage(),
+                replayProtectionTTL: .seconds(3),
+                // The example exposes explicit `/cancel_signup` and `/resume_signup`
+                // commands, so unrelated commands do not tear down the flow.
+                flowCancellationPolicy: .manual
+            )
         )
     }
 
@@ -48,7 +49,7 @@ enum ExampleBootstrap {
         )
         try await router.publishCommands([ProfileCommand.self])
         try await router.syncPublishedCommands()
-        try await bot.add(router: router)
+        try await router.attach()
 
         router.log.info("Starting TelerouteExample")
         _ = try await bot.start()

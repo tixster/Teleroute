@@ -31,23 +31,41 @@ public struct TelerouteCallbackMacro: ExtensionMacro, MemberMacro {
         conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
+        guard declaration.is(StructDeclSyntax.self) else {
+            throw TelerouteMacroError.unsupportedDeclaration
+        }
         guard let path = Self.path(from: node) else {
             throw TelerouteMacroError.missingPath
         }
-        let parameters = Self.parameterNames(from: path)
+        var seenParameters: Set<String> = []
+        let parameters = Self.parameterNames(from: path).filter {
+            seenParameters.insert($0).inserted
+        }
         let orderedProperties = Self.storedProperties(from: declaration)
         let propertyLookup = Dictionary(orderedProperties, uniquingKeysWith: { first, _ in first })
+
+        for parameter in parameters {
+            guard let property = propertyLookup[parameter] else {
+                throw TelerouteMacroError.callbackParameterMissing(parameter)
+            }
+            guard property.type == "String" else {
+                throw TelerouteMacroError.callbackParameterMustBeString(
+                    name: parameter,
+                    type: property.type
+                )
+            }
+        }
+        let parameterSet = Set(parameters)
+        if let extraProperty = orderedProperties.first(where: { parameterSet.contains($0.0) == false }) {
+            throw TelerouteMacroError.callbackPropertyNotInPath(extraProperty.0)
+        }
 
         var members: [DeclSyntax] = []
 
         members.append("public static let path: String = \(literal: path)")
 
-        let initLines = parameters.map { name -> String in
-            let optional = propertyLookup[name]?.isOptional ?? false
-            if optional {
-                return "self.\(name) = parameters.get(\"\(name)\")"
-            }
-            return "self.\(name) = try parameters.require(\"\(name)\")"
+        let initLines = parameters.map { name in
+            "self.\(name) = try parameters.require(\"\(name)\")"
         }.joined(separator: "\n")
         members.append(
             #"""
@@ -57,23 +75,10 @@ public struct TelerouteCallbackMacro: ExtensionMacro, MemberMacro {
             """#
         )
 
-        let encodeLines = parameters.map { name -> String in
-            if propertyLookup[name]?.isOptional == true {
-                return "guard let \(name) = self.\(name) else { throw TelerouteError.missingParameter(\"\(name)\") }\nresult[\"\(name)\"] = \(name)"
-            }
-            return #"result["\#(name)"] = self.\#(name)"#
-        }.joined(separator: "\n")
-        members.append(
-            #"""
-            public var parameters: [String: String] {
-                get throws {
-                    var result: [String: String] = [:]
-                    \#(raw: encodeLines)
-                    return result
-                }
-            }
-            """#
-        )
+        let entries = parameters.map { name in
+            #""\#(name)": self.\#(name)"#
+        }.joined(separator: ", ")
+        members.append("public var parameters: [String: String] { [\(raw: entries)] }")
 
         let memberwiseArgs = orderedProperties.map { name, info in "\(name): \(info.type)" }
             .joined(separator: ", ")
@@ -119,7 +124,6 @@ public struct TelerouteCallbackMacro: ExtensionMacro, MemberMacro {
 
     private struct PropertyInfo {
         let type: String
-        let isOptional: Bool
     }
 
     private static func storedProperties(from declaration: any DeclSyntaxProtocol) -> [(String, PropertyInfo)] {
@@ -136,8 +140,7 @@ public struct TelerouteCallbackMacro: ExtensionMacro, MemberMacro {
             }
             let name = pattern.identifier.text
             let typeText = binding.typeAnnotation?.type.trimmedDescription ?? "String"
-            let isOptional = typeText.hasSuffix("?")
-            result.append((name, PropertyInfo(type: typeText, isOptional: isOptional)))
+            result.append((name, PropertyInfo(type: typeText)))
         }
         return result
     }

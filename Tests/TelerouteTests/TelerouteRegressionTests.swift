@@ -11,12 +11,14 @@ struct TelerouteRegressionTests {
         let router = Teleroute(
             bot: bot,
             logger: .init(label: "regression.flow.guard"),
-            flowStorage: storage,
-            replayProtectionStorage: nil
+            configuration: .init(
+                flowStorage: storage,
+                replayProtectionStorage: nil
+            )
         )
 
-        router.group("secure", routeGuards: [RegressionDenyGuard()]) { group in
-            group.add(flow: RegressionStartFlow(recorder: recorder))
+        router.group("secure", guards: [RegressionDenyGuard()]) { group in
+            group.flow(RegressionStartFlow(recorder: recorder))
         }
 
         await router.handle()
@@ -44,7 +46,7 @@ struct TelerouteRegressionTests {
             "observed",
             middlewares: [RegressionRecordingMiddleware(recorder: recorder, label: "group")]
         ) { group in
-            group.add(flow: RegressionStartFlow(recorder: recorder))
+            group.flow(RegressionStartFlow(recorder: recorder))
         }
 
         await router.handle()
@@ -63,10 +65,12 @@ struct TelerouteRegressionTests {
         let router = Teleroute(
             bot: bot,
             logger: .init(label: "regression.flow.atomic-update"),
-            flowStorage: storage,
-            replayProtectionStorage: nil
+            configuration: .init(
+                flowStorage: storage,
+                replayProtectionStorage: nil
+            )
         )
-        router.add(flow: RegressionAtomicFlow(recorder: recorder))
+        router.flow(RegressionAtomicFlow(recorder: recorder))
 
         await router.handle()
         await router.process([
@@ -89,9 +93,9 @@ struct TelerouteRegressionTests {
         let bot = try await TelerouteTestSupport.makeBot()
         let router = Teleroute(bot: bot, logger: .init(label: "regression.group.queue-order"))
 
-        router.group("guarded", routeGuards: [RegressionAllowGuard()]) { group in
-            group.command("same", queueing: .chatUser) { _, _ in }
-            group.command("same") { _, _ in }
+        router.group("guarded", guards: [RegressionAllowGuard()]) { group in
+            group.command("same", queue: .perChatAndUser) { _ in }
+            group.command("same") { _ in }
         }
 
         #expect(router.duplicateRouteSignatures.isEmpty)
@@ -132,16 +136,16 @@ struct TelerouteRegressionTests {
         let router = Teleroute(
             bot: bot,
             logger: .init(label: "regression.error.callback"),
-            onError: { _, context in
+            configuration: .init(onError: { _, context in
                 await errors.record(
                     .init(
                         parameter: context.parameters["id"],
                         flowID: context.activeFlow?.id
                     )
                 )
-            }
+            })
         )
-        let events = router.events
+        let events = router.eventStream()
         let failedEvent = Task<TelerouteEvent?, Never> {
             for await event in events where event.kind == .failed {
                 return event
@@ -149,7 +153,7 @@ struct TelerouteRegressionTests {
             return nil
         }
 
-        router.callback("orders/{id}") { _, _ in
+        router.callback("orders/{id}") { _ in
             throw CallbackFailure()
         }
         await router.handle()
@@ -173,24 +177,26 @@ struct TelerouteRegressionTests {
         let router = Teleroute(
             bot: bot,
             logger: .init(label: "regression.error.flow"),
-            onError: { _, context in
-                await errors.record(
-                    .init(
-                        parameter: nil,
-                        flowID: context.activeFlow?.id
+            configuration: .init(
+                metricsSink: metrics,
+                onError: { _, context in
+                    await errors.record(
+                        .init(
+                            parameter: nil,
+                            flowID: context.activeFlow?.id
+                        )
                     )
-                )
-            },
-            metricsSink: metrics
+                }
+            )
         )
-        let events = router.events
+        let events = router.eventStream()
         let failedEvent = Task<TelerouteEvent?, Never> {
             for await event in events where event.kind == .failed {
                 return event
             }
             return nil
         }
-        router.add(flow: RegressionFailingFlow(recorder: starts))
+        router.flow(RegressionFailingFlow(recorder: starts))
 
         await router.handle()
         await router.process([
@@ -212,7 +218,7 @@ struct TelerouteRegressionTests {
 
     @Test func eventHubRemovesCancelledSubscribers() async {
         let hub = TelerouteEventHub()
-        let sequence = hub.sequence()
+        let sequence = hub.sequence(buffering: .unbounded)
         let consumer = Task {
             for await _ in sequence {}
         }
@@ -225,8 +231,8 @@ struct TelerouteRegressionTests {
     }
 
     @Test func eventHubHonorsBoundedNewestBufferAndFinishesLateSubscribers() async {
-        let hub = TelerouteEventHub(bufferingPolicy: .bufferingNewest(2))
-        let sequence = hub.sequence()
+        let hub = TelerouteEventHub()
+        let sequence = hub.sequence(buffering: .newest(2))
         hub.emit(regressionEvent(updateID: 1))
         hub.emit(regressionEvent(updateID: 2))
         hub.emit(regressionEvent(updateID: 3))
@@ -237,7 +243,7 @@ struct TelerouteRegressionTests {
         hub.finish()
         #expect(await iterator.next() == nil)
 
-        var lateIterator = hub.sequence().makeAsyncIterator()
+        var lateIterator = hub.sequence(buffering: .unbounded).makeAsyncIterator()
         #expect(await lateIterator.next() == nil)
         #expect(hub.subscriberCount == 0)
     }
@@ -248,10 +254,9 @@ struct TelerouteRegressionTests {
         let router = Teleroute(
             bot: bot,
             logger: .init(label: "regression.shutdown"),
-            flowStorage: TelerouteInMemoryFlowStorage(),
-            replayProtectionStorage: nil
+            configuration: .init(replayProtectionStorage: nil)
         )
-        let events = router.events
+        let events = router.eventStream()
         let eventCollector = Task {
             var collected: [TelerouteEvent] = []
             for await event in events {
@@ -259,7 +264,7 @@ struct TelerouteRegressionTests {
             }
             return collected
         }
-        router.command("wait") { _, _ in
+        router.command("wait") { _ in
             await probe.started()
             do {
                 try await Task.sleep(for: .seconds(30))
@@ -292,10 +297,9 @@ struct TelerouteRegressionTests {
         let router = Teleroute(
             bot: bot,
             logger: .init(label: "regression.task-registry"),
-            flowStorage: TelerouteInMemoryFlowStorage(),
-            replayProtectionStorage: nil
+            configuration: .init(replayProtectionStorage: nil)
         )
-        router.command("fast") { _, context in
+        router.command("fast") { context in
             await recorder.record(Int(context.command?.arguments.first ?? "") ?? -1)
         }
         await router.handle()
@@ -388,7 +392,7 @@ private struct RegressionStartFlow: TelerouteFlow {
     let recorder: RegressionRecorder<String>
 
     func boot(flow: TelerouteFlowGroup<Self>) {
-        flow.start("begin", at: .active) { _, _ in
+        flow.start("begin", at: .active) { _ in
             await self.recorder.record("handler")
         }
     }
@@ -404,10 +408,10 @@ private struct RegressionAtomicFlow: TelerouteFlow {
     let recorder: RegressionRecorder<String>
 
     func boot(flow: TelerouteFlowGroup<Self>) {
-        flow.start("atomic", at: .active) { _, _ in
+        flow.start("atomic", at: .active) { _ in
             await self.recorder.record("started")
         }
-        flow.message(at: .active) { _, context in
+        flow.message(at: .active) { context in
             try await context.transition(to: .next, merging: ["first": "one"])
             try await context.update(merging: ["second": "two"])
             await self.recorder.record("updated")
@@ -428,10 +432,10 @@ private struct RegressionFailingFlow: TelerouteFlow {
     let recorder: RegressionRecorder<String>
 
     func boot(flow: TelerouteFlowGroup<Self>) {
-        flow.start("failing", at: .active) { _, _ in
+        flow.start("failing", at: .active) { _ in
             await self.recorder.record("started")
         }
-        flow.message(at: .active) { _, _ in
+        flow.message(at: .active) { _ in
             throw RegressionFlowError.boom
         }
     }

@@ -3,22 +3,22 @@ import Foundation
 import HeapModule
 import Synchronization
 
-/// Queueing strategy for command handlers.
-public enum TelerouteCommandQueueing: Sendable {
+/// Scope used to serialize command handler execution.
+public enum TelerouteQueueScope: Sendable {
     /// Queue all invocations of the command globally.
     case global
     /// Queue invocations of the command per chat.
-    case chat
+    case perChat
     /// Queue invocations of the command per chat and user.
-    case chatUser
+    case perChatAndUser
 
     func key(routeName: String, context: TelerouteContext) -> String {
         switch self {
         case .global:
             return "global|\(routeName)"
-        case .chat:
+        case .perChat:
             return "chat|\(routeName)|\(context.chatId.map(String.init) ?? "none")"
-        case .chatUser:
+        case .perChatAndUser:
             return "chatUser|\(routeName)|\(context.chatId.map(String.init) ?? "none")|\(context.userId.map(String.init) ?? "none")"
         }
     }
@@ -314,13 +314,13 @@ private final class TeleroutePendingSlots: @unchecked Sendable {
 struct TelerouteCommandQueueMiddleware: TelerouteMiddleware, Sendable {
     let queue: TelerouteCommandQueue
     let routeName: String
-    let queueing: TelerouteCommandQueueing
+    let scope: TelerouteQueueScope
 
     func handle(
         _ context: TelerouteContext,
         next: @escaping @Sendable (TelerouteContext) async throws -> Void
     ) async throws {
-        let key = self.queueing.key(routeName: self.routeName, context: context)
+        let key = self.scope.key(routeName: self.routeName, context: context)
         try await self.queue.enqueue(key: key) {
             try await next(context)
         }

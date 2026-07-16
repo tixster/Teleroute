@@ -7,30 +7,48 @@ import Synchronization
 
 /// Router for `swift-telegram-bot`.
 ///
-/// `Teleroute` is a `TGDefaultDispatcherPrtcl` dispatcher, so it can be attached directly
-/// to `TGBot` and process incoming updates through the existing dispatcher pipeline.
+/// Register routes directly on the router, then call ``attach()`` before starting the bot.
 public final class Teleroute: TGDefaultDispatcherPrtcl {
+    /// Advanced router dependencies and processing policies.
+    public struct Configuration: Sendable {
+        public var flowStorage: any TelerouteFlowStorage
+        public var replayProtectionStorage: (any TelerouteReplayProtectionStorage)?
+        public var replayProtectionTTL: Duration
+        public var flowCancellationPolicy: TelerouteFlowCancellationPolicy
+        public var metricsSink: any TelerouteMetricsSink
+        public var onError: TelerouteErrorHandler?
+
+        public init(
+            flowStorage: any TelerouteFlowStorage = TelerouteInMemoryFlowStorage(),
+            replayProtectionStorage: (any TelerouteReplayProtectionStorage)? = TelerouteInMemoryReplayProtectionStorage(),
+            replayProtectionTTL: Duration = .seconds(2),
+            flowCancellationPolicy: TelerouteFlowCancellationPolicy = .cancelOnAnyUnmatchedCommand,
+            metricsSink: any TelerouteMetricsSink = TelerouteNoOpMetricsSink(),
+            onError: TelerouteErrorHandler? = nil
+        ) {
+            self.flowStorage = flowStorage
+            self.replayProtectionStorage = replayProtectionStorage
+            self.replayProtectionTTL = replayProtectionTTL
+            self.flowCancellationPolicy = flowCancellationPolicy
+            self.metricsSink = metricsSink
+            self.onError = onError
+        }
+    }
+
     private let dispatcher: TGDefaultDispatcher
     let storage: TelerouteStorage
-    let rootGroup: TelerouteGroup
+    let routeScope: TelerouteRoutes
     private let flowStorage: any TelerouteFlowStorage
     private let replayProtectionStorage: (any TelerouteReplayProtectionStorage)?
     private let replayProtectionTTL: Duration
     private let flowCancellationPolicy: TelerouteFlowCancellationPolicy
     private let onError: TelerouteErrorHandler?
     private let metricsSink: any TelerouteMetricsSink
+    private let attachmentState = TelerouteAttachmentState()
     private let handlerRegistrationState = TelerouteHandlerRegistrationState()
-    private let eventHub: TelerouteEventHub
+    private let eventHub = TelerouteEventHub()
     private let processingTasks = TelerouteProcessingTaskRegistry()
     private let replayProtectionCleanupTask: Task<Void, Never>?
-
-    /// Router lifecycle events emitted as updates are received, matched, skipped, or failed.
-    ///
-    /// Multiple consumers may iterate this sequence concurrently; each one
-    /// receives the same events through its own independent iterator.
-    public var events: TelerouteEventSequence {
-        self.eventHub.sequence()
-    }
 
     public var bot: TGBot {
         self.dispatcher.bot
@@ -48,57 +66,35 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         self.dispatcher.handlersGroup
     }
 
-    /// Creates a router bound to a Telegram bot and logger.
+    /// Creates a router with one explicit configuration object for advanced dependencies.
     public init(
         bot: TGBot,
         logger: Logger,
-        onError: TelerouteErrorHandler? = nil,
-        metricsSink: (any TelerouteMetricsSink)? = nil,
-        eventBufferingPolicy: TelerouteEventBufferingPolicy = .unbounded
+        configuration: Configuration = .init()
     ) {
         let storage = TelerouteStorage()
-        let replayProtectionStorage = TelerouteInMemoryReplayProtectionStorage()
         self.dispatcher = TGDefaultDispatcher(bot: bot, logger: logger)
         self.storage = storage
-        self.rootGroup = TelerouteGroup(storage: storage)
-        self.flowStorage = TelerouteInMemoryFlowStorage()
-        self.replayProtectionStorage = replayProtectionStorage
-        self.replayProtectionTTL = .seconds(2)
-        self.flowCancellationPolicy = .cancelOnAnyUnmatchedCommand
-        self.onError = onError
-        self.metricsSink = metricsSink ?? TelerouteNoOpMetricsSink()
-        self.eventHub = TelerouteEventHub(bufferingPolicy: eventBufferingPolicy)
+        self.routeScope = TelerouteRoutes(storage: storage)
+        self.flowStorage = configuration.flowStorage
+        self.replayProtectionStorage = configuration.replayProtectionStorage
+        self.replayProtectionTTL = configuration.replayProtectionTTL
+        self.flowCancellationPolicy = configuration.flowCancellationPolicy
+        self.onError = configuration.onError
+        self.metricsSink = configuration.metricsSink
         self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
-            storage: replayProtectionStorage
+            storage: configuration.replayProtectionStorage
         )
     }
 
-    /// Creates a router bound to a Telegram bot, logger, and custom flow storage.
-    public init(
-        bot: TGBot,
-        logger: Logger,
-        flowStorage: any TelerouteFlowStorage,
-        replayProtectionStorage: (any TelerouteReplayProtectionStorage)? = TelerouteInMemoryReplayProtectionStorage(),
-        replayProtectionTTL: Duration = .seconds(2),
-        flowCancellationPolicy: TelerouteFlowCancellationPolicy = .cancelOnAnyUnmatchedCommand,
-        onError: TelerouteErrorHandler? = nil,
-        metricsSink: (any TelerouteMetricsSink)? = nil,
-        eventBufferingPolicy: TelerouteEventBufferingPolicy = .unbounded
-    ) {
-        let storage = TelerouteStorage()
-        self.dispatcher = TGDefaultDispatcher(bot: bot, logger: logger)
-        self.storage = storage
-        self.rootGroup = TelerouteGroup(storage: storage)
-        self.flowStorage = flowStorage
-        self.replayProtectionStorage = replayProtectionStorage
-        self.replayProtectionTTL = replayProtectionTTL
-        self.flowCancellationPolicy = flowCancellationPolicy
-        self.onError = onError
-        self.metricsSink = metricsSink ?? TelerouteNoOpMetricsSink()
-        self.eventHub = TelerouteEventHub(bufferingPolicy: eventBufferingPolicy)
-        self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
-            storage: replayProtectionStorage
-        )
+    /// Attaches this router to the bot supplied at initialization.
+    ///
+    /// Repeated or concurrent calls share the same registration. If registration
+    /// fails, a later call can retry.
+    public func attach() async throws {
+        try await self.attachmentState.attach { [self] in
+            try await self.bot.add(dispatcher: self)
+        }
     }
 
     deinit {
@@ -113,122 +109,11 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         self.eventHub.finish()
     }
 
-    /// Creates a top-level route group.
-    @discardableResult
-    public func group(_ path: String) -> TelerouteGroup {
-        self.rootGroup.group(path)
-    }
-
-    /// Creates and configures a top-level route group inline.
-    public func group(_ path: String, configure: (TelerouteGroup) -> Void) {
-        self.rootGroup.group(path, configure: configure)
-    }
-
-    /// Creates and configures a top-level route group that applies the supplied
-    /// middleware and guards to every route registered within it.
-    public func group(
-        _ path: String,
-        middlewares: [any TelerouteMiddleware] = [],
-        routeGuards: [any TelerouteGuard] = [],
-        configure: (TelerouteGroup) -> Void
-    ) {
-        self.rootGroup.group(
-            path,
-            middlewares: middlewares,
-            routeGuards: routeGuards,
-            configure: configure
-        )
-    }
-
-    /// Registers a top-level command handler.
-    public func command(
-        _ path: String,
-        botUsername: String? = nil,
-        description: String? = nil,
-        visibility: [TelerouteCommandVisibility] = [.default],
-        routeGuard: (any TelerouteGuard)? = nil,
-        middlewares: [any TelerouteMiddleware] = [],
-        queueing: TelerouteCommandQueueing? = nil,
-        use handler: @escaping TelerouteHandler
-    ) {
-        self.rootGroup.command(
-            path,
-            botUsername: botUsername,
-            description: description,
-            visibility: visibility,
-            routeGuard: routeGuard,
-            middlewares: middlewares,
-            queueing: queueing,
-            use: handler
-        )
-    }
-
-    /// Registers a top-level callback handler.
-    public func callback(
-        _ path: String,
-        routeGuard: (any TelerouteGuard)? = nil,
-        middlewares: [any TelerouteMiddleware] = [],
-        use handler: @escaping TelerouteHandler
-    ) {
-        self.rootGroup.callback(
-            path,
-            routeGuard: routeGuard,
-            middlewares: middlewares,
-            use: handler
-        )
-    }
-
-    /// Generates callback data for a top-level callback route.
-    public func callbackData(
-        _ path: String,
-        parameters: [String: String] = [:]
-    ) throws -> String {
-        try self.rootGroup.callbackData(path, parameters: parameters)
-    }
-
-    /// Creates an inline keyboard button for a top-level callback route.
-    public func callbackButton(
-        _ text: String,
-        path: String,
-        parameters: [String: String] = [:],
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> TGInlineKeyboardButton {
-        try self.rootGroup.callbackButton(
-            text,
-            path: path,
-            parameters: parameters,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style
-        )
-    }
-
-    /// Creates multiple inline keyboard buttons from path-based callback routes.
-    public func callbackButtons(
-        _ items: [(text: String, path: String, parameters: [String: String])],
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> [TGInlineKeyboardButton] {
-        try self.rootGroup.callbackButtons(
-            items,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style
-        )
-    }
-
-    /// Builds an inline keyboard from rows of buttons.
-    public func callbackKeyboard(
-        _ rows: [[TGInlineKeyboardButton]]
-    ) -> TGInlineKeyboardMarkup {
-        self.rootGroup.callbackKeyboard(rows)
-    }
-
-    /// Duplicate unguarded route signatures detected during registration.
-    ///
-    /// Guarded routes are intentionally excluded because registering the same
-    /// path with different guards is a supported routing pattern.
-    public var duplicateRouteSignatures: [TelerouteRouteSignature] {
-        self.storage.duplicateRouteSignatures
+    /// Creates an independent lifecycle-event stream for one consumer.
+    public func eventStream(
+        buffering: TelerouteEventBufferingPolicy = .newest(512)
+    ) -> TelerouteEventSequence {
+        self.eventHub.sequence(buffering: buffering)
     }
 
     /// `TGDefaultDispatcher` entry point. Registers internal Telegram handlers once.
@@ -814,7 +699,6 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     ) async throws -> Bool {
         let runner = TelerouteMiddlewareRunner(
             middlewares: middlewares,
-            update: update,
             handler: handler
         )
         do {
@@ -826,6 +710,41 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                 routeKind: routeKind,
                 routeName: routeName
             )
+        }
+    }
+}
+
+private actor TelerouteAttachmentState {
+    private enum State {
+        case detached
+        case attaching(Task<Void, any Error>)
+        case attached
+    }
+
+    private var state = State.detached
+
+    func attach(
+        _ operation: @escaping @Sendable () async throws -> Void
+    ) async throws {
+        switch self.state {
+        case .detached:
+            let task = Task {
+                try await operation()
+            }
+            self.state = .attaching(task)
+            do {
+                try await task.value
+                self.state = .attached
+            } catch {
+                self.state = .detached
+                throw error
+            }
+
+        case let .attaching(task):
+            try await task.value
+
+        case .attached:
+            return
         }
     }
 }

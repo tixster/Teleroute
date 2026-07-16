@@ -5,8 +5,8 @@ import Teleroute
 /// This demonstrates:
 /// - typed callback parameter decoding
 /// - callback data generation from the same type
-/// - route handlers that live outside the callback value itself
-struct ApproveOrderCallback: TelerouteCallback {
+/// - opt-in behavior owned by the decoded callback value
+struct ApproveOrderCallback: TelerouteHandlingCallback {
     static let path = "orders/{orderID}/approve"
 
     let orderID: String
@@ -22,13 +22,15 @@ struct ApproveOrderCallback: TelerouteCallback {
     var parameters: [String: String] {
         ["orderID": self.orderID]
     }
+
+    func handle(context: TelerouteContext) async throws {
+        try await context.answerCallbackQuery("Order \(self.orderID) approved")
+        try await context.edit("Order \(self.orderID) approved")
+    }
 }
 
-/// Typed callback whose handling logic lives on the callback type itself.
-///
-/// This demonstrates the "self-handling callback" style and shows that typed
-/// callbacks can both render their data and fully own their route behavior.
-struct ArchiveTicketCallback: TelerouteCallback {
+/// Another typed callback used in a heterogeneous keyboard row.
+struct ArchiveTicketCallback: TelerouteHandlingCallback {
     static let path = "tickets/{ticketID}/archive"
 
     let ticketID: String
@@ -45,8 +47,46 @@ struct ArchiveTicketCallback: TelerouteCallback {
         ["ticketID": self.ticketID]
     }
 
-    func handle(update: TGUpdate, context: TelerouteContext) async throws {
-        try await context.answerCallbackQuery(text: "Ticket \(self.ticketID) archived")
-        try await context.edit(text: "Ticket \(self.ticketID) archived")
+    func handle(context: TelerouteContext) async throws {
+        try await context.answerCallbackQuery("Ticket \(self.ticketID) archived")
+        try await context.edit("Ticket \(self.ticketID) archived")
+    }
+}
+
+/// Data-only callback handled by the root controller.
+struct SupportCallback: TelerouteCallback {
+    static let path = "support/{topic}"
+
+    let topic: String
+
+    init(topic: String) {
+        self.topic = topic
+    }
+
+    init(parameters: TelerouteParameters) throws {
+        self.topic = try parameters.require("topic")
+    }
+
+    var parameters: [String: String] {
+        ["topic": self.topic]
+    }
+}
+
+/// Data-only callback mounted into the admin route scope.
+struct AdminBanCallback: TelerouteCallback {
+    static let path = "users/{userID}/ban"
+
+    let userID: String
+
+    init(userID: String) {
+        self.userID = userID
+    }
+
+    init(parameters: TelerouteParameters) throws {
+        self.userID = try parameters.require("userID")
+    }
+
+    var parameters: [String: String] {
+        ["userID": self.userID]
     }
 }

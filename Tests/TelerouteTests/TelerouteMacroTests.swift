@@ -10,7 +10,7 @@ struct TelerouteMacroTests {
         let router = Teleroute(bot: bot, logger: .init(label: "router.macro.command"))
         let recorder = TelerouteTestRecorder<[String]>()
 
-        router.command(MacroBanCommand.self) { _, _, command in
+        router.command(MacroBanCommand.self) { command, _ in
             await recorder.record([command.userID, command.reason ?? "none"])
         }
 
@@ -50,7 +50,7 @@ struct TelerouteMacroTests {
         let router = Teleroute(bot: bot, logger: .init(label: "router.macro.callback"))
         let recorder = TelerouteTestRecorder<String>()
 
-        router.callback(MacroApproveCallback.self) { _, _, callback in
+        router.callback(MacroApproveCallback.self) { callback, _ in
             await recorder.record("approved:\(callback.orderID)")
         }
 
@@ -75,21 +75,39 @@ struct TelerouteMacroTests {
         // Decode via the synthesized init, then re-encode.
         let params = TelerouteParameters(["orderID": "42"])
         let decoded = try MacroApproveCallback(parameters: params)
-        let encoded = try decoded.parameters
+        let encoded = decoded.parameters
         #expect(encoded["orderID"] == "42")
     }
 
-    @Test func callbackMacroSupportsOptionalPropertiesWithoutInvalidDictionaryValues() throws {
-        let present = MacroOptionalCallback(query: "swift")
-        #expect(try present.parameters == ["query": "swift"])
+    @Test func macrosSupportHandlingTypedRoutesWithoutRegistrationClosures() async throws {
+        await MacroHandlingCommand.recorder.reset()
+        await MacroHandlingCallback.recorder.reset()
 
-        let decodedMissing = try MacroOptionalCallback(parameters: .init())
-        #expect(decodedMissing.query == nil)
+        let bot = try await TelerouteTestSupport.makeBot()
+        let router = Teleroute(
+            bot: bot,
+            logger: .init(label: "router.macro.self-handling"),
+            configuration: .init(replayProtectionStorage: nil)
+        )
 
-        let missing = MacroOptionalCallback(query: nil)
-        #expect(throws: TelerouteError.self) {
-            try missing.parameters
-        }
+        router.command(MacroHandlingCommand.self)
+        router.callback(MacroHandlingCallback.self)
+
+        await router.handle()
+        await router.process([
+            TelerouteTestSupport.makeCommandUpdate(text: "/remember hello", updateId: 802),
+            TelerouteTestSupport.makeCallbackUpdate(data: "remember/42", updateId: 803),
+        ])
+
+        #expect(
+            await MacroHandlingCommand.recorder.waitForCount(1, retries: 100)
+                == ["hello"]
+        )
+        #expect(
+            await MacroHandlingCallback.recorder.waitForCount(1, retries: 100)
+                == ["42"]
+        )
+        router.shutdown()
     }
 }
 
@@ -99,20 +117,31 @@ struct TelerouteMacroTests {
 struct MacroBanCommand {
     let userID: String
     let reason: String?
-
-    func handle(update: TGUpdate, context: TelerouteContext) async throws {}
 }
 
 @TelerouteCallback("orders/{orderID}/approve")
 struct MacroApproveCallback {
     let orderID: String
+}
 
-    func handle(update: TGUpdate, context: TelerouteContext) async throws {
-        await TelerouteTestRecorder<String>().record("handle:\(self.orderID)")
+@TelerouteCommand("remember")
+struct MacroHandlingCommand: TelerouteHandlingCommand {
+    static let recorder = TelerouteTestRecorder<String>()
+
+    let value: String
+
+    func handle(context: TelerouteContext) async throws {
+        await Self.recorder.record(self.value)
     }
 }
 
-@TelerouteCallback("search/{query}")
-struct MacroOptionalCallback {
-    let query: String?
+@TelerouteCallback("remember/{value}")
+struct MacroHandlingCallback: TelerouteHandlingCallback {
+    static let recorder = TelerouteTestRecorder<String>()
+
+    let value: String
+
+    func handle(context: TelerouteContext) async throws {
+        await Self.recorder.record(self.value)
+    }
 }

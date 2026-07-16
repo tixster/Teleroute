@@ -10,7 +10,6 @@ import Foundation
 /// @TelerouteCallback("orders/{orderID}/approve")
 /// struct ApproveOrderCallback {
 ///     let orderID: String
-///     func handle(update: TGUpdate, context: TelerouteContext) async throws { ... }
 /// }
 /// ```
 @attached(extension, conformances: TelerouteCallback)

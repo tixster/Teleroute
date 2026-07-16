@@ -24,7 +24,6 @@ public extension TelerouteFlow {
 
 /// Async handler invoked for a matched flow step.
 public typealias TelerouteFlowHandler<Flow: TelerouteFlow> = @Sendable (
-    _ update: TGUpdate,
     _ context: TelerouteFlowContext<Flow>
 ) async throws -> Void
 
@@ -57,24 +56,24 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
         botUsername: String? = nil,
         description: String? = nil,
         visibility: [TelerouteCommandVisibility] = [.default],
-        routeGuard: (any TelerouteGuard)? = nil,
+        guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware] = [],
-        queueing: TelerouteCommandQueueing? = nil,
+        queue: TelerouteQueueScope? = nil,
         use handler: @escaping TelerouteHandler
     ) {
         let name = TeleroutePath.commandName(prefix: self.commandPrefix, path: path)
-        let hasGuard = self.inheritedGuards.isEmpty == false || routeGuard != nil
+        let hasGuard = self.inheritedGuards.isEmpty == false || guards.isEmpty == false
         var resolvedMiddlewares = TelerouteMiddlewareComposer.resolve(
             inheritedMiddlewares: self.inheritedMiddlewares,
             inheritedGuards: self.inheritedGuards,
-            routeGuard: routeGuard,
+            guards: guards,
             middlewares: middlewares
         )
-        if let queueing {
+        if let queue {
             let queueMiddleware = TelerouteCommandQueueMiddleware(
                 queue: self.storage.commandQueue,
                 routeName: name,
-                queueing: queueing
+                scope: queue
             )
             let insertionIndex = hasGuard ? 1 : 0
             resolvedMiddlewares.insert(queueMiddleware, at: insertionIndex)
@@ -95,9 +94,9 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
                 name: name,
                 botUsername: botUsername,
                 middlewares: resolvedMiddlewares,
-                handler: { update, context in
+                handler: { context in
                     try await context.start(Flow.self, at: step)
-                    try await handler(update, context)
+                    try await handler(context)
                 }
             ),
             signature: hasGuard == false
@@ -109,7 +108,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
     /// Registers a handler for any non-callback message at the supplied step.
     public func message(
         at step: Flow.Step,
-        routeGuard: (any TelerouteGuard)? = nil,
+        guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware] = [],
         use handler: @escaping TelerouteFlowHandler<Flow>
     ) {
@@ -117,7 +116,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
             step: step,
             matcher: .message,
             signatureName: "*",
-            routeGuard: routeGuard,
+            guards: guards,
             middlewares: middlewares,
             handler: handler
         )
@@ -128,7 +127,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
         _ path: String,
         at step: Flow.Step,
         botUsername: String? = nil,
-        routeGuard: (any TelerouteGuard)? = nil,
+        guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware] = [],
         use handler: @escaping TelerouteFlowHandler<Flow>
     ) {
@@ -140,7 +139,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
                 botUsername: botUsername
             ),
             signatureName: name,
-            routeGuard: routeGuard,
+            guards: guards,
             middlewares: middlewares,
             handler: handler
         )
@@ -150,7 +149,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
     public func callback(
         _ path: String,
         at step: Flow.Step,
-        routeGuard: (any TelerouteGuard)? = nil,
+        guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware] = [],
         use handler: @escaping TelerouteFlowHandler<Flow>
     ) {
@@ -159,74 +158,35 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
             step: step,
             matcher: .callback(pattern),
             signatureName: pattern.routeDescription,
-            routeGuard: routeGuard,
+            guards: guards,
             middlewares: middlewares,
             handler: handler
         )
     }
 
-    /// Generates callback data from a path-style callback route and parameter values.
-    public func callbackData(
-        _ path: String,
-        parameters: [String: String] = [:]
-    ) throws -> String {
-        try TelerouteCallbackPattern(prefix: self.callbackPrefix, path: path)
-            .render(parameters: parameters)
+    /// Renders one typed button description in this flow's route scope.
+    public func render(_ button: TelerouteButton) throws -> TGInlineKeyboardButton {
+        try self.routeScope.render(button)
     }
 
-    /// Creates an inline keyboard button whose `callbackData` is derived from a callback route.
-    public func callbackButton(
-        _ text: String,
-        path: String,
-        parameters: [String: String] = [:],
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> TGInlineKeyboardButton {
-        TGInlineKeyboardButton(
-            text: text,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style,
-            callbackData: try self.callbackData(path, parameters: parameters)
-        )
-    }
-
-    /// Creates multiple inline keyboard buttons from path-based callback routes.
-    public func callbackButtons(
-        _ items: [(text: String, path: String, parameters: [String: String])],
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> [TGInlineKeyboardButton] {
-        try items.map { item in
-            try self.callbackButton(
-                item.text,
-                path: item.path,
-                parameters: item.parameters,
-                iconCustomEmojiId: iconCustomEmojiId,
-                style: style
-            )
-        }
-    }
-
-    /// Builds an inline keyboard from rows of buttons.
-    public func callbackKeyboard(
-        _ rows: [[TGInlineKeyboardButton]]
-    ) -> TGInlineKeyboardMarkup {
-        TGInlineKeyboardMarkup(inlineKeyboard: rows)
+    /// Renders callback button descriptions into Telegram keyboard rows.
+    public func keyboard(_ rows: [[TelerouteButton]]) throws -> TGInlineKeyboardMarkup {
+        try self.routeScope.keyboard(rows)
     }
 
     private func register(
         step: Flow.Step,
         matcher: TelerouteFlowRouteMatcher,
         signatureName: String,
-        routeGuard: (any TelerouteGuard)?,
+        guards: [any TelerouteGuard],
         middlewares: [any TelerouteMiddleware],
         handler: @escaping TelerouteFlowHandler<Flow>
     ) {
-        let hasGuard = self.inheritedGuards.isEmpty == false || routeGuard != nil
+        let hasGuard = self.inheritedGuards.isEmpty == false || guards.isEmpty == false
         let resolvedMiddlewares = TelerouteMiddlewareComposer.resolve(
             inheritedMiddlewares: self.inheritedMiddlewares,
             inheritedGuards: self.inheritedGuards,
-            routeGuard: routeGuard,
+            guards: guards,
             middlewares: middlewares
         )
         self.storage.appendFlowRoute(
@@ -235,9 +195,9 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
                 step: step.rawValue,
                 matcher: matcher,
                 middlewares: resolvedMiddlewares,
-                handler: { update, context in
+                handler: { context in
                     let flowContext = try TelerouteFlowContext<Flow>(context: context)
-                    try await handler(update, flowContext)
+                    try await handler(flowContext)
                 }
             ),
             signature: hasGuard == false
@@ -249,6 +209,16 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
                     step: step.rawValue
                 )
                 : nil
+        )
+    }
+
+    var routeScope: TelerouteRoutes {
+        .init(
+            storage: self.storage,
+            commandPrefix: self.commandPrefix,
+            callbackPrefix: self.callbackPrefix,
+            inheritedMiddlewares: self.inheritedMiddlewares,
+            inheritedGuards: self.inheritedGuards
         )
     }
 }
@@ -346,12 +316,12 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
 
     /// Replies to the current message when available, otherwise sends to the resolved chat.
     public func reply(
-        text: String,
+        _ text: String,
         parseMode: TGParseMode? = nil,
         replyMarkup: TGReplyMarkup? = nil
     ) async throws {
         try await self.context.reply(
-            text: text,
+            text,
             parseMode: parseMode,
             replyMarkup: replyMarkup
         )
@@ -359,13 +329,13 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
 
     /// Sends a message to the supplied chat or to the chat inferred from the current update.
     public func send(
-        text: String,
+        _ text: String,
         to chatId: Int64? = nil,
         parseMode: TGParseMode? = nil,
         replyMarkup: TGReplyMarkup? = nil
     ) async throws {
         try await self.context.send(
-            text: text,
+            text,
             to: chatId,
             parseMode: parseMode,
             replyMarkup: replyMarkup
@@ -374,12 +344,12 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
 
     /// Edits the current message.
     public func edit(
-        text: String,
+        _ text: String,
         parseMode: TGParseMode? = nil,
         replyMarkup: TGInlineKeyboardMarkup? = nil
     ) async throws {
         try await self.context.edit(
-            text: text,
+            text,
             parseMode: parseMode,
             replyMarkup: replyMarkup
         )
@@ -387,13 +357,13 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
 
     /// Answers the current callback query.
     public func answerCallbackQuery(
-        text: String? = nil,
+        _ text: String? = nil,
         showAlert: Bool? = nil,
         url: String? = nil,
         cacheTime: Int? = nil
     ) async throws {
         try await self.context.answerCallbackQuery(
-            text: text,
+            text,
             showAlert: showAlert,
             url: url,
             cacheTime: cacheTime
@@ -447,9 +417,9 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
     }
 }
 
-public extension TelerouteGroup {
-    /// Mounts a flow into the current route group.
-    func add<Flow: TelerouteFlow>(flow: Flow) {
+public extension TelerouteRoutes {
+    /// Mounts a flow into the current route scope.
+    func flow<Flow: TelerouteFlow>(_ flow: Flow) {
         flow.boot(
             flow: .init(
                 storage: self.storage,
@@ -463,8 +433,8 @@ public extension TelerouteGroup {
 }
 
 public extension Teleroute {
-    /// Mounts a flow into the top-level router group.
-    func add<Flow: TelerouteFlow>(flow: Flow) {
-        self.rootGroup.add(flow: flow)
+    /// Mounts a flow at the router root.
+    func flow<Flow: TelerouteFlow>(_ flow: Flow) {
+        self.routeScope.flow(flow)
     }
 }

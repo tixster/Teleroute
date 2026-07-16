@@ -1,135 +1,161 @@
 import Teleroute
 
-/// Central router composition for the example target.
-///
-/// This file is the best place to scan when you want to understand which example
-/// feature covers which part of the library API.
-enum ExampleRouterConfiguration {
-    /// Mounts all example routes, groups, collections, and flows into the router.
-    static func configure(router: Teleroute) {
-        let admin = router.group("admin")
+/// Root controller that composes the example's routes, modules, and flows.
+struct ExampleRouterConfiguration: TelerouteModule {
+    func register(in routes: TelerouteRoutes) {
+        let admin = routes.group("admin")
+        let callbacks = self.registerCallbacks(routes: routes, admin: admin)
 
-        registerRootCommands(router: router, admin: admin)
-        registerRootCallbacks(router: router)
-        registerAdminRoutes(admin: admin)
-        mountCollectionsAndFlows(router: router)
+        self.registerRootCommands(routes: routes, callbacks: callbacks)
+        self.registerAdminCommands(admin: admin)
+        self.mountModulesAndFlows(in: routes)
     }
 
-    /// Registers top-level commands that are part of the base example experience.
-    private static func registerRootCommands(router: Teleroute, admin: TelerouteGroup) {
-        router.command(
+    private func registerRootCommands(
+        routes: TelerouteRoutes,
+        callbacks: ExampleStartScreen.CallbackRoutes
+    ) {
+        routes.command(
             "start",
             description: "Show the example menu",
             visibility: [.allPrivateChats],
-            routeGuard: TeleroutePrivateChatGuard(),
+            guards: [TeleroutePrivateChatGuard()],
             middlewares: [TelerouteAccessLogMiddleware(label: "start")]
-        ) { _, context in
-            let screen = try ExampleStartScreen(router: router, admin: admin)
-            try await context.reply(text: screen.text, replyMarkup: screen.replyMarkup)
+        ) { context in
+            try await self.start(context, routes: routes, callbacks: callbacks)
         }
 
-        router.command(
+        routes.command(
             "resume_signup",
             description: "Restart the signup flow",
-            visibility: [.allPrivateChats]
-        ) { _, context in
-            try await context.start(SignupFlow.self, at: .name)
-            try await context.reply(text: "Signup flow restarted. Send your name.")
-        }
+            visibility: [.allPrivateChats],
+            use: self.resumeSignup
+        )
 
-        router.command(
+        routes.command(
             "cancel_signup",
             description: "Cancel the active signup flow",
-            visibility: [.allPrivateChats]
-        ) { _, context in
-            try await context.cancelFlow()
-            try await context.reply(text: "Active flow cancelled.")
-        }
+            visibility: [.allPrivateChats],
+            use: self.cancelSignup
+        )
 
-        router.command(
+        routes.command(
             "refresh_menu",
             description: "Reset and republish this chat's menu",
-            visibility: [.allPrivateChats]
-        ) { _, context in
-            guard let chatId = context.chatId else {
-                try await context.reply(text: "Unable to determine chat for menu refresh.")
-                return
-            }
+            visibility: [.allPrivateChats],
+            use: self.refreshMenu
+        )
 
-            try await context.bot.deleteMyCommands(
-                params: .init(
-                    scope: .botCommandScopeChat(
-                        .init(type: .chat, chatId: .chat(chatId))
-                    )
-                )
-            )
-            try await context.publishCommands(
-                ExampleCommandMenus.privateChat,
-                visibility: .chat(.id(chatId))
-            )
-            try await context.reply(text: "Menu refreshed for this chat.")
-        }
-
-        router.command(
+        routes.command(
             ProfileCommand.self,
-            routeGuard: TeleroutePrivateChatGuard(),
+            guards: [TeleroutePrivateChatGuard()],
             middlewares: [TelerouteAccessLogMiddleware(label: "profile")]
         )
-        router.command(SyncCatalogCommand.self)
+
+        routes.command(SyncCatalogCommand.self)
     }
 
-    /// Registers top-level callbacks that are not encapsulated in collections or flows.
-    private static func registerRootCallbacks(router: Teleroute) {
-        router.callback(
+    private func registerCallbacks(
+        routes: TelerouteRoutes,
+        admin: TelerouteRoutes
+    ) -> ExampleStartScreen.CallbackRoutes {
+        let approveOrder = routes.callback(
             ApproveOrderCallback.self,
-            routeGuard: TeleroutePrivateChatGuard(),
+            guards: [TeleroutePrivateChatGuard()],
             middlewares: [TelerouteAccessLogMiddleware(label: "approve-order")]
-        ) { _, context, callback in
-            try await context.answerCallbackQuery(text: "Order \(callback.orderID) approved")
-            try await context.edit(text: "Order \(callback.orderID) approved")
-        }
+        )
 
-        router.callback(ArchiveTicketCallback.self)
+        let archiveTicket = routes.callback(ArchiveTicketCallback.self)
 
-        router.callback(
-            "support/{topic}",
-            routeGuard: TeleroutePrivateChatGuard(),
-            middlewares: [TelerouteAccessLogMiddleware(label: "support")]
-        ) { _, context in
-            let topic = try context.parameters.require("topic")
-            try await context.answerCallbackQuery(text: "Opening \(topic)")
-            try await context.edit(text: "Support topic: \(topic)")
-        }
+        let support = routes.callback(
+            SupportCallback.self,
+            guards: [TeleroutePrivateChatGuard()],
+            middlewares: [TelerouteAccessLogMiddleware(label: "support")],
+            use: self.openSupport
+        )
+
+        let adminBan = admin.callback(
+            AdminBanCallback.self,
+            middlewares: [TelerouteAccessLogMiddleware(label: "admin-callback-ban")],
+            use: self.banUser
+        )
+
+        return .init(
+            support: support,
+            approveOrder: approveOrder,
+            archiveTicket: archiveTicket,
+            adminBan: adminBan
+        )
     }
 
-    /// Registers routes inside the `admin` group.
-    private static func registerAdminRoutes(admin: TelerouteGroup) {
+    private func registerAdminCommands(admin: TelerouteRoutes) {
         admin.command(
             AdminBanCommand.self,
             description: "Ban a user inside the admin namespace",
             visibility: [.allChatAdministrators],
             middlewares: [TelerouteAccessLogMiddleware(label: "admin-ban")]
-        ) { _, context, command in
-            try await context.reply(
-                text: "Admin ban: \(command.userID), reason: \(command.reason ?? "not provided")"
-            )
-        }
-
-        admin.callback(
-            "users/{userID}/ban",
-            middlewares: [TelerouteAccessLogMiddleware(label: "admin-callback-ban")]
-        ) { _, context in
-            let userID = try context.parameters.require("userID")
-            try await context.answerCallbackQuery(text: "User \(userID) banned")
-            try await context.edit(text: "Admin action completed for user \(userID)")
-        }
+        )
     }
 
-    /// Mounts reusable route collections and flows.
-    private static func mountCollectionsAndFlows(router: Teleroute) {
-        router.add(collection: BillingCollection())
-        router.add(collection: DiagnosticsCollection())
-        router.group(ModerationCollection())
-        router.add(flow: SignupFlow())
+    private func mountModulesAndFlows(in routes: TelerouteRoutes) {
+        routes.group("billing").mount(BillingModule())
+        routes.group("diag").mount(DiagnosticsModule())
+        routes.group("moderation").mount(ModerationModule())
+        routes.flow(SignupFlow())
+    }
+
+    private func start(
+        _ context: TelerouteContext,
+        routes: TelerouteRoutes,
+        callbacks: ExampleStartScreen.CallbackRoutes
+    ) async throws {
+        let screen = try ExampleStartScreen(routes: routes, callbacks: callbacks)
+        try await context.reply(screen.text, replyMarkup: screen.replyMarkup)
+    }
+
+    private func resumeSignup(_ context: TelerouteContext) async throws {
+        try await context.start(SignupFlow.self, at: .name)
+        try await context.reply("Signup flow restarted. Send your name.")
+    }
+
+    private func cancelSignup(_ context: TelerouteContext) async throws {
+        try await context.cancelFlow()
+        try await context.reply("Active flow cancelled.")
+    }
+
+    private func refreshMenu(_ context: TelerouteContext) async throws {
+        guard let chatId = context.chatId else {
+            try await context.reply("Unable to determine chat for menu refresh.")
+            return
+        }
+
+        try await context.bot.deleteMyCommands(
+            params: .init(
+                scope: .botCommandScopeChat(
+                    .init(type: .chat, chatId: .chat(chatId))
+                )
+            )
+        )
+        try await context.publishCommands(
+            ExampleCommandMenus.privateChat,
+            visibility: .chat(.id(chatId))
+        )
+        try await context.reply("Menu refreshed for this chat.")
+    }
+
+    private func openSupport(
+        _ callback: SupportCallback,
+        _ context: TelerouteContext
+    ) async throws {
+        try await context.answerCallbackQuery("Opening \(callback.topic)")
+        try await context.edit("Support topic: \(callback.topic)")
+    }
+
+    private func banUser(
+        _ callback: AdminBanCallback,
+        _ context: TelerouteContext
+    ) async throws {
+        try await context.answerCallbackQuery("User \(callback.userID) banned")
+        try await context.edit("Admin action completed for user \(callback.userID)")
     }
 }

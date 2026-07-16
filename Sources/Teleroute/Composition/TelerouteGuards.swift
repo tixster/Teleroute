@@ -1,8 +1,8 @@
 import Foundation
 import SwiftTelegramBot
 
-/// Route guards shipped with Teleroute. Attach them to routes or groups via the
-/// `routeGuard:` / `routeGuards:` parameters.
+/// Route guards shipped with Teleroute. Attach them to route scopes and routes
+/// through the `guards:` parameter.
 
 /// Passes when the current update originates from a chat of the expected type.
 public struct TelerouteChatTypeGuard: TelerouteGuard {

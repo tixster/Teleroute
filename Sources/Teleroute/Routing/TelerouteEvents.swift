@@ -1,22 +1,22 @@
 import Foundation
 import Synchronization
 
-/// Buffering used independently by each subscriber to ``Teleroute/events``.
+/// Buffering used independently by each ``Teleroute/eventStream(buffering:)`` subscriber.
 public enum TelerouteEventBufferingPolicy: Equatable, Sendable {
     /// Retains every event until the subscriber consumes it.
     case unbounded
     /// Retains only the newest `limit` events.
-    case bufferingNewest(Int)
+    case newest(Int)
     /// Retains only the oldest `limit` events.
-    case bufferingOldest(Int)
+    case oldest(Int)
 
     fileprivate var streamPolicy: AsyncStream<TelerouteEvent>.Continuation.BufferingPolicy {
         switch self {
         case .unbounded:
             .unbounded
-        case let .bufferingNewest(limit):
+        case let .newest(limit):
             .bufferingNewest(max(0, limit))
-        case let .bufferingOldest(limit):
+        case let .oldest(limit):
             .bufferingOldest(max(0, limit))
         }
     }
@@ -130,19 +130,16 @@ final class TelerouteEventHub: Sendable {
         var isFinished = false
     }
 
-    private let bufferingPolicy: TelerouteEventBufferingPolicy
     private let state = Mutex(State())
-
-    init(bufferingPolicy: TelerouteEventBufferingPolicy = .unbounded) {
-        self.bufferingPolicy = bufferingPolicy
-    }
 
     /// Registers a new subscriber and returns its stream. Each call registers
     /// a fresh subscription so every consumer gets its own iterator and buffer.
-    func subscribe() -> AsyncStream<TelerouteEvent> {
+    func subscribe(
+        buffering: TelerouteEventBufferingPolicy
+    ) -> AsyncStream<TelerouteEvent> {
         let id = UUID()
         let pair = AsyncStream<TelerouteEvent>.makeStream(
-            bufferingPolicy: self.bufferingPolicy.streamPolicy
+            bufferingPolicy: buffering.streamPolicy
         )
         pair.continuation.onTermination = { [weak self] _ in
             self?.removeSubscriber(id: id)
@@ -160,8 +157,10 @@ final class TelerouteEventHub: Sendable {
     }
 
     /// Convenience: registers a subscriber and wraps it in a sequence.
-    func sequence() -> TelerouteEventSequence {
-        .init(stream: self.subscribe())
+    func sequence(
+        buffering: TelerouteEventBufferingPolicy
+    ) -> TelerouteEventSequence {
+        .init(stream: self.subscribe(buffering: buffering))
     }
 
     func emit(_ event: TelerouteEvent) {

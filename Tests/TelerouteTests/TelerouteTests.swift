@@ -8,7 +8,7 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.command"))
     let recorder = Recorder<[String]>()
 
-    router.command("start") { _, context in
+    router.command("start") { context in
         await recorder.record([
             context.command?.name ?? "",
             context.command?.rawValue ?? "",
@@ -29,7 +29,7 @@ struct TelerouteTests {
     let recorder = Recorder<String>()
 
     router.group("admin") { admin in
-        admin.command("ban") { _, context in
+        admin.command("ban") { context in
             await recorder.record(context.command?.name ?? "")
         }
     }
@@ -46,7 +46,7 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.command.bot-username"))
     let recorder = Recorder<String>()
 
-    router.command("start", botUsername: "my_bot") { _, context in
+    router.command("start", botUsername: "my_bot") { context in
         await recorder.record(context.command?.rawValue ?? "")
     }
 
@@ -70,55 +70,54 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.callback"))
     let recorder = Recorder<[String]>()
 
-    router.callback("orders/{orderId}/items/{itemId}") { _, context in
+    router.callback("orders/{orderId}/items/{itemId}") { context in
         await recorder.record([
             try context.parameters.require("orderId"),
             try context.parameters.require("itemId"),
         ])
     }
 
-    let callbackData = try router.callbackData(
-        "orders/{orderId}/items/{itemId}",
-        parameters: [
-            "orderId": "42",
-            "itemId": "green tea",
-        ]
-    )
-
     await router.handle()
-    await router.process([makeCallbackUpdate(data: callbackData)])
+    await router.process([
+        makeCallbackUpdate(data: "orders/42/items/green%20tea"),
+    ])
 
     let values = await recorder.waitForCount(1)
     #expect(values == [["42", "green tea"]])
 }
 
-@Test func callbackButtonUsesGroupPrefix() async throws {
+@Test func buttonUsesRouteScopePrefix() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.button"))
+    let admin = router.group("admin")
+    let approve = admin.callback(ApproveOrderCallback.self) { _, _ in }
 
-    let button = try router
-        .group("admin")
-        .callbackButton("Open", path: "orders/{id}", parameters: ["id": "A B"])
+    let button = try router.render(
+        approve.button(ApproveOrderCallback(orderID: "A B"), "Open")
+    )
 
     #expect(button.text == "Open")
-    #expect(button.callbackData == "admin/orders/A%20B")
+    #expect(button.callbackData == "admin/orders/A%20B/approve")
 }
 
-@Test func callbackKeyboardBuildsMultipleButtons() async throws {
+@Test func keyboardBuildsMultipleTypedButtons() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.keyboard"))
+    let approve = router.callback(ApproveOrderCallback.self) { _, _ in }
+    let explicitApprove = router.callback(ExplicitApproveOrderCallback.self) { _, _ in }
 
-    let row = try router.callbackButtons([
-        ("Approve", ApproveOrderCallback(orderID: "42")),
-        ("Self approve", SelfHandlingApproveOrderCallback(orderID: "43")),
-    ])
-
-    let keyboard = router.callbackKeyboard([row])
+    let keyboard = try router.keyboard([[
+        approve.button(ApproveOrderCallback(orderID: "42"), "Approve"),
+        explicitApprove.button(
+            ExplicitApproveOrderCallback(orderID: "43"),
+            "Explicit approve"
+        ),
+    ]])
 
     #expect(keyboard.inlineKeyboard.count == 1)
     #expect(keyboard.inlineKeyboard[0].count == 2)
     #expect(keyboard.inlineKeyboard[0][0].callbackData == "orders/42/approve")
-    #expect(keyboard.inlineKeyboard[0][1].callbackData == "orders/43/self_approve")
+    #expect(keyboard.inlineKeyboard[0][1].callbackData == "orders/43/explicit_approve")
 }
 
 @Test func typedCommandDecodesArguments() async throws {
@@ -126,7 +125,7 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.typed-command"))
     let recorder = Recorder<[String]>()
 
-    router.command(BanCommand.self) { _, _, command in
+    router.command(BanCommand.self) { command, _ in
         await recorder.record([command.userID, command.reason ?? ""])
     }
 
@@ -150,17 +149,19 @@ struct TelerouteTests {
     #expect(command.get("reason", at: 1) == "spam")
 }
 
-@Test func typedCommandCanHandleItself() async throws {
+@Test func typedCommandUsesExplicitHandler() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.typed-command.self"))
 
-    await SelfHandlingBanCommand.recorder.reset()
-    router.command(SelfHandlingBanCommand.self)
+    await ExplicitBanCommand.recorder.reset()
+    router.command(ExplicitBanCommand.self) { command, _ in
+        await ExplicitBanCommand.recorder.record(command.userID)
+    }
 
     await router.handle()
-    await router.process([makeCommandUpdate(text: "/self_ban 77")])
+    await router.process([makeCommandUpdate(text: "/explicit_ban 77")])
 
-    let values = await SelfHandlingBanCommand.recorder.waitForCount(1)
+    let values = await ExplicitBanCommand.recorder.waitForCount(1)
     #expect(values == ["77"])
 }
 
@@ -169,7 +170,7 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.typed-callback"))
     let recorder = Recorder<String>()
 
-    router.callback(ApproveOrderCallback.self) { _, _, callback in
+    let route = router.callback(ApproveOrderCallback.self) { callback, _ in
         await recorder.record(callback.orderID)
     }
 
@@ -177,34 +178,38 @@ struct TelerouteTests {
     await router.handle()
     await router.process([makeCallbackUpdate(data: data)])
 
-    let button = try router.callbackButton("Approve", callback: ApproveOrderCallback(orderID: "green tea"))
+    let button = try router.render(
+        route.button(ApproveOrderCallback(orderID: "green tea"), "Approve")
+    )
     let values = await recorder.waitForCount(1)
 
     #expect(values == ["42"])
     #expect(button.callbackData == "orders/green%20tea/approve")
 }
 
-@Test func typedCallbackCanHandleItself() async throws {
+@Test func typedCallbackUsesExplicitHandler() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.typed-callback.self"))
 
-    await SelfHandlingApproveOrderCallback.recorder.reset()
-    router.callback(SelfHandlingApproveOrderCallback.self)
+    await ExplicitApproveOrderCallback.recorder.reset()
+    router.callback(ExplicitApproveOrderCallback.self) { callback, _ in
+        await ExplicitApproveOrderCallback.recorder.record(callback.orderID)
+    }
 
     await router.handle()
-    await router.process([makeCallbackUpdate(data: "orders/55/self_approve")])
+    await router.process([makeCallbackUpdate(data: "orders/55/explicit_approve")])
 
-    let values = await SelfHandlingApproveOrderCallback.recorder.waitForCount(1)
+    let values = await ExplicitApproveOrderCallback.recorder.waitForCount(1)
     #expect(values == ["55"])
 }
 
-@Test func routeCollectionMountsRoutesIntoGroup() async throws {
+@Test func routeModuleMountsIntoGroup() async throws {
     let bot = try await makeBot()
-    let router = Teleroute(bot: bot, logger: .init(label: "router.collection"))
+    let router = Teleroute(bot: bot, logger: .init(label: "router.module"))
     let recorder = Recorder<String>()
 
     router.group("admin") { admin in
-        admin.add(collection: AdminCollection(recorder: recorder))
+        admin.mount(AdminModule(recorder: recorder))
     }
 
     await router.handle()
@@ -214,12 +219,12 @@ struct TelerouteTests {
     #expect(values == ["ban:42"])
 }
 
-@Test func groupedCollectionOwnsItsPath() async throws {
+@Test func moduleCanOwnItsPath() async throws {
     let bot = try await makeBot()
-    let router = Teleroute(bot: bot, logger: .init(label: "router.grouped-collection"))
+    let router = Teleroute(bot: bot, logger: .init(label: "router.grouped-module"))
     let recorder = Recorder<String>()
 
-    router.group(GroupedAdminCollection(recorder: recorder))
+    router.mount(GroupedAdminModule(recorder: recorder))
 
     await router.handle()
     await router.process([makeCommandUpdate(text: "/admin_ban 42")])
@@ -233,10 +238,10 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.guard.command"))
     let recorder = Recorder<String>()
 
-    router.command("start", routeGuard: TelerouteChatTypeGuard(.group)) { _, _ in
+    router.command("start", guards: [TelerouteChatTypeGuard(.group)]) { _ in
         await recorder.record("group")
     }
-    router.command("start", routeGuard: TelerouteChatTypeGuard(.private)) { _, _ in
+    router.command("start", guards: [TelerouteChatTypeGuard(.private)]) { _ in
         await recorder.record("private")
     }
 
@@ -252,10 +257,10 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.guard.callback"))
     let recorder = Recorder<String>()
 
-    router.callback("orders/{id}/approve", routeGuard: TelerouteChatTypeGuard(.group)) { _, _ in
+    router.callback("orders/{id}/approve", guards: [TelerouteChatTypeGuard(.group)]) { _ in
         await recorder.record("group")
     }
-    router.callback("orders/{id}/approve", routeGuard: TelerouteChatTypeGuard(.private)) { _, context in
+    router.callback("orders/{id}/approve", guards: [TelerouteChatTypeGuard(.private)]) { context in
         await recorder.record(try context.parameters.require("id"))
     }
 
@@ -274,7 +279,7 @@ struct TelerouteTests {
     router.command(
         "start",
         middlewares: [RecordingMiddleware(recorder: recorder, label: "mw")]
-    ) { _, _ in
+    ) { _ in
         await recorder.record(["handler"])
     }
 
@@ -298,7 +303,7 @@ struct TelerouteTests {
                 scope: .chatUser
             )
         ]
-    ) { _, context in
+    ) { context in
         await recorder.record(context.command?.arguments.first ?? "")
     }
 
@@ -325,11 +330,11 @@ struct TelerouteTests {
                 scope: .chatUser
             )
         ]
-    ) { _, context in
+    ) { context in
         await recorder.record("limited:\(context.command?.arguments.first ?? "")")
     }
 
-    router.command("tap") { _, context in
+    router.command("tap") { context in
         await recorder.record("fallback:\(context.command?.arguments.first ?? "")")
     }
 
@@ -355,7 +360,7 @@ struct TelerouteTests {
                 scope: .chatUser
             )
         ]
-    ) { _, context in
+    ) { context in
         await recorder.record(context.command?.arguments.first ?? "")
     }
 
@@ -383,11 +388,11 @@ struct TelerouteTests {
                 scope: .chatUser
             )
         ]
-    ) { _, context in
+    ) { context in
         await recorder.record("debounced:\(context.command?.arguments.first ?? "")")
     }
 
-    router.command("search") { _, context in
+    router.command("search") { context in
         await recorder.record("fallback:\(context.command?.arguments.first ?? "")")
     }
 
@@ -408,7 +413,7 @@ struct TelerouteTests {
     let recorder = Recorder<TelerouteEvent>()
 
     let collectionTask = Task {
-        var iterator = router.events.makeAsyncIterator()
+        var iterator = router.eventStream().makeAsyncIterator()
         while let event = await iterator.next() {
             await recorder.record(event)
             if await recorder.values.count >= 2 {
@@ -417,7 +422,7 @@ struct TelerouteTests {
         }
     }
 
-    router.command("events") { _, _ in }
+    router.command("events") { _ in }
 
     await router.handle()
     await router.process([makeCommandUpdate(text: "/events", updateId: 235)])
@@ -432,7 +437,7 @@ struct TelerouteTests {
 @Test func eventEmitterPreservesEmissionOrder() async throws {
     let hub = TelerouteEventHub()
     let eventCount = 50
-    let events = hub.sequence()
+    let events = hub.sequence(buffering: .unbounded)
 
     let collectionTask = Task {
         var iterator = events.makeAsyncIterator()
@@ -465,8 +470,8 @@ struct TelerouteTests {
 @Test func eventHubBroadcastsToMultipleConsumers() async throws {
     let hub = TelerouteEventHub()
     // Two independent subscriptions: each gets its own stream/buffer.
-    let eventsA = hub.sequence()
-    let eventsB = hub.sequence()
+    let eventsA = hub.sequence(buffering: .unbounded)
+    let eventsB = hub.sequence(buffering: .unbounded)
 
     let consumerA = Task {
         var iterator = eventsA.makeAsyncIterator()
@@ -505,11 +510,15 @@ struct TelerouteTests {
     let bot = try await makeBot()
     let recorder = Recorder<String>()
 
-    let router = Teleroute(bot: bot, logger: .init(label: "router.error")) { error, _ in
-        await recorder.record(String(describing: error))
-    }
+    let router = Teleroute(
+        bot: bot,
+        logger: .init(label: "router.error"),
+        configuration: .init(onError: { error, _ in
+            await recorder.record(String(describing: error))
+        })
+    )
 
-    router.command("boom") { _, _ in
+    router.command("boom") { _ in
         throw BoomError()
     }
 
@@ -527,13 +536,13 @@ struct TelerouteTests {
     let recorder = Recorder<TelerouteEvent>()
 
     let eventTask = Task {
-        for await event in router.events {
+        for await event in router.eventStream() {
             await recorder.record(event)
             if event.kind == .failed { break }
         }
     }
 
-    router.command("boom") { _, _ in
+    router.command("boom") { _ in
         throw BoomError()
     }
 
@@ -554,7 +563,7 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.flow"))
     let recorder = Recorder<String>()
 
-    router.add(flow: SignupFlow(recorder: recorder))
+    router.flow(SignupFlow(recorder: recorder))
 
     await router.handle()
     await router.process([makeCommandUpdate(text: "/signup")])
@@ -573,7 +582,7 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.flow.command"))
     let recorder = Recorder<String>()
 
-    router.add(flow: SignupFlow(recorder: recorder))
+    router.flow(SignupFlow(recorder: recorder))
 
     await router.handle()
     await router.process([makeCommandUpdate(text: "/signup", updateId: 240)])
@@ -592,7 +601,7 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.flow.serial"))
     let recorder = Recorder<String>()
 
-    router.add(flow: SignupFlow(recorder: recorder))
+    router.flow(SignupFlow(recorder: recorder))
 
     await router.handle()
     await router.process([makeCommandUpdate(text: "/signup", updateId: 250)])
@@ -616,7 +625,7 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.flow.callback-user"))
     let recorder = Recorder<String>()
 
-    router.add(flow: SignupFlow(recorder: recorder))
+    router.flow(SignupFlow(recorder: recorder))
 
     await router.handle()
     await router.process([makeCommandUpdate(text: "/signup", userId: 42, chatId: 42)])
@@ -642,8 +651,8 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.flow.cancel"))
     let recorder = Recorder<String>()
 
-    router.add(flow: SignupFlow(recorder: recorder))
-    router.command("help") { _, _ in
+    router.flow(SignupFlow(recorder: recorder))
+    router.command("help") { _ in
         await recorder.record("help")
     }
 
@@ -664,11 +673,11 @@ struct TelerouteTests {
     let router = Teleroute(
         bot: bot,
         logger: .init(label: "router.flow.storage"),
-        flowStorage: flowStorage
+        configuration: .init(flowStorage: flowStorage)
     )
     let key = TelerouteFlowKey(chatId: 1, userId: 1)
 
-    router.add(flow: SignupFlow(recorder: Recorder<String>()))
+    router.flow(SignupFlow(recorder: Recorder<String>()))
 
     await router.handle()
     await router.process([makeCommandUpdate(text: "/signup")])
@@ -683,13 +692,11 @@ struct TelerouteTests {
     let router = Teleroute(
         bot: bot,
         logger: .init(label: "router.replay.command"),
-        flowStorage: TelerouteInMemoryFlowStorage(),
-        replayProtectionStorage: TelerouteInMemoryReplayProtectionStorage(),
-        replayProtectionTTL: .seconds(5)
+        configuration: .init(replayProtectionTTL: .seconds(5))
     )
     let recorder = Recorder<String>()
 
-    router.command("start") { _, _ in
+    router.command("start") { _ in
         await recorder.record("start")
     }
 
@@ -706,13 +713,11 @@ struct TelerouteTests {
     let router = Teleroute(
         bot: bot,
         logger: .init(label: "router.replay.callback"),
-        flowStorage: TelerouteInMemoryFlowStorage(),
-        replayProtectionStorage: TelerouteInMemoryReplayProtectionStorage(),
-        replayProtectionTTL: .seconds(5)
+        configuration: .init(replayProtectionTTL: .seconds(5))
     )
     let recorder = Recorder<String>()
 
-    router.callback("orders/{id}/approve") { _, context in
+    router.callback("orders/{id}/approve") { context in
         await recorder.record(try context.parameters.require("id"))
     }
 
@@ -741,7 +746,7 @@ struct TelerouteTests {
     let recorder = Recorder<String>()
     let probe = ConcurrencyProbe()
 
-    router.command("sync", queueing: .chatUser) { _, context in
+    router.command("sync", queue: .perChatAndUser) { context in
         let value = context.command?.arguments.first ?? "unknown"
         await recorder.record("start:\(value)")
         await probe.enter()
@@ -767,13 +772,13 @@ struct TelerouteTests {
     try? await Task.sleep(for: .milliseconds(20))
 }
 
-@Test func typedCommandUsesQueueingDeclaredOnSpec() async throws {
+@Test func typedCommandUsesQueueDeclaredOnSpec() async throws {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.queue.typed-command"))
     let recorder = Recorder<String>()
     let probe = ConcurrencyProbe()
 
-    router.command(QueuedCommand.self) { _, _, command in
+    router.command(QueuedCommand.self) { command, _ in
         await recorder.record("start:\(command.value)")
         await probe.enter()
         try? await Task.sleep(for: .milliseconds(50))
@@ -805,17 +810,17 @@ struct TelerouteTests {
     router.command(
         "start",
         description: "Start the bot"
-    ) { _, _ in }
+    ) { _ in }
     router.command(
         "ban",
         description: "Ban a user",
         visibility: [.allGroupChats, .allChatAdministrators]
-    ) { _, _ in }
+    ) { _ in }
     router.command(
         "start",
         description: "Start the bot",
-        routeGuard: TelerouteChatTypeGuard(.private)
-    ) { _, _ in }
+        guards: [TelerouteChatTypeGuard(.private)]
+    ) { _ in }
 
     let commandSets = try router.publishedCommandSets()
 
@@ -830,12 +835,12 @@ struct TelerouteTests {
 
 @Test func duplicateRouteSignaturesAreReportedForUnguardedRoutes() async throws {
     let bot = try await makeBot()
-    let router = Teleroute(bot: bot, logger: .init(label: "router.routes.duplicates"))
+    let router = Teleroute(bot: bot, logger: .init(label: "router.duplicates"))
 
-    router.command("start") { _, _ in }
-    router.command("start") { _, _ in }
-    router.callback("orders/{id}") { _, _ in }
-    router.callback("orders/{id}") { _, _ in }
+    router.command("start") { _ in }
+    router.command("start") { _ in }
+    router.callback("orders/{id}") { _ in }
+    router.callback("orders/{id}") { _ in }
 
     let duplicates = router.duplicateRouteSignatures
 
@@ -845,10 +850,10 @@ struct TelerouteTests {
 
 @Test func guardedDuplicateRoutesAreNotReportedAsDuplicates() async throws {
     let bot = try await makeBot()
-    let router = Teleroute(bot: bot, logger: .init(label: "router.routes.guarded-duplicates"))
+    let router = Teleroute(bot: bot, logger: .init(label: "router.guarded-duplicates"))
 
-    router.command("start", routeGuard: TelerouteChatTypeGuard(.private)) { _, _ in }
-    router.command("start", routeGuard: TelerouteChatTypeGuard(.group)) { _, _ in }
+    router.command("start", guards: [TelerouteChatTypeGuard(.private)]) { _ in }
+    router.command("start", guards: [TelerouteChatTypeGuard(.group)]) { _ in }
 
     #expect(router.duplicateRouteSignatures.isEmpty)
 }
@@ -857,7 +862,7 @@ struct TelerouteTests {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.commands.typed-visibility"))
 
-    router.command(VisibleCommand.self)
+    router.command(VisibleCommand.self) { _, _ in }
 
     let commandSets = try router.publishedCommandSets()
 
@@ -870,8 +875,8 @@ struct TelerouteTests {
     let bot = try await makeBot()
     let router = Teleroute(bot: bot, logger: .init(label: "router.commands.duplicate"))
 
-    router.command("start", description: "Start") { _, _ in }
-    router.command("start", description: "Boot") { _, _ in }
+    router.command("start", description: "Start") { _ in }
+    router.command("start", description: "Boot") { _ in }
 
     #expect(throws: TelerouteError.self) {
         _ = try router.publishedCommandSets()
@@ -899,7 +904,7 @@ struct TelerouteTests {
     let bot = try await makeBot(client: RecordingCommandsClient(recorder: recorder))
     let router = Teleroute(bot: bot, logger: .init(label: "router.commands.context-publish"))
 
-    router.command("start") { _, context in
+    router.command("start") { context in
         try await context.publishCommands(
             [("profile", "Open profile")],
             visibility: .chat(.id(1))
@@ -932,7 +937,7 @@ struct TelerouteTests {
     let bot = try await makeBot(client: RecordingCommandsClient(recorder: recorder))
     let router = Teleroute(bot: bot, logger: .init(label: "router.commands.context-publish.typed"))
 
-    router.command("start") { _, context in
+    router.command("start") { context in
         try await context.publishCommands([VisibleCommand.self], visibility: .chat(.id(1)))
     }
 
@@ -952,13 +957,15 @@ struct TelerouteTests {
     let router = Teleroute(
         bot: bot,
         logger: .init(label: "router.replay.ttl"),
-        flowStorage: storage,
-        replayProtectionStorage: replayStorage,
-        replayProtectionTTL: .milliseconds(40)
+        configuration: .init(
+            flowStorage: storage,
+            replayProtectionStorage: replayStorage,
+            replayProtectionTTL: .milliseconds(40)
+        )
     )
     let recorder = Recorder<String>()
 
-    router.command("start") { _, _ in
+    router.command("start") { _ in
         await recorder.record("start")
     }
 
@@ -985,7 +992,7 @@ struct TelerouteTests {
     let recorder = Recorder<String>()
     let probe = ConcurrencyProbe()
 
-    router.command("sync", queueing: .global) { _, context in
+    router.command("sync", queue: .global) { context in
         let value = context.command?.arguments.first ?? "unknown"
         await recorder.record("start:\(value)")
         await probe.enter()
@@ -1016,7 +1023,7 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.queue.chat"))
     let probe = ConcurrencyProbe()
 
-    router.command("sync", queueing: .chat) { _, _ in
+    router.command("sync", queue: .perChat) { _ in
         await probe.enter()
         try? await Task.sleep(for: .milliseconds(50))
         await probe.leave()
@@ -1051,7 +1058,7 @@ struct TelerouteTests {
     let context = TelerouteContext(bot: bot, update: update)
 
     await #expect(throws: TelerouteError.self) {
-        try await context.send(text: "hello")
+        try await context.send("hello")
     }
 }
 
@@ -1061,7 +1068,7 @@ struct TelerouteTests {
     let context = TelerouteContext(bot: bot, update: update)
 
     await #expect(throws: TelerouteError.self) {
-        try await context.edit(text: "edited")
+        try await context.edit("edited")
     }
 }
 
@@ -1071,7 +1078,7 @@ struct TelerouteTests {
     let context = TelerouteContext(bot: bot, update: update)
 
     await #expect(throws: TelerouteError.self) {
-        try await context.answerCallbackQuery(text: "ack")
+        try await context.answerCallbackQuery("ack")
     }
 }
 
@@ -1080,11 +1087,11 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.debounce.cancel"))
     let recorder = Recorder<TelerouteEvent.Kind>()
 
-    router.command("save", middlewares: [TelerouteDebounceMiddleware(interval: .seconds(10))]) { _, _ in
+    router.command("save", middlewares: [TelerouteDebounceMiddleware(interval: .seconds(10))]) { _ in
         await recorder.record(.handled)
     }
 
-    let events = router.events
+    let events = router.eventStream()
     let eventTask = Task {
         for await event in events {
             await recorder.record(event.kind)
@@ -1109,12 +1116,14 @@ struct TelerouteTests {
     let router = Teleroute(
         bot: bot,
         logger: .init(label: "router.flow.manual"),
-        flowStorage: storage,
-        flowCancellationPolicy: .manual
+        configuration: .init(
+            flowStorage: storage,
+            flowCancellationPolicy: .manual
+        )
     )
     let recorder = Recorder<String>()
 
-    router.add(flow: SignupFlow(recorder: recorder))
+    router.flow(SignupFlow(recorder: recorder))
 
     await router.handle()
     await router.process([makeCommandUpdate(text: "/signup", updateId: 550)])
@@ -1172,8 +1181,8 @@ struct TelerouteTests {
     let router = Teleroute(bot: bot, logger: .init(label: "router.commands.dedup"))
 
     // Same command registered twice with identical description: published once.
-    router.command("start", description: "Begin", visibility: [.default]) { _, _ in }
-    router.command("start", description: "Begin", visibility: [.default]) { _, _ in }
+    router.command("start", description: "Begin", visibility: [.default]) { _ in }
+    router.command("start", description: "Begin", visibility: [.default]) { _ in }
 
     let sets = try router.publishedCommandSets()
     #expect(sets.count == 1)
@@ -1276,8 +1285,8 @@ private struct BanCommand: TelerouteCommand {
     }
 }
 
-private struct SelfHandlingBanCommand: TelerouteCommand {
-    static let path = "self_ban"
+private struct ExplicitBanCommand: TelerouteCommand {
+    static let path = "explicit_ban"
     static let recorder = Recorder<String>()
 
     let userID: String
@@ -1286,14 +1295,11 @@ private struct SelfHandlingBanCommand: TelerouteCommand {
         self.userID = try command.require("userID")
     }
 
-    func handle(update: TGUpdate, context: TelerouteContext) async throws {
-        await Self.recorder.record(self.userID)
-    }
 }
 
 private struct QueuedCommand: TelerouteCommand {
     static let path = "queued"
-    static let queueing: TelerouteCommandQueueing? = .chatUser
+    static let queue: TelerouteQueueScope? = .perChatAndUser
 
     let value: String
 
@@ -1328,8 +1334,8 @@ private struct ApproveOrderCallback: TelerouteCallback {
     }
 }
 
-private struct SelfHandlingApproveOrderCallback: TelerouteCallback {
-    static let path = "orders/{orderID}/self_approve"
+private struct ExplicitApproveOrderCallback: TelerouteCallback {
+    static let path = "orders/{orderID}/explicit_approve"
     static let recorder = Recorder<String>()
 
     let orderID: String
@@ -1346,28 +1352,23 @@ private struct SelfHandlingApproveOrderCallback: TelerouteCallback {
         ["orderID": self.orderID]
     }
 
-    func handle(update: TGUpdate, context: TelerouteContext) async throws {
-        await Self.recorder.record(self.orderID)
-    }
 }
 
-private struct AdminCollection: TelerouteCollectionBuilder {
+private struct AdminModule: TelerouteModule {
     let recorder: Recorder<String>
 
-    func boot(collection: TelerouteCollectionGroup) {
-        collection.command("ban") { _, context in
+    func register(in routes: TelerouteRoutes) {
+        routes.command("ban") { context in
             await self.recorder.record("ban:\(context.command?.arguments.first ?? "")")
         }
     }
 }
 
-private struct GroupedAdminCollection: TelerouteGroupCollection {
+private struct GroupedAdminModule: TelerouteModule {
     let recorder: Recorder<String>
 
-    let path = "admin"
-
-    func boot(collection: TelerouteCollectionGroup) {
-        collection.command("ban") { _, context in
+    func register(in routes: TelerouteRoutes) {
+        routes.group("admin").command("ban") { context in
             await self.recorder.record("grouped-ban:\(context.command?.arguments.first ?? "")")
         }
     }
@@ -1425,23 +1426,23 @@ private struct SignupFlow: TelerouteFlow {
     let recorder: Recorder<String>
 
     func boot(flow: TelerouteFlowGroup<SignupFlow>) {
-        flow.start("signup", at: .name) { _, _ in
+        flow.start("signup", at: .name) { _ in
             await self.recorder.record("start")
         }
 
-        flow.message(at: .name) { _, context in
+        flow.message(at: .name) { context in
             let name = context.message?.text ?? ""
             await self.recorder.record("name:\(name)")
             try await context.transition(to: .confirm, merging: ["name": name])
         }
 
-        flow.command("cancel", at: .confirm) { _, context in
+        flow.command("cancel", at: .confirm) { context in
             let name = try context.values.require("name")
             await self.recorder.record("cancel:\(name)")
             try await context.finish()
         }
 
-        flow.callback("confirm/{decision}", at: .confirm) { _, context in
+        flow.callback("confirm/{decision}", at: .confirm) { context in
             let name = try context.values.require("name")
             let decision = try context.parameters.require("decision")
             await self.recorder.record("confirm:\(name):\(decision)")

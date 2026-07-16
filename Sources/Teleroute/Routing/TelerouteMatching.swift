@@ -5,14 +5,16 @@ import Synchronization
 final class TelerouteStorage: Sendable {
     private struct State: Sendable {
         var commandRoutes: [TelerouteCommandRoute] = []
-        var callbackRoutes: [TelerouteCallbackRoute] = []
+        var callbackRoutes: [TelerouteCallbackHandlerRoute] = []
         var flowRoutes: [TelerouteFlowRoute] = []
         var publishedCommands: [TeleroutePublishedCommand] = []
+        var registeredCallbackPaths: Set<String> = []
         var routeSignatures: OrderedSet<TelerouteRouteSignature> = []
         var duplicateRouteSignatures: OrderedSet<TelerouteRouteSignature> = []
     }
 
     private let state = Mutex(State())
+    let identity = UUID()
     let commandQueue = TelerouteCommandQueue()
     let flowQueue = TelerouteCommandQueue()
 
@@ -20,7 +22,7 @@ final class TelerouteStorage: Sendable {
         self.state.withLock { $0.commandRoutes }
     }
 
-    var callbackRoutes: [TelerouteCallbackRoute] {
+    var callbackRoutes: [TelerouteCallbackHandlerRoute] {
         self.state.withLock { $0.callbackRoutes }
     }
 
@@ -47,11 +49,12 @@ final class TelerouteStorage: Sendable {
     }
 
     func appendCallbackRoute(
-        _ route: TelerouteCallbackRoute,
+        _ route: TelerouteCallbackHandlerRoute,
         signature: TelerouteRouteSignature?
     ) {
         self.state.withLock {
             Self.register(signature, in: &$0)
+            $0.registeredCallbackPaths.insert(route.pattern.routeDescription)
             $0.callbackRoutes.append(route)
         }
     }
@@ -62,8 +65,15 @@ final class TelerouteStorage: Sendable {
     ) {
         self.state.withLock {
             Self.register(signature, in: &$0)
+            if case let .callback(pattern) = route.matcher {
+                $0.registeredCallbackPaths.insert(pattern.routeDescription)
+            }
             $0.flowRoutes.append(route)
         }
+    }
+
+    func containsCallbackRoute(_ path: String) -> Bool {
+        self.state.withLock { $0.registeredCallbackPaths.contains(path) }
     }
 
     func appendPublishedCommand(_ command: TeleroutePublishedCommand) {
@@ -128,7 +138,7 @@ struct TelerouteCommandRoute: Sendable {
     let handler: TelerouteHandler
 }
 
-struct TelerouteCallbackRoute: Sendable {
+struct TelerouteCallbackHandlerRoute: Sendable {
     let pattern: TelerouteCallbackPattern
     let middlewares: [any TelerouteMiddleware]
     let handler: TelerouteHandler

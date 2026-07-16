@@ -12,7 +12,7 @@ struct TelerouteStageBTests {
         let recorder = TelerouteTestRecorder<[String]>()
 
         router.group("admin", middlewares: [RecordingMiddleware(recorder: recorder, label: "group")]) { admin in
-            admin.command("ban", middlewares: [RecordingMiddleware(recorder: recorder, label: "route")]) { _, _ in
+            admin.command("ban", middlewares: [RecordingMiddleware(recorder: recorder, label: "route")]) { _ in
                 await recorder.record(["handler"])
             }
         }
@@ -29,8 +29,8 @@ struct TelerouteStageBTests {
         let router = Teleroute(bot: bot, logger: .init(label: "router.group.guard"))
         let recorder = TelerouteTestRecorder<String>()
 
-        router.group("admin", routeGuards: [TelerouteChatTypeGuard(.group)]) { admin in
-            admin.command("ban") { _, _ in
+        router.group("admin", guards: [TelerouteChatTypeGuard(.group)]) { admin in
+            admin.command("ban") { _ in
                 await recorder.record("handled")
             }
         }
@@ -49,7 +49,7 @@ struct TelerouteStageBTests {
         router.command(
             "flaky",
             middlewares: [TelerouteRetryMiddleware(retries: 2, backoff: { _ in .milliseconds(0) })]
-        ) { _, _ in
+        ) { _ in
             let count = attempts.withLock { $0 += 1; return $0 }
             if count < 3 {
                 struct TransientError: Error {}
@@ -68,16 +68,20 @@ struct TelerouteStageBTests {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.timeout")
         let sawTimeout = Mutex(false)
 
-        let router = Teleroute(bot: bot, logger: .init(label: "router.timeout.onerror")) { error, _ in
-            if error is TelerouteTimeoutError {
-                sawTimeout.withLock { $0 = true }
-            }
-        }
+        let router = Teleroute(
+            bot: bot,
+            logger: .init(label: "router.timeout.onerror"),
+            configuration: .init(onError: { error, _ in
+                if error is TelerouteTimeoutError {
+                    sawTimeout.withLock { $0 = true }
+                }
+            })
+        )
 
         router.command(
             "slow",
             middlewares: [TelerouteTimeoutMiddleware(.milliseconds(20))]
-        ) { _, _ in
+        ) { _ in
             try? await Task.sleep(for: .milliseconds(200))
         }
 
@@ -93,7 +97,7 @@ struct TelerouteStageBTests {
         let router = Teleroute(bot: bot, logger: .init(label: "router.guard.private"))
         let recorder = TelerouteTestRecorder<String>()
 
-        router.command("dm", routeGuard: TeleroutePrivateChatGuard()) { _, _ in
+        router.command("dm", guards: [TeleroutePrivateChatGuard()]) { _ in
             await recorder.record("dm")
         }
 
@@ -110,7 +114,7 @@ struct TelerouteStageBTests {
         let router = Teleroute(bot: bot, logger: .init(label: "router.guard.allowlist"))
         let recorder = TelerouteTestRecorder<Int64>()
 
-        router.command("vip", routeGuard: TelerouteUserAllowlistGuard([42, 99])) { _, context in
+        router.command("vip", guards: [TelerouteUserAllowlistGuard([42, 99])]) { context in
             if let userId = context.userId {
                 await recorder.record(userId)
             }
@@ -129,9 +133,13 @@ struct TelerouteStageBTests {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.error-mw")
         let recorder = TelerouteTestRecorder<String>()
 
-        let router = Teleroute(bot: bot, logger: .init(label: "router.error-mw")) { error, _ in
-            await recorder.record("onError:\(error)")
-        }
+        let router = Teleroute(
+            bot: bot,
+            logger: .init(label: "router.error-mw"),
+            configuration: .init(onError: { error, _ in
+                await recorder.record("onError:\(error)")
+            })
+        )
 
         router.command(
             "boom",
@@ -140,7 +148,7 @@ struct TelerouteStageBTests {
                     await recorder.record("handled:\(error)")
                 }
             ]
-        ) { _, _ in
+        ) { _ in
             throw BoomError()
         }
 

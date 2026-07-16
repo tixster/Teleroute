@@ -19,24 +19,25 @@ protocol TelerouteConsumingMiddleware: TelerouteMiddleware {}
 
 enum TelerouteMiddlewareComposer: Sendable {
     static func resolve(
-        routeGuard: (any TelerouteGuard)?,
+        guards: [any TelerouteGuard],
         middlewares: [any TelerouteMiddleware]
     ) -> [any TelerouteMiddleware] {
-        if let routeGuard {
-            return [TelerouteGuardMiddleware(routeGuard: routeGuard)] + middlewares
-        }
-        return middlewares
+        guard guards.isEmpty == false else { return middlewares }
+        let combinedGuard: any TelerouteGuard = guards.count == 1
+            ? guards[0]
+            : TelerouteCompositeGuard(guards: guards)
+        return [TelerouteGuardMiddleware(guardValue: combinedGuard)] + middlewares
     }
 }
 
 struct TelerouteGuardMiddleware: TelerouteMiddleware, Sendable {
-    let routeGuard: any TelerouteGuard
+    let guardValue: any TelerouteGuard
 
     func handle(
         _ context: TelerouteContext,
         next: @escaping @Sendable (TelerouteContext) async throws -> Void
     ) async throws {
-        guard try await self.routeGuard.matches(context) else { return }
+        guard try await self.guardValue.matches(context) else { return }
         try await next(context)
     }
 }

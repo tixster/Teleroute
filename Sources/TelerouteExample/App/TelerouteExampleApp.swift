@@ -13,7 +13,7 @@ enum TelerouteExampleApp {
         let bot = try await ExampleBootstrap.makeBot(environment: environment)
         let router = ExampleBootstrap.makeRouter(bot: bot)
 
-        ExampleRouterConfiguration.configure(router: router)
+        router.mount(ExampleRouterConfiguration())
         try await ExampleBootstrap.publishCommandsAndStart(router: router, bot: bot)
     }
 }

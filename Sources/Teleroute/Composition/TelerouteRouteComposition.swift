@@ -2,7 +2,7 @@ import Foundation
 
 /// A guard that passes only when every wrapped guard passes, evaluated in order.
 ///
-/// Used internally to combine group-inherited guards with the per-route guard.
+/// Used internally to combine inherited and route-local guards.
 struct TelerouteCompositeGuard: TelerouteGuard {
     let guards: [any TelerouteGuard]
 
@@ -19,29 +19,18 @@ struct TelerouteCompositeGuard: TelerouteGuard {
 /// Helpers for composing middleware chains and guards inherited from a group.
 extension TelerouteMiddlewareComposer {
     /// Resolves a route's middleware chain, prepending any group-inherited
-    /// middleware and merging group-inherited guards with the route guard.
+    /// middleware and merging group-inherited guards with route-local guards.
     ///
     /// Group-inherited middleware runs before route middleware, and
-    /// group-inherited guards are evaluated before the route guard. When both
-    /// inherited and route guards are present they are combined into a
-    /// ``TelerouteCompositeGuard`` so the route sees a single guard that
-    /// short-circuits on the first failure.
+    /// group-inherited guards are evaluated before route-local guards.
     static func resolve(
         inheritedMiddlewares: [any TelerouteMiddleware],
         inheritedGuards: [any TelerouteGuard],
-        routeGuard: (any TelerouteGuard)?,
+        guards: [any TelerouteGuard],
         middlewares: [any TelerouteMiddleware]
     ) -> [any TelerouteMiddleware] {
-        let combinedGuard: (any TelerouteGuard)?
-        if inheritedGuards.isEmpty {
-            combinedGuard = routeGuard
-        } else if let routeGuard {
-            combinedGuard = TelerouteCompositeGuard(guards: inheritedGuards + [routeGuard])
-        } else {
-            combinedGuard = TelerouteCompositeGuard(guards: inheritedGuards)
-        }
         return Self.resolve(
-            routeGuard: combinedGuard,
+            guards: inheritedGuards + guards,
             middlewares: inheritedMiddlewares + middlewares
         )
     }

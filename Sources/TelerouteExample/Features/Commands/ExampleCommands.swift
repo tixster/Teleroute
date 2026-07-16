@@ -5,8 +5,8 @@ import Teleroute
 /// This demonstrates the simplest typed-command shape:
 /// - static route metadata
 /// - argument decoding from `TelerouteCommandMatch`
-/// - command-owned handling logic
-struct ProfileCommand: TelerouteCommand {
+/// - opt-in behavior owned by the decoded command value
+struct ProfileCommand: TelerouteHandlingCommand {
     static let path = "profile"
     static let commandDescription: String? = "Show a user profile"
     static let visibility: [TelerouteCommandVisibility] = [.allPrivateChats]
@@ -17,25 +17,25 @@ struct ProfileCommand: TelerouteCommand {
         self.username = try command.require("username")
     }
 
-    func handle(update: TGUpdate, context: TelerouteContext) async throws {
-        try await context.reply(text: "Profile for \(self.username)")
+    func handle(context: TelerouteContext) async throws {
+        try await context.reply("Profile for \(self.username)")
     }
 }
 
-/// Typed command that opts into per-chat-per-user queueing.
+/// Typed command that opts into a per-chat-and-user queue.
 ///
 /// This demonstrates how commands that touch mutable state or long-running jobs
-/// can declare a default queueing strategy directly on the spec.
-struct SyncCatalogCommand: TelerouteCommand {
+/// can declare a default queue scope directly on the spec.
+struct SyncCatalogCommand: TelerouteHandlingCommand {
     static let path = "sync_catalog"
     static let commandDescription: String? = "Synchronize catalog items"
     static let visibility: [TelerouteCommandVisibility] = [.allPrivateChats]
-    static let queueing: TelerouteCommandQueueing? = .chatUser
+    static let queue: TelerouteQueueScope? = .perChatAndUser
 
     init(command: TelerouteCommandMatch) throws {}
 
-    func handle(update: TGUpdate, context: TelerouteContext) async throws {
-        try await context.reply(text: "Catalog sync queued for this chat/user.")
+    func handle(context: TelerouteContext) async throws {
+        try await context.reply("Catalog sync queued for this chat/user.")
     }
 }
 
@@ -43,7 +43,7 @@ struct SyncCatalogCommand: TelerouteCommand {
 ///
 /// Its `path` remains `"ban"`, but when mounted into `router.group("admin")`
 /// the effective Telegram command becomes `/admin_ban`.
-struct AdminBanCommand: TelerouteCommand {
+struct AdminBanCommand: TelerouteHandlingCommand {
     static let path = "ban"
     static let commandDescription: String? = "Ban a user"
     static let visibility: [TelerouteCommandVisibility] = [.allChatAdministrators]
@@ -54,5 +54,11 @@ struct AdminBanCommand: TelerouteCommand {
     init(command: TelerouteCommandMatch) throws {
         self.userID = try command.require("userID")
         self.reason = command.get("reason", at: 1)
+    }
+
+    func handle(context: TelerouteContext) async throws {
+        try await context.reply(
+            "Admin ban: \(self.userID), reason: \(self.reason ?? "not provided")"
+        )
     }
 }

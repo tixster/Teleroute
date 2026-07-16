@@ -1,36 +1,22 @@
-import SwiftTelegramBot
-import Foundation
-
-public extension TelerouteGroup {
-    /// Registers a typed command whose handler lives on the command value itself.
-    func command<Command: TelerouteCommand>(
+public extension TelerouteRoutes {
+    /// Registers a typed command that handles itself.
+    func command<Command: TelerouteHandlingCommand>(
         _ commandType: Command.Type,
         description: String? = nil,
         visibility: [TelerouteCommandVisibility]? = nil,
-        routeGuard: (any TelerouteGuard)? = nil,
+        guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware] = [],
-        queueing: TelerouteCommandQueueing? = nil,
+        queue: TelerouteQueueScope? = nil
     ) {
         self.command(
-            Command.path,
-            botUsername: Command.botUsername,
-            description: description ?? Command.commandDescription,
-            visibility: visibility ?? Command.visibility,
-            routeGuard: routeGuard,
+            commandType,
+            description: description,
+            visibility: visibility,
+            guards: guards,
             middlewares: middlewares,
-            queueing: queueing ?? Command.queueing
-        ) { update, context in
-            let command = try Command(
-                command: context.command
-                    ?? TelerouteCommandMatch(
-                        name: Command.path,
-                        rawValue: "/\(Command.path)",
-                        mentionedBotUsername: nil,
-                        argumentsText: nil,
-                        arguments: []
-                    )
-            )
-            try await command.handle(update: update, context: context)
+            queue: queue
+        ) { command, context in
+            try await command.handle(context: context)
         }
     }
 
@@ -39,385 +25,130 @@ public extension TelerouteGroup {
         _ commandType: Command.Type,
         description: String? = nil,
         visibility: [TelerouteCommandVisibility]? = nil,
-        routeGuard: (any TelerouteGuard)? = nil,
+        guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware] = [],
-        queueing: TelerouteCommandQueueing? = nil,
-        use handler: @escaping @Sendable (_ update: TGUpdate, _ context: TelerouteContext, _ command: Command) async throws -> Void
+        queue: TelerouteQueueScope? = nil,
+        use handler: @escaping @Sendable (_ command: Command, _ context: TelerouteContext) async throws -> Void
     ) {
         self.command(
             Command.path,
             botUsername: Command.botUsername,
             description: description ?? Command.commandDescription,
             visibility: visibility ?? Command.visibility,
-            routeGuard: routeGuard,
+            guards: guards,
             middlewares: middlewares,
-            queueing: queueing ?? Command.queueing
-        ) { update, context in
-            try await handler(update, context, Command(command: context.command ?? TelerouteCommandMatch(name: Command.path, rawValue: "/\(Command.path)", mentionedBotUsername: nil, argumentsText: nil, arguments: [])))
+            queue: queue ?? Command.queue
+        ) { context in
+            guard let match = context.command else {
+                throw TelerouteError.commandMatchMissing
+            }
+            try await handler(Command(command: match), context)
         }
     }
 
-    /// Generates callback data for a typed callback value.
-    func callbackData<Callback: TelerouteCallback>(for callback: Callback) throws -> String {
-        try self.callbackData(Callback.path, parameters: callback.parameters)
-    }
-
-    /// Generates callback data for an existential typed callback value.
-    func callbackData(for callback: any TelerouteCallback) throws -> String {
-        try self.callbackData(type(of: callback).path, parameters: callback.parameters)
-    }
-
-    /// Creates an inline keyboard button for a typed callback value.
-    func callbackButton<Callback: TelerouteCallback>(
-        _ text: String,
-        callback: Callback,
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> TGInlineKeyboardButton {
-        .init(
-            text: text,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style,
-            callbackData: try self.callbackData(for: callback)
-        )
-    }
-
-    /// Creates an inline keyboard button for an existential typed callback value.
-    func callbackButton(
-        _ text: String,
-        callback: any TelerouteCallback,
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> TGInlineKeyboardButton {
-        .init(
-            text: text,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style,
-            callbackData: try self.callbackData(for: callback)
-        )
-    }
-
-    /// Creates multiple inline keyboard buttons from typed callback values.
-    func callbackButtons<Callback: TelerouteCallback>(
-        _ items: [(text: String, callback: Callback)],
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> [TGInlineKeyboardButton] {
-        try items.map { item in
-            try self.callbackButton(
-                item.text,
-                callback: item.callback,
-                iconCustomEmojiId: iconCustomEmojiId,
-                style: style
-            )
-        }
-    }
-
-    /// Creates multiple inline keyboard buttons from heterogeneous typed callback values.
-    func callbackButtons(
-        _ items: [(text: String, callback: any TelerouteCallback)],
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> [TGInlineKeyboardButton] {
-        try items.map { item in
-            try self.callbackButton(
-                item.text,
-                callback: item.callback,
-                iconCustomEmojiId: iconCustomEmojiId,
-                style: style
-            )
-        }
-    }
-
-    /// Registers a typed callback handler.
-    func callback<Callback: TelerouteCallback>(
+    /// Registers a typed callback that handles itself and returns its scope-bound route.
+    @discardableResult
+    func callback<Callback: TelerouteHandlingCallback>(
         _ callbackType: Callback.Type,
-        routeGuard: (any TelerouteGuard)? = nil,
-        middlewares: [any TelerouteMiddleware] = [],
-    ) {
-        self.callback(Callback.path, routeGuard: routeGuard, middlewares: middlewares) { update, context in
-            let callback = try Callback(parameters: context.parameters)
-            try await callback.handle(update: update, context: context)
-        }
-    }
-
-    /// Registers a typed callback handler.
-    func callback<Callback: TelerouteCallback>(
-        _ callbackType: Callback.Type,
-        routeGuard: (any TelerouteGuard)? = nil,
-        middlewares: [any TelerouteMiddleware] = [],
-        use handler: @escaping @Sendable (_ update: TGUpdate, _ context: TelerouteContext, _ callback: Callback) async throws -> Void
-    ) {
-        self.callback(Callback.path, routeGuard: routeGuard, middlewares: middlewares) { update, context in
-            try await handler(update, context, Callback(parameters: context.parameters))
-        }
-    }
-}
-
-public extension TelerouteCollectionGroup {
-    /// Registers a typed command whose handler lives on the command value itself.
-    func command<Command: TelerouteCommand>(
-        _ commandType: Command.Type,
-        description: String? = nil,
-        visibility: [TelerouteCommandVisibility]? = nil,
-        routeGuard: (any TelerouteGuard)? = nil,
-        middlewares: [any TelerouteMiddleware] = [],
-        queueing: TelerouteCommandQueueing? = nil,
-    ) {
-        self.group.command(
-            commandType,
-            description: description,
-            visibility: visibility,
-            routeGuard: routeGuard,
-            middlewares: middlewares,
-            queueing: queueing
-        )
-    }
-
-    /// Registers a typed command handler.
-    func command<Command: TelerouteCommand>(
-        _ commandType: Command.Type,
-        description: String? = nil,
-        visibility: [TelerouteCommandVisibility]? = nil,
-        routeGuard: (any TelerouteGuard)? = nil,
-        middlewares: [any TelerouteMiddleware] = [],
-        queueing: TelerouteCommandQueueing? = nil,
-        use handler: @escaping @Sendable (_ update: TGUpdate, _ context: TelerouteContext, _ command: Command) async throws -> Void
-    ) {
-        self.group.command(
-            commandType,
-            description: description,
-            visibility: visibility,
-            routeGuard: routeGuard,
-            middlewares: middlewares,
-            queueing: queueing,
-            use: handler
-        )
-    }
-
-    /// Generates callback data for a typed callback value.
-    func callbackData<Callback: TelerouteCallback>(for callback: Callback) throws -> String {
-        try self.group.callbackData(for: callback)
-    }
-
-    /// Generates callback data for an existential typed callback value.
-    func callbackData(for callback: any TelerouteCallback) throws -> String {
-        try self.group.callbackData(for: callback)
-    }
-
-    /// Creates an inline keyboard button for a typed callback value.
-    func callbackButton<Callback: TelerouteCallback>(
-        _ text: String,
-        callback: Callback,
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> TGInlineKeyboardButton {
-        try self.group.callbackButton(
-            text,
-            callback: callback,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style
-        )
-    }
-
-    /// Creates an inline keyboard button for an existential typed callback value.
-    func callbackButton(
-        _ text: String,
-        callback: any TelerouteCallback,
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> TGInlineKeyboardButton {
-        try self.group.callbackButton(
-            text,
-            callback: callback,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style
-        )
-    }
-
-    /// Creates multiple inline keyboard buttons from typed callback values.
-    func callbackButtons<Callback: TelerouteCallback>(
-        _ items: [(text: String, callback: Callback)],
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> [TGInlineKeyboardButton] {
-        try self.group.callbackButtons(
-            items,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style
-        )
-    }
-
-    /// Creates multiple inline keyboard buttons from heterogeneous typed callback values.
-    func callbackButtons(
-        _ items: [(text: String, callback: any TelerouteCallback)],
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> [TGInlineKeyboardButton] {
-        try self.group.callbackButtons(
-            items,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style
-        )
-    }
-
-    /// Registers a typed callback handler whose handler lives on the callback value itself.
-    func callback<Callback: TelerouteCallback>(
-        _ callbackType: Callback.Type,
-        routeGuard: (any TelerouteGuard)? = nil,
-        middlewares: [any TelerouteMiddleware] = [],
-    ) {
-        self.group.callback(
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware] = []
+    ) -> TelerouteCallbackRoute<Callback> {
+        self.callback(
             callbackType,
-            routeGuard: routeGuard,
+            guards: guards,
             middlewares: middlewares
-        )
+        ) { callback, context in
+            try await callback.handle(context: context)
+        }
     }
 
-    /// Registers a typed callback handler.
+    /// Registers a typed callback handler and returns its scope-bound route.
+    @discardableResult
     func callback<Callback: TelerouteCallback>(
         _ callbackType: Callback.Type,
-        routeGuard: (any TelerouteGuard)? = nil,
+        guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware] = [],
-        use handler: @escaping @Sendable (_ update: TGUpdate, _ context: TelerouteContext, _ callback: Callback) async throws -> Void
-    ) {
-        self.group.callback(
-            callbackType,
-            routeGuard: routeGuard,
-            middlewares: middlewares,
-            use: handler
-        )
+        use handler: @escaping @Sendable (_ callback: Callback, _ context: TelerouteContext) async throws -> Void
+    ) -> TelerouteCallbackRoute<Callback> {
+        self.callback(
+            Callback.path,
+            guards: guards,
+            middlewares: middlewares
+        ) { context in
+            try await handler(Callback(parameters: context.parameters), context)
+        }
+        return .init(callbackType, routes: self)
     }
 }
 
 public extension Teleroute {
-    /// Registers a typed command whose handler lives on the command value itself.
-    func command<Command: TelerouteCommand>(
+    /// Registers a typed command that handles itself at the router root.
+    func command<Command: TelerouteHandlingCommand>(
         _ commandType: Command.Type,
         description: String? = nil,
         visibility: [TelerouteCommandVisibility]? = nil,
-        routeGuard: (any TelerouteGuard)? = nil,
+        guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware] = [],
-        queueing: TelerouteCommandQueueing? = nil,
+        queue: TelerouteQueueScope? = nil
     ) {
-        self.rootGroup.command(
+        self.routeScope.command(
             commandType,
             description: description,
             visibility: visibility,
-            routeGuard: routeGuard,
+            guards: guards,
             middlewares: middlewares,
-            queueing: queueing
+            queue: queue
         )
     }
 
-    /// Registers a typed command handler.
+    /// Registers a typed command handler at the router root.
     func command<Command: TelerouteCommand>(
         _ commandType: Command.Type,
         description: String? = nil,
         visibility: [TelerouteCommandVisibility]? = nil,
-        routeGuard: (any TelerouteGuard)? = nil,
+        guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware] = [],
-        queueing: TelerouteCommandQueueing? = nil,
-        use handler: @escaping @Sendable (_ update: TGUpdate, _ context: TelerouteContext, _ command: Command) async throws -> Void
+        queue: TelerouteQueueScope? = nil,
+        use handler: @escaping @Sendable (_ command: Command, _ context: TelerouteContext) async throws -> Void
     ) {
-        self.rootGroup.command(
+        self.routeScope.command(
             commandType,
             description: description,
             visibility: visibility,
-            routeGuard: routeGuard,
+            guards: guards,
             middlewares: middlewares,
-            queueing: queueing,
+            queue: queue,
             use: handler
         )
     }
 
-    /// Registers a typed callback handler.
-    func callback<Callback: TelerouteCallback>(
+    /// Registers a typed callback that handles itself and returns its root route.
+    @discardableResult
+    func callback<Callback: TelerouteHandlingCallback>(
         _ callbackType: Callback.Type,
-        routeGuard: (any TelerouteGuard)? = nil,
-        middlewares: [any TelerouteMiddleware] = [],
-    ) {
-        self.rootGroup.callback(
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware] = []
+    ) -> TelerouteCallbackRoute<Callback> {
+        self.routeScope.callback(
             callbackType,
-            routeGuard: routeGuard,
+            guards: guards,
             middlewares: middlewares
         )
     }
 
-    /// Registers a typed callback handler.
+    /// Registers a typed callback handler and returns its root route.
+    @discardableResult
     func callback<Callback: TelerouteCallback>(
         _ callbackType: Callback.Type,
-        routeGuard: (any TelerouteGuard)? = nil,
+        guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware] = [],
-        use handler: @escaping @Sendable (_ update: TGUpdate, _ context: TelerouteContext, _ callback: Callback) async throws -> Void
-    ) {
-        self.rootGroup.callback(callbackType, routeGuard: routeGuard, middlewares: middlewares, use: handler)
-    }
-
-    /// Generates callback data for a typed callback value.
-    func callbackData<Callback: TelerouteCallback>(for callback: Callback) throws -> String {
-        try self.rootGroup.callbackData(for: callback)
-    }
-
-    /// Generates callback data for an existential typed callback value.
-    func callbackData(for callback: any TelerouteCallback) throws -> String {
-        try self.rootGroup.callbackData(for: callback)
-    }
-
-    /// Creates an inline keyboard button for a typed callback value.
-    func callbackButton<Callback: TelerouteCallback>(
-        _ text: String,
-        callback: Callback,
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> TGInlineKeyboardButton {
-        try self.rootGroup.callbackButton(
-            text,
-            callback: callback,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style
+        use handler: @escaping @Sendable (_ callback: Callback, _ context: TelerouteContext) async throws -> Void
+    ) -> TelerouteCallbackRoute<Callback> {
+        self.routeScope.callback(
+            callbackType,
+            guards: guards,
+            middlewares: middlewares,
+            use: handler
         )
     }
-
-    /// Creates an inline keyboard button for an existential typed callback value.
-    func callbackButton(
-        _ text: String,
-        callback: any TelerouteCallback,
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> TGInlineKeyboardButton {
-        try self.rootGroup.callbackButton(
-            text,
-            callback: callback,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style
-        )
-    }
-
-    /// Creates multiple inline keyboard buttons from typed callback values.
-    func callbackButtons<Callback: TelerouteCallback>(
-        _ items: [(text: String, callback: Callback)],
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> [TGInlineKeyboardButton] {
-        try self.rootGroup.callbackButtons(
-            items,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style
-        )
-    }
-
-    /// Creates multiple inline keyboard buttons from heterogeneous typed callback values.
-    func callbackButtons(
-        _ items: [(text: String, callback: any TelerouteCallback)],
-        iconCustomEmojiId: String? = nil,
-        style: String? = nil
-    ) throws -> [TGInlineKeyboardButton] {
-        try self.rootGroup.callbackButtons(
-            items,
-            iconCustomEmojiId: iconCustomEmojiId,
-            style: style
-        )
-    }
-
 }

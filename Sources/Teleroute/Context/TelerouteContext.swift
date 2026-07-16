@@ -1,12 +1,8 @@
 import Foundation
 import SwiftTelegramBot
 
-/// Async route handler invoked for matched commands and callback queries.
-///
-/// - Parameters:
-///   - update: Raw Telegram update received from `swift-telegram-bot`.
-///   - context: Router context containing extracted parameters and convenience helpers.
-public typealias TelerouteHandler = @Sendable (_ update: TGUpdate, _ context: TelerouteContext) async throws -> Void
+/// Async route handler invoked with the complete matched-route context.
+public typealias TelerouteHandler = @Sendable (_ context: TelerouteContext) async throws -> Void
 
 /// Context passed to router handlers.
 ///
@@ -130,7 +126,7 @@ public struct TelerouteContext: Sendable {
 
     /// Replies to the current message when available, otherwise sends a message to the resolved chat.
     public func reply(
-        text: String,
+        _ text: String,
         parseMode: TGParseMode? = nil,
         replyMarkup: TGReplyMarkup? = nil
     ) async throws {
@@ -144,7 +140,7 @@ public struct TelerouteContext: Sendable {
             return
         }
         try await self.send(
-            text: text,
+            text,
             parseMode: parseMode,
             replyMarkup: replyMarkup
         )
@@ -152,7 +148,7 @@ public struct TelerouteContext: Sendable {
 
     /// Sends a message to the supplied chat or to the chat inferred from the current update.
     public func send(
-        text: String,
+        _ text: String,
         to chatId: Int64? = nil,
         parseMode: TGParseMode? = nil,
         replyMarkup: TGReplyMarkup? = nil
@@ -175,7 +171,7 @@ public struct TelerouteContext: Sendable {
     /// This helper requires a concrete accessible `TGMessage` and will throw
     /// ``TelerouteError/messageTargetMissing`` when the update does not carry one.
     public func edit(
-        text: String,
+        _ text: String,
         parseMode: TGParseMode? = nil,
         replyMarkup: TGInlineKeyboardMarkup? = nil
     ) async throws {
@@ -192,7 +188,7 @@ public struct TelerouteContext: Sendable {
 
     /// Answers the current callback query.
     public func answerCallbackQuery(
-        text: String? = nil,
+        _ text: String? = nil,
         showAlert: Bool? = nil,
         url: String? = nil,
         cacheTime: Int? = nil

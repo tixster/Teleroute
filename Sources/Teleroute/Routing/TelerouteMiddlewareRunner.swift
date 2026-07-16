@@ -1,20 +1,16 @@
-import SwiftTelegramBot
 import Foundation
 import Synchronization
 
 actor TelerouteMiddlewareRunner {
     let middlewares: [any TelerouteMiddleware]
-    let update: TGUpdate
     let handler: TelerouteHandler
     private var handled = false
 
     init(
         middlewares: [any TelerouteMiddleware],
-        update: TGUpdate,
         handler: @escaping TelerouteHandler
     ) {
         self.middlewares = middlewares
-        self.update = update
         self.handler = handler
     }
 
@@ -26,7 +22,7 @@ actor TelerouteMiddlewareRunner {
     private func execute(index: Int, context: TelerouteContext) async throws {
         if index == self.middlewares.count {
             self.handled = true
-            try await self.handler(self.update, context)
+            try await self.handler(context)
             return
         }
         let middleware = self.middlewares[index]

@@ -1,9 +1,12 @@
 import Foundation
 
-/// Errors thrown by router helpers when the current update does not contain the expected data.
+/// Errors thrown by router helpers for missing update data or invalid route usage.
 public enum TelerouteError: LocalizedError, Sendable {
     case callbackQueryMissing
+    case callbackRouteNotRegistered(String)
+    case callbackRouteRouterMismatch(String)
     case chatTargetMissing
+    case commandMatchMissing
     case flowControllerMissing
     case flowScopeMissing
     case invalidFlowStep(flowID: String, step: String)
@@ -16,8 +19,14 @@ public enum TelerouteError: LocalizedError, Sendable {
         switch self {
         case .callbackQueryMissing:
             "Callback query is missing in the current update."
+        case let .callbackRouteNotRegistered(path):
+            "Callback route '\(path)' is not registered in this route scope."
+        case let .callbackRouteRouterMismatch(path):
+            "Callback route '\(path)' belongs to a different Teleroute router."
         case .chatTargetMissing:
             "Unable to determine the target chat for this update."
+        case .commandMatchMissing:
+            "The matched command is missing from the route context."
         case .flowControllerMissing:
             "Flow support is unavailable for this context."
         case .flowScopeMissing:
