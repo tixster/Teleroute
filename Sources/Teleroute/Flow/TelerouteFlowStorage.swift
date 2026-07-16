@@ -1,5 +1,10 @@
 import Foundation
 
+/// Atomic transformation applied to a flow session by a storage backend.
+public typealias TelerouteFlowSessionMutation = @Sendable (
+    _ current: TelerouteFlowSession?
+) throws -> TelerouteFlowSession?
+
 /// Storage backend used by `Teleroute` flows.
 public protocol TelerouteFlowStorage: Sendable {
     /// Returns the active flow session for a scope, if one exists.
@@ -10,6 +15,33 @@ public protocol TelerouteFlowStorage: Sendable {
 
     /// Removes the active flow session for a scope.
     func removeSession(for key: TelerouteFlowKey) async
+
+    /// Atomically transforms the active flow session for a scope.
+    ///
+    /// Storage implementations should override this method when they can perform
+    /// the read-modify-write operation atomically. The default implementation is
+    /// provided for source compatibility with existing custom storage backends.
+    @discardableResult
+    func updateSession(
+        for key: TelerouteFlowKey,
+        _ mutation: TelerouteFlowSessionMutation
+    ) async rethrows -> TelerouteFlowSession?
+}
+
+public extension TelerouteFlowStorage {
+    @discardableResult
+    func updateSession(
+        for key: TelerouteFlowKey,
+        _ mutation: TelerouteFlowSessionMutation
+    ) async rethrows -> TelerouteFlowSession? {
+        let updated = try mutation(await self.session(for: key))
+        if let updated {
+            await self.setSession(updated, for: key)
+        } else {
+            await self.removeSession(for: key)
+        }
+        return updated
+    }
 }
 
 /// Default in-memory flow storage.
@@ -28,5 +60,15 @@ public actor TelerouteInMemoryFlowStorage: TelerouteFlowStorage {
 
     public func removeSession(for key: TelerouteFlowKey) {
         self.sessions.removeValue(forKey: key)
+    }
+
+    @discardableResult
+    public func updateSession(
+        for key: TelerouteFlowKey,
+        _ mutation: TelerouteFlowSessionMutation
+    ) rethrows -> TelerouteFlowSession? {
+        let updated = try mutation(self.sessions[key])
+        self.sessions[key] = updated
+        return updated
     }
 }

@@ -7,26 +7,27 @@ import SwiftTelegramBot
 /// ``TelerouteKeyboardBuilder/Row`` blocks and button helpers:
 ///
 /// ```swift
-/// let keyboard = TelerouteKeyboardBuilder.build {
-///     TelerouteKeyboardBuilder.Row {
+/// let keyboard = try TelerouteKeyboardBuilder.build {
+///     try TelerouteKeyboardBuilder.Row {
 ///         try router.callbackButton("Prev", path: "page", parameters: ["n": "0"])
 ///         try router.callbackButton("Next", path: "page", parameters: ["n": "2"])
 ///     }
-///     TelerouteKeyboardBuilder.Row {
+///     try TelerouteKeyboardBuilder.Row {
 ///         try router.callbackButton("Cancel", path: "cancel")
 ///     }
 /// }
 /// ```
 @resultBuilder
 public enum TelerouteKeyboardBuilder {
-    /// A single keyboard row. Holds its components deferred so the surrounding
-    /// builder closure can stay non-throwing at the expression level.
+    /// A single keyboard row.
     public struct Row: Sendable {
         let components: [Component]
 
         /// Creates a row from the buttons produced by the supplied closure.
-        public init(@TelerouteKeyboardBuilder _ content: () -> [Component]) {
-            self.components = content()
+        public init(
+            @TelerouteKeyboardBuilder _ content: () throws -> [Component]
+        ) rethrows {
+            self.components = try content()
         }
     }
 

@@ -57,13 +57,20 @@ public struct TelerouteCallbackMacro: ExtensionMacro, MemberMacro {
             """#
         )
 
-        let encodeEntries = parameters.map { name in "[\"\(name)\": self.\(name)]" }
-            .joined(separator: ", ")
-        let encodeBody = encodeEntries.isEmpty ? "[:]" : encodeEntries
+        let encodeLines = parameters.map { name -> String in
+            if propertyLookup[name]?.isOptional == true {
+                return "guard let \(name) = self.\(name) else { throw TelerouteError.missingParameter(\"\(name)\") }\nresult[\"\(name)\"] = \(name)"
+            }
+            return #"result["\#(name)"] = self.\#(name)"#
+        }.joined(separator: "\n")
         members.append(
             #"""
             public var parameters: [String: String] {
-                get throws { \#(raw: encodeBody) }
+                get throws {
+                    var result: [String: String] = [:]
+                    \#(raw: encodeLines)
+                    return result
+                }
             }
             """#
         )
@@ -128,12 +135,8 @@ public struct TelerouteCallbackMacro: ExtensionMacro, MemberMacro {
                 continue
             }
             let name = pattern.identifier.text
-            var typeText = binding.typeAnnotation?.type.trimmedDescription ?? "String"
-            var isOptional = false
-            if typeText.hasSuffix("?") {
-                isOptional = true
-                typeText = String(typeText.dropLast()).trimmingCharacters(in: .whitespaces)
-            }
+            let typeText = binding.typeAnnotation?.type.trimmedDescription ?? "String"
+            let isOptional = typeText.hasSuffix("?")
             result.append((name, PropertyInfo(type: typeText, isOptional: isOptional)))
         }
         return result

@@ -88,6 +88,16 @@ public actor TelerouteMockFlowStorage: TelerouteFlowStorage {
         self.sessions.removeValue(forKey: key)
     }
 
+    @discardableResult
+    public func updateSession(
+        for key: TelerouteFlowKey,
+        _ mutation: TelerouteFlowSessionMutation
+    ) async rethrows -> TelerouteFlowSession? {
+        let updated = try mutation(self.sessions[key])
+        self.sessions[key] = updated
+        return updated
+    }
+
     /// Number of sessions currently stored.
     public var count: Int {
         self.sessions.count

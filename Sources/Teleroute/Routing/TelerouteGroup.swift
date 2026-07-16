@@ -86,6 +86,7 @@ public final class TelerouteGroup: Sendable {
         use handler: @escaping TelerouteHandler
     ) {
         let name = TeleroutePath.commandName(prefix: self.commandPrefix, path: path)
+        let hasGuard = self.inheritedGuards.isEmpty == false || routeGuard != nil
         var resolvedMiddlewares = TelerouteMiddlewareComposer.resolve(
             inheritedMiddlewares: self.inheritedMiddlewares,
             inheritedGuards: self.inheritedGuards,
@@ -98,7 +99,7 @@ public final class TelerouteGroup: Sendable {
                 routeName: name,
                 queueing: queueing
             )
-            let insertionIndex = routeGuard == nil ? 0 : 1
+            let insertionIndex = hasGuard ? 1 : 0
             resolvedMiddlewares.insert(queueMiddleware, at: insertionIndex)
         }
         if let description {
@@ -115,7 +116,7 @@ public final class TelerouteGroup: Sendable {
                 middlewares: resolvedMiddlewares,
                 handler: handler
             ),
-            signature: routeGuard == nil
+            signature: hasGuard == false
                 ? .init(kind: .command, name: name, botUsername: botUsername)
                 : nil
         )
@@ -131,6 +132,7 @@ public final class TelerouteGroup: Sendable {
         middlewares: [any TelerouteMiddleware] = [],
         use handler: @escaping TelerouteHandler
     ) {
+        let hasGuard = self.inheritedGuards.isEmpty == false || routeGuard != nil
         let resolvedMiddlewares = TelerouteMiddlewareComposer.resolve(
             inheritedMiddlewares: self.inheritedMiddlewares,
             inheritedGuards: self.inheritedGuards,
@@ -144,7 +146,7 @@ public final class TelerouteGroup: Sendable {
                 middlewares: resolvedMiddlewares,
                 handler: handler
             ),
-            signature: routeGuard == nil
+            signature: hasGuard == false
                 ? .init(kind: .callback, name: pattern.routeDescription)
                 : nil
         )

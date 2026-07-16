@@ -1,5 +1,6 @@
 import AsyncAlgorithms
 import Foundation
+import HeapModule
 import Synchronization
 
 /// Queueing strategy for command handlers.
@@ -79,12 +80,16 @@ actor TelerouteCommandQueue {
         /// Resumed with `CancellationError` during worker teardown.
         let pendingSlots: TeleroutePendingSlots
         var pendingCount: Int
-        var lastActivity: ContinuousClock.Instant
+        var idleExpirationSequence: Int?
     }
 
     private let clock = ContinuousClock()
     private let workerIdleTimeout: Duration
     private var workers: [String: Worker] = [:]
+    private var idleExpirations = Heap<TelerouteCommandQueueIdleExpiration>()
+    private var nextExpirationSequence = 0
+    private var cleanupGeneration = 0
+    private var cleanupTask: Task<Void, Never>?
 
     init(
         workerIdleTimeout: Duration = .seconds(30)
@@ -96,6 +101,7 @@ actor TelerouteCommandQueue {
         // Each worker holds Sendable resources, so touching them off-actor here
         // is safe. Pending callers are resumed with cancellation instead of
         // hanging forever after the queue is deallocated.
+        self.cleanupTask?.cancel()
         for worker in self.workers.values {
             worker.channel.finish()
             worker.task.cancel()
@@ -137,11 +143,11 @@ actor TelerouteCommandQueue {
         operation: @escaping @Sendable () async throws -> Value,
         continuation: CheckedContinuation<Value, any Error>
     ) async {
-        self.removeIdleWorkers()
         let now = self.clock.now
-        var worker = self.workers[key] ?? self.makeWorker(lastActivity: now)
+        self.removeExpiredWorkers(now: now)
+        var worker = self.workers[key] ?? self.makeWorker()
         worker.pendingCount += 1
-        worker.lastActivity = now
+        worker.idleExpirationSequence = nil
         self.workers[key] = worker
 
         worker.pendingSlots.register(slot)
@@ -167,7 +173,7 @@ actor TelerouteCommandQueue {
         await worker.channel.send(queuedOperation)
     }
 
-    private func makeWorker(lastActivity: ContinuousClock.Instant) -> Worker {
+    private func makeWorker() -> Worker {
         let channel = AsyncChannel<TelerouteQueuedOperation>()
         let pendingSlots = TeleroutePendingSlots()
         let task = Task {
@@ -180,29 +186,94 @@ actor TelerouteCommandQueue {
             task: task,
             pendingSlots: pendingSlots,
             pendingCount: 0,
-            lastActivity: lastActivity
+            idleExpirationSequence: nil
         )
     }
 
     private func finishOperation(key: String) {
         guard var worker = self.workers[key] else { return }
         worker.pendingCount = max(0, worker.pendingCount - 1)
-        worker.lastActivity = self.clock.now
+        if worker.pendingCount == 0 {
+            let expiration = self.clock.now.advanced(by: self.workerIdleTimeout)
+            let sequence = self.nextExpirationSequence
+            self.nextExpirationSequence += 1
+            worker.idleExpirationSequence = sequence
+            self.idleExpirations.insert(
+                .init(key: key, expiration: expiration, sequence: sequence)
+            )
+        }
         self.workers[key] = worker
+        if worker.pendingCount == 0 {
+            self.scheduleCleanupTask()
+        }
     }
 
-    private func removeIdleWorkers() {
-        let now = self.clock.now
-        for (key, worker) in self.workers {
-            guard worker.pendingCount == 0,
-                  worker.lastActivity.duration(to: now) >= self.workerIdleTimeout else {
+    private func removeExpiredWorkers(now: ContinuousClock.Instant) {
+        while let expiration = self.idleExpirations.min,
+              expiration.expiration <= now {
+            _ = self.idleExpirations.popMin()
+            guard let worker = self.workers[expiration.key],
+                  worker.pendingCount == 0,
+                  worker.idleExpirationSequence == expiration.sequence else {
                 continue
             }
             worker.channel.finish()
             worker.task.cancel()
             worker.pendingSlots.cancelAll()
-            self.workers[key] = nil
+            self.workers[expiration.key] = nil
         }
+    }
+
+    private func scheduleCleanupTask() {
+        self.cleanupTask?.cancel()
+        self.cleanupGeneration += 1
+        let generation = self.cleanupGeneration
+        guard let nextExpiration = self.idleExpirations.min else {
+            self.cleanupTask = nil
+            return
+        }
+
+        let delay = self.clock.now.duration(to: nextExpiration.expiration)
+        self.cleanupTask = Task { [weak self] in
+            if delay > .zero {
+                do {
+                    try await Task.sleep(for: delay)
+                } catch is CancellationError {
+                    return
+                } catch {
+                    return
+                }
+            }
+            guard Task.isCancelled == false else { return }
+            await self?.cleanupExpiredWorkers(generation: generation)
+        }
+    }
+
+    private func cleanupExpiredWorkers(generation: Int) {
+        guard generation == self.cleanupGeneration else { return }
+        self.cleanupTask = nil
+        self.removeExpiredWorkers(now: self.clock.now)
+        self.scheduleCleanupTask()
+    }
+
+    var workerCount: Int {
+        self.workers.count
+    }
+}
+
+private struct TelerouteCommandQueueIdleExpiration: Comparable, Sendable {
+    let key: String
+    let expiration: ContinuousClock.Instant
+    let sequence: Int
+
+    static func < (
+        lhs: TelerouteCommandQueueIdleExpiration,
+        rhs: TelerouteCommandQueueIdleExpiration
+    ) -> Bool {
+        if lhs.expiration != rhs.expiration {
+            return lhs.expiration < rhs.expiration
+        }
+        return lhs.sequence < rhs.sequence
     }
 }
 

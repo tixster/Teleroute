@@ -1,4 +1,5 @@
 import Foundation
+import HeapModule
 
 /// Key used by rate-limiting middleware.
 public struct TelerouteRateLimitKey: Sendable {
@@ -94,18 +95,21 @@ public struct TelerouteDebounceMiddleware: TelerouteMiddleware, Sendable {
         let generation = await self.gate.reserve(key: key.rawValue)
         do {
             try await Task.sleep(for: self.interval)
-            guard await self.gate.shouldRun(key: key.rawValue, generation: generation) else {
-                await self.gate.finish(key: key.rawValue, generation: generation)
-                return
-            }
-            try await next(context)
-            await self.gate.finish(key: key.rawValue, generation: generation)
         } catch is CancellationError {
-            // Cancellation is expected when a newer update supersedes this debounce
-            // or when the router tears down its processing tasks. It is not a failure,
-            // so it is swallowed here instead of surfacing as a `.failed` event.
             await self.gate.finish(key: key.rawValue, generation: generation)
+            return
         }
+        guard await self.gate.shouldRun(key: key.rawValue, generation: generation) else {
+            await self.gate.finish(key: key.rawValue, generation: generation)
+            return
+        }
+        do {
+            try await next(context)
+        } catch {
+            await self.gate.finish(key: key.rawValue, generation: generation)
+            throw error
+        }
+        await self.gate.finish(key: key.rawValue, generation: generation)
     }
 }
 
@@ -115,15 +119,47 @@ extension TelerouteDebounceMiddleware: TelerouteConsumingMiddleware {}
 private actor TelerouteThrottleGate {
     private let clock = ContinuousClock()
     private var expirations: [String: ContinuousClock.Instant] = [:]
+    private var expirationHeap = Heap<TelerouteThrottleExpiration>()
+    private var nextSequence = 0
 
     func claim(key: String, interval: Duration) -> Bool {
         let now = self.clock.now
-        self.expirations = self.expirations.filter { $0.value > now }
+        self.removeExpired(now: now)
         guard self.expirations[key].map({ $0 > now }) != true else {
             return false
         }
-        self.expirations[key] = now.advanced(by: interval)
+        let expiration = now.advanced(by: interval)
+        self.expirations[key] = expiration
+        self.expirationHeap.insert(
+            .init(key: key, expiration: expiration, sequence: self.nextSequence)
+        )
+        self.nextSequence += 1
         return true
+    }
+
+    private func removeExpired(now: ContinuousClock.Instant) {
+        while let next = self.expirationHeap.min, next.expiration <= now {
+            _ = self.expirationHeap.popMin()
+            if self.expirations[next.key] == next.expiration {
+                self.expirations[next.key] = nil
+            }
+        }
+    }
+}
+
+private struct TelerouteThrottleExpiration: Comparable, Sendable {
+    let key: String
+    let expiration: ContinuousClock.Instant
+    let sequence: Int
+
+    static func < (
+        lhs: TelerouteThrottleExpiration,
+        rhs: TelerouteThrottleExpiration
+    ) -> Bool {
+        if lhs.expiration != rhs.expiration {
+            return lhs.expiration < rhs.expiration
+        }
+        return lhs.sequence < rhs.sequence
     }
 }
 

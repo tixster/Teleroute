@@ -33,15 +33,21 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
     let storage: TelerouteStorage
     let commandPrefix: [String]
     let callbackPrefix: [String]
+    let inheritedMiddlewares: [any TelerouteMiddleware]
+    let inheritedGuards: [any TelerouteGuard]
 
     init(
         storage: TelerouteStorage,
         commandPrefix: [String] = [],
-        callbackPrefix: [String] = []
+        callbackPrefix: [String] = [],
+        inheritedMiddlewares: [any TelerouteMiddleware] = [],
+        inheritedGuards: [any TelerouteGuard] = []
     ) {
         self.storage = storage
         self.commandPrefix = commandPrefix
         self.callbackPrefix = callbackPrefix
+        self.inheritedMiddlewares = inheritedMiddlewares
+        self.inheritedGuards = inheritedGuards
     }
 
     /// Registers a command that starts or restarts the flow at the supplied step.
@@ -57,7 +63,10 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
         use handler: @escaping TelerouteHandler
     ) {
         let name = TeleroutePath.commandName(prefix: self.commandPrefix, path: path)
+        let hasGuard = self.inheritedGuards.isEmpty == false || routeGuard != nil
         var resolvedMiddlewares = TelerouteMiddlewareComposer.resolve(
+            inheritedMiddlewares: self.inheritedMiddlewares,
+            inheritedGuards: self.inheritedGuards,
             routeGuard: routeGuard,
             middlewares: middlewares
         )
@@ -67,7 +76,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
                 routeName: name,
                 queueing: queueing
             )
-            let insertionIndex = routeGuard == nil ? 0 : 1
+            let insertionIndex = hasGuard ? 1 : 0
             resolvedMiddlewares.insert(queueMiddleware, at: insertionIndex)
         }
         if let description {
@@ -78,7 +87,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
             }
         }
         let flowQueueMiddleware = TelerouteFlowQueueMiddleware(queue: self.storage.flowQueue)
-        let insertionIndex = routeGuard == nil ? 0 : 1
+        let insertionIndex = hasGuard ? 1 : 0
         resolvedMiddlewares.insert(flowQueueMiddleware, at: insertionIndex)
 
         self.storage.appendCommandRoute(
@@ -91,7 +100,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
                     try await handler(update, context)
                 }
             ),
-            signature: routeGuard == nil
+            signature: hasGuard == false
                 ? .init(kind: .command, name: name, botUsername: botUsername)
                 : nil
         )
@@ -213,7 +222,10 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
         middlewares: [any TelerouteMiddleware],
         handler: @escaping TelerouteFlowHandler<Flow>
     ) {
+        let hasGuard = self.inheritedGuards.isEmpty == false || routeGuard != nil
         let resolvedMiddlewares = TelerouteMiddlewareComposer.resolve(
+            inheritedMiddlewares: self.inheritedMiddlewares,
+            inheritedGuards: self.inheritedGuards,
             routeGuard: routeGuard,
             middlewares: middlewares
         )
@@ -228,7 +240,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
                     try await handler(update, flowContext)
                 }
             ),
-            signature: routeGuard == nil
+            signature: hasGuard == false
                 ? .init(
                     kind: matcher.signatureKind,
                     name: signatureName,
@@ -403,21 +415,30 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
     ) async throws {
         let storage = try self.context.requireFlowStorage()
         let key = try self.context.requireFlowKey()
-        await storage.setSession(
-            .init(
+        await storage.updateSession(for: key) { current in
+            let current = current ?? self.session
+            return .init(
                 id: Flow.id,
                 step: step.rawValue,
-                values: self.session.values.merging(values)
-            ),
-            for: key
-        )
+                values: current.values.merging(values)
+            )
+        }
     }
 
     /// Updates the current step values without changing the active step.
     public func update(
         merging values: [String: String]
     ) async throws {
-        try await self.transition(to: self.step, merging: values)
+        let storage = try self.context.requireFlowStorage()
+        let key = try self.context.requireFlowKey()
+        await storage.updateSession(for: key) { current in
+            let current = current ?? self.session
+            return .init(
+                id: Flow.id,
+                step: current.step,
+                values: current.values.merging(values)
+            )
+        }
     }
 
     /// Finishes the current flow session.
@@ -433,7 +454,9 @@ public extension TelerouteGroup {
             flow: .init(
                 storage: self.storage,
                 commandPrefix: self.commandPrefix,
-                callbackPrefix: self.callbackPrefix
+                callbackPrefix: self.callbackPrefix,
+                inheritedMiddlewares: self.inheritedMiddlewares,
+                inheritedGuards: self.inheritedGuards
             )
         )
     }

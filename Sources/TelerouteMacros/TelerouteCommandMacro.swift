@@ -99,12 +99,8 @@ public struct TelerouteCommandMacro: ExtensionMacro, MemberMacro {
                 continue
             }
             let name = pattern.identifier.text
-            var typeText = binding.typeAnnotation?.type.trimmedDescription ?? "String"
-            var isOptional = false
-            if typeText.hasSuffix("?") {
-                isOptional = true
-                typeText = String(typeText.dropLast()).trimmingCharacters(in: .whitespaces)
-            }
+            let typeText = binding.typeAnnotation?.type.trimmedDescription ?? "String"
+            let isOptional = typeText.hasSuffix("?")
             result.append((name, PropertyInfo(type: typeText, isOptional: isOptional)))
         }
         return result

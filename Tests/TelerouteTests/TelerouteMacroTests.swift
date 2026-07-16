@@ -39,6 +39,12 @@ struct TelerouteMacroTests {
         #expect(command.reason == "no-reason")
     }
 
+    @Test func commandMacroPreservesOptionalTypeInMemberwiseInitializer() {
+        let command = MacroBanCommand(userID: "42", reason: nil)
+        #expect(command.userID == "42")
+        #expect(command.reason == nil)
+    }
+
     @Test func callbackMacroSynthesizesPathAndRoundTrips() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
         let router = Teleroute(bot: bot, logger: .init(label: "router.macro.callback"))
@@ -72,6 +78,19 @@ struct TelerouteMacroTests {
         let encoded = try decoded.parameters
         #expect(encoded["orderID"] == "42")
     }
+
+    @Test func callbackMacroSupportsOptionalPropertiesWithoutInvalidDictionaryValues() throws {
+        let present = MacroOptionalCallback(query: "swift")
+        #expect(try present.parameters == ["query": "swift"])
+
+        let decodedMissing = try MacroOptionalCallback(parameters: .init())
+        #expect(decodedMissing.query == nil)
+
+        let missing = MacroOptionalCallback(query: nil)
+        #expect(throws: TelerouteError.self) {
+            try missing.parameters
+        }
+    }
 }
 
 // MARK: - Fixtures (use the macros)
@@ -91,4 +110,9 @@ struct MacroApproveCallback {
     func handle(update: TGUpdate, context: TelerouteContext) async throws {
         await TelerouteTestRecorder<String>().record("handle:\(self.orderID)")
     }
+}
+
+@TelerouteCallback("search/{query}")
+struct MacroOptionalCallback {
+    let query: String?
 }

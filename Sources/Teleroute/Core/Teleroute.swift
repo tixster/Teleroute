@@ -20,8 +20,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     private let onError: TelerouteErrorHandler?
     private let metricsSink: any TelerouteMetricsSink
     private let handlerRegistrationState = TelerouteHandlerRegistrationState()
-    private let eventHub = TelerouteEventHub()
-    private let processingTasks = Mutex<[UUID: Task<Void, Never>]>([:])
+    private let eventHub: TelerouteEventHub
+    private let processingTasks = TelerouteProcessingTaskRegistry()
     private let replayProtectionCleanupTask: Task<Void, Never>?
 
     /// Router lifecycle events emitted as updates are received, matched, skipped, or failed.
@@ -53,7 +53,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         bot: TGBot,
         logger: Logger,
         onError: TelerouteErrorHandler? = nil,
-        metricsSink: (any TelerouteMetricsSink)? = nil
+        metricsSink: (any TelerouteMetricsSink)? = nil,
+        eventBufferingPolicy: TelerouteEventBufferingPolicy = .unbounded
     ) {
         let storage = TelerouteStorage()
         let replayProtectionStorage = TelerouteInMemoryReplayProtectionStorage()
@@ -66,6 +67,7 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         self.flowCancellationPolicy = .cancelOnAnyUnmatchedCommand
         self.onError = onError
         self.metricsSink = metricsSink ?? TelerouteNoOpMetricsSink()
+        self.eventHub = TelerouteEventHub(bufferingPolicy: eventBufferingPolicy)
         self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
             storage: replayProtectionStorage
         )
@@ -80,7 +82,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         replayProtectionTTL: Duration = .seconds(2),
         flowCancellationPolicy: TelerouteFlowCancellationPolicy = .cancelOnAnyUnmatchedCommand,
         onError: TelerouteErrorHandler? = nil,
-        metricsSink: (any TelerouteMetricsSink)? = nil
+        metricsSink: (any TelerouteMetricsSink)? = nil,
+        eventBufferingPolicy: TelerouteEventBufferingPolicy = .unbounded
     ) {
         let storage = TelerouteStorage()
         self.dispatcher = TGDefaultDispatcher(bot: bot, logger: logger)
@@ -92,15 +95,20 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         self.flowCancellationPolicy = flowCancellationPolicy
         self.onError = onError
         self.metricsSink = metricsSink ?? TelerouteNoOpMetricsSink()
+        self.eventHub = TelerouteEventHub(bufferingPolicy: eventBufferingPolicy)
         self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
             storage: replayProtectionStorage
         )
     }
 
     deinit {
-        for task in self.processingTasks.withLock({ Array($0.values) }) {
-            task.cancel()
-        }
+        self.shutdown()
+    }
+
+    /// Stops accepting new updates, cancels in-flight processing, and finishes
+    /// all event streams. Calling this method more than once has no effect.
+    public func shutdown() {
+        self.processingTasks.shutdown()
         self.replayProtectionCleanupTask?.cancel()
         self.eventHub.finish()
     }
@@ -266,6 +274,7 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
     }
 
     public func process(_ updates: [TGUpdate]) async {
+        guard self.processingTasks.isShutdown == false else { return }
         for update in updates {
             self.log.trace("processByHandler start:\n\(dump(update))")
             let handlers = await self.handlersGroup.value
@@ -277,24 +286,34 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                 }
 
                 let uuid = UUID()
+                guard self.processingTasks.reserve(id: uuid) else { return }
+                let registry = self.processingTasks
                 let task = Task { [weak self] in
-                    if Task.isCancelled { return }
-                    guard let self else { return }
+                    attachment: while true {
+                        switch registry.startDisposition(for: uuid) {
+                        case .waiting:
+                            await Task.yield()
+                        case .cancelled:
+                            return
+                        case .ready:
+                            break attachment
+                        }
+                    }
+                    defer { registry.remove(id: uuid) }
+                    guard Task.isCancelled == false else { return }
                     do {
                         try await handler.handle(update: update)
                     } catch {
-                        await self.handleError(error, update: update)
-                    }
-                    _ = self.processingTasks.withLock {
-                        $0.removeValue(forKey: uuid)
+                        await self?.handleError(error, update: update)
                     }
                 }
-
-                self.processingTasks.withLock {
-                    $0[uuid] = task
-                }
+                self.processingTasks.attach(task, id: uuid)
             }
         }
+    }
+
+    var processingTaskCount: Int {
+        self.processingTasks.count
     }
 
     private func updateMetadata(for update: TGUpdate) -> Logger.Metadata {
@@ -321,12 +340,21 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         return metadata
     }
 
-    private func logProcessingError(_ error: any Error, update: TGUpdate) async {
-        let context = TelerouteContext(bot: self.bot, update: update)
+    private func logProcessingError(
+        _ error: any Error,
+        update: TGUpdate,
+        context: TelerouteContext,
+        routeKind: TelerouteEvent.RouteKind,
+        routeName: String?
+    ) async {
         var metadata = self.updateMetadata(for: update)
         metadata.merge([
             "error_type": .string(String(reflecting: type(of: error))),
+            "route_kind": .string(Self.routeKindDescription(routeKind)),
         ]) { _, new in new }
+        if let routeName {
+            metadata["route_name"] = .string(routeName)
+        }
 
         if let command = TelerouteCommandExtractor.extract(from: update),
            let argumentsText = command.argumentsText,
@@ -334,8 +362,11 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
             metadata["command_arguments"] = .string(argumentsText)
         }
 
-        if let flowKey = context.flowKey,
-           let session = await self.flowStorage.session(for: flowKey) {
+        var flowSession = context.activeFlow
+        if flowSession == nil, let flowKey = context.flowKey {
+            flowSession = await self.flowStorage.session(for: flowKey)
+        }
+        if let session = flowSession {
             metadata["flow_id"] = .string(session.id)
             metadata["flow_step"] = .string(session.step)
         }
@@ -361,6 +392,16 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         return error.localizedDescription == error._domain
             ? String(reflecting: error)
             : error.localizedDescription
+    }
+
+    private static func routeKindDescription(_ routeKind: TelerouteEvent.RouteKind) -> String {
+        switch routeKind {
+        case .command: "command"
+        case .callback: "callback"
+        case .flow: "flow"
+        case .message: "message"
+        case .unknown: "unknown"
+        }
     }
 
     private func shouldHandle(_ update: TGUpdate) async -> Bool {
@@ -433,6 +474,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                     middlewares: route.middlewares,
                     context: context,
                     update: update,
+                    routeKind: .flow,
+                    routeName: "\(route.flowID):\(route.step)",
                     handler: route.handler
                 )
                 if handled {
@@ -469,6 +512,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                     middlewares: route.middlewares,
                     context: context,
                     update: update,
+                    routeKind: .flow,
+                    routeName: "\(route.flowID):\(route.step):\(name)",
                     handler: route.handler
                 )
                 if handled {
@@ -513,6 +558,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                 middlewares: route.middlewares,
                 context: context,
                 update: update,
+                routeKind: .flow,
+                routeName: "\(route.flowID):\(route.step)",
                 handler: route.handler
             )
             if handled {
@@ -551,6 +598,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                 middlewares: route.middlewares,
                 context: context,
                 update: update,
+                routeKind: .command,
+                routeName: route.name,
                 handler: route.handler
             )
             if handled == false {
@@ -606,6 +655,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
                 middlewares: route.middlewares,
                 context: context,
                 update: update,
+                routeKind: .callback,
+                routeName: route.pattern.routeDescription,
                 handler: route.handler
             )
             if handled == false {
@@ -630,32 +681,46 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         update: TGUpdate,
         startedAt: ContinuousClock.Instant = ContinuousClock().now
     ) async {
-        let context = TelerouteContext(bot: self.bot, update: update)
+        let routeFailure = error as? TelerouteRouteFailure
+        let reportedError = routeFailure?.underlyingError ?? error
+        guard (reportedError is CancellationError && Task.isCancelled) == false else {
+            return
+        }
+
+        let context = routeFailure?.context ?? TelerouteContext(bot: self.bot, update: update)
         let duration = startedAt.duration(to: ContinuousClock().now)
-        let routeKind = self.eventRouteKind(for: update)
+        let routeKind = routeFailure?.routeKind ?? self.eventRouteKind(for: update)
+        let routeName = routeFailure?.routeName
         self.eventHub.emit(
             .init(
                 kind: .failed,
                 routeKind: routeKind,
+                routeName: routeName,
                 updateId: update.updateId,
                 chatId: context.chatId,
                 userId: context.userId,
                 startedAt: startedAt,
                 duration: duration,
-                error: error,
-                errorDescription: Self.errorDescription(for: error)
+                error: reportedError,
+                errorDescription: Self.errorDescription(for: reportedError)
             )
         )
         await self.metricsSink.recordFailed(
             routeKind: routeKind,
-            routeName: nil,
+            routeName: routeName,
             chatId: context.chatId,
             userId: context.userId,
             duration: duration,
-            error: error
+            error: reportedError
         )
-        await self.logProcessingError(error, update: update)
-        await self.onError?(error, context)
+        await self.logProcessingError(
+            reportedError,
+            update: update,
+            context: context,
+            routeKind: routeKind,
+            routeName: routeName
+        )
+        await self.onError?(reportedError, context)
     }
 
     private func emitEvent(
@@ -743,6 +808,8 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
         middlewares: [any TelerouteMiddleware],
         context: TelerouteContext,
         update: TGUpdate,
+        routeKind: TelerouteEvent.RouteKind,
+        routeName: String,
         handler: @escaping TelerouteHandler
     ) async throws -> Bool {
         let runner = TelerouteMiddlewareRunner(
@@ -750,7 +817,16 @@ public final class Teleroute: TGDefaultDispatcherPrtcl {
             update: update,
             handler: handler
         )
-        return try await runner.run(context: context)
+        do {
+            return try await runner.run(context: context)
+        } catch {
+            throw TelerouteRouteFailure(
+                underlyingError: error,
+                context: context,
+                routeKind: routeKind,
+                routeName: routeName
+            )
+        }
     }
 }
 
@@ -766,4 +842,97 @@ private final class TelerouteHandlerRegistrationState: Sendable {
             return true
         }
     }
+}
+
+private final class TelerouteProcessingTaskRegistry: Sendable {
+    enum StartDisposition: Sendable {
+        case waiting
+        case ready
+        case cancelled
+    }
+
+    private enum Slot: Sendable {
+        case reserved
+        case running(Task<Void, Never>)
+    }
+
+    private struct State: Sendable {
+        var slots: [UUID: Slot] = [:]
+        var isShutdown = false
+    }
+
+    private let state = Mutex(State())
+
+    func reserve(id: UUID) -> Bool {
+        self.state.withLock { state in
+            guard state.isShutdown == false else { return false }
+            state.slots[id] = .reserved
+            return true
+        }
+    }
+
+    func attach(_ task: Task<Void, Never>, id: UUID) {
+        let shouldCancel = self.state.withLock { state in
+            guard state.isShutdown == false,
+                  case .some(.reserved) = state.slots[id] else {
+                return true
+            }
+            state.slots[id] = .running(task)
+            return false
+        }
+        if shouldCancel {
+            task.cancel()
+        }
+    }
+
+    func startDisposition(for id: UUID) -> StartDisposition {
+        self.state.withLock { state in
+            guard state.isShutdown == false else { return .cancelled }
+            switch state.slots[id] {
+            case .some(.reserved):
+                return .waiting
+            case .some(.running):
+                return .ready
+            case nil:
+                return .cancelled
+            }
+        }
+    }
+
+    func remove(id: UUID) {
+        self.state.withLock { state in
+            state.slots[id] = nil
+        }
+    }
+
+    func shutdown() {
+        let tasks = self.state.withLock { state -> [Task<Void, Never>] in
+            guard state.isShutdown == false else { return [] }
+            state.isShutdown = true
+            let tasks = state.slots.values.compactMap { slot -> Task<Void, Never>? in
+                guard case let .running(task) = slot else { return nil }
+                return task
+            }
+            state.slots.removeAll()
+            return tasks
+        }
+        for task in tasks {
+            task.cancel()
+        }
+    }
+
+    var isShutdown: Bool {
+        self.state.withLock { $0.isShutdown }
+    }
+
+    var count: Int {
+        self.state.withLock { $0.slots.count }
+    }
+}
+
+private struct TelerouteRouteFailure: Error, Sendable {
+    let underlyingError: any Error
+    let context: TelerouteContext
+    let routeKind: TelerouteEvent.RouteKind
+    let routeName: String
 }

@@ -1,6 +1,27 @@
 import Foundation
 import Synchronization
 
+/// Buffering used independently by each subscriber to ``Teleroute/events``.
+public enum TelerouteEventBufferingPolicy: Equatable, Sendable {
+    /// Retains every event until the subscriber consumes it.
+    case unbounded
+    /// Retains only the newest `limit` events.
+    case bufferingNewest(Int)
+    /// Retains only the oldest `limit` events.
+    case bufferingOldest(Int)
+
+    fileprivate var streamPolicy: AsyncStream<TelerouteEvent>.Continuation.BufferingPolicy {
+        switch self {
+        case .unbounded:
+            .unbounded
+        case let .bufferingNewest(limit):
+            .bufferingNewest(max(0, limit))
+        case let .bufferingOldest(limit):
+            .bufferingOldest(max(0, limit))
+        }
+    }
+}
+
 /// Router lifecycle event emitted while an update moves through `Teleroute`.
 public struct TelerouteEvent: Equatable, Sendable {
     public enum Kind: Equatable, Sendable {
@@ -104,21 +125,38 @@ public struct TelerouteEventSequence: AsyncSequence, Sendable {
 
 /// Internal broadcast hub that fans emitted events out to every subscriber.
 final class TelerouteEventHub: Sendable {
-    private struct Subscriber: Sendable {
-        let continuation: AsyncStream<TelerouteEvent>.Continuation
+    private struct State: Sendable {
+        var subscribers: [UUID: AsyncStream<TelerouteEvent>.Continuation] = [:]
+        var isFinished = false
     }
 
-    private let state = Mutex<[Subscriber]>([])
+    private let bufferingPolicy: TelerouteEventBufferingPolicy
+    private let state = Mutex(State())
+
+    init(bufferingPolicy: TelerouteEventBufferingPolicy = .unbounded) {
+        self.bufferingPolicy = bufferingPolicy
+    }
 
     /// Registers a new subscriber and returns its stream. Each call registers
     /// a fresh subscription so every consumer gets its own iterator and buffer.
     func subscribe() -> AsyncStream<TelerouteEvent> {
-        self.state.withLock { subscribers in
-            var continuation: AsyncStream<TelerouteEvent>.Continuation?
-            let stream = AsyncStream<TelerouteEvent>(bufferingPolicy: .unbounded) { continuation = $0 }
-            subscribers.append(.init(continuation: continuation!))
-            return stream
+        let id = UUID()
+        let pair = AsyncStream<TelerouteEvent>.makeStream(
+            bufferingPolicy: self.bufferingPolicy.streamPolicy
+        )
+        pair.continuation.onTermination = { [weak self] _ in
+            self?.removeSubscriber(id: id)
         }
+
+        let shouldFinish = self.state.withLock { state in
+            guard state.isFinished == false else { return true }
+            state.subscribers[id] = pair.continuation
+            return false
+        }
+        if shouldFinish {
+            pair.continuation.finish()
+        }
+        return pair.stream
     }
 
     /// Convenience: registers a subscriber and wraps it in a sequence.
@@ -127,15 +165,33 @@ final class TelerouteEventHub: Sendable {
     }
 
     func emit(_ event: TelerouteEvent) {
-        self.state.withLock { $0 }.forEach { $0.continuation.yield(event) }
+        let continuations = self.state.withLock { Array($0.subscribers.values) }
+        for continuation in continuations {
+            continuation.yield(event)
+        }
     }
 
     func finish() {
-        self.state.withLock { subscribers in
-            for subscriber in subscribers {
-                subscriber.continuation.finish()
-            }
-            subscribers.removeAll()
+        let continuations = self.state.withLock { state -> [AsyncStream<TelerouteEvent>.Continuation] in
+            guard state.isFinished == false else { return [] }
+            state.isFinished = true
+            let continuations = Array(state.subscribers.values)
+            state.subscribers.removeAll()
+            return continuations
+        }
+        // `finish()` invokes `onTermination`; call it after releasing the mutex.
+        for continuation in continuations {
+            continuation.finish()
+        }
+    }
+
+    var subscriberCount: Int {
+        self.state.withLock { $0.subscribers.count }
+    }
+
+    private func removeSubscriber(id: UUID) {
+        self.state.withLock { state in
+            state.subscribers[id] = nil
         }
     }
 }

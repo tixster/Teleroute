@@ -386,7 +386,7 @@ router.callback(ApproveOrderCallback.self)
 let button = try router.callbackButton("Approve", callback: ApproveOrderCallback(orderID: "42"))
 ```
 
-Command properties are decoded by name first, then by position. Optional (`String?`) properties use `command.get(_:at:)` and fall back to `nil`. The macros require the `TelerouteMacros` compiler plugin, which ships with the package.
+Command properties are decoded by name first, then by position. Optional (`String?`) properties use `command.get(_:at:)` and fall back to `nil`; generated memberwise initializers preserve the optional type. Optional callback placeholders also decode as `nil` when absent, while encoding a callback with a `nil` placeholder throws `TelerouteError.missingParameter`. The macros require the `TelerouteMacros` compiler plugin, which ships with the package.
 
 ### 3. Published Commands And Visibility
 
@@ -797,6 +797,8 @@ let router = Teleroute(
 )
 ```
 
+Flow transitions and value updates use `updateSession(for:_:)` so each mutation is based on the latest stored session. Existing storage conformances receive a compatibility implementation. For a database-backed store, override this method with a transaction, compare-and-swap, or equivalent atomic read-modify-write operation; the built-in in-memory storage already does so.
+
 By default `Teleroute` uses `TelerouteInMemoryFlowStorage`, but you can inject your own storage:
 
 ```swift
@@ -872,7 +874,17 @@ Guarded routes are excluded from this diagnostic because registering the same pa
 
 ## Events
 
-`router.events` exposes an `AsyncSequence` of lifecycle events. Multiple consumers are supported: each call to `router.events` returns an independent sequence, and every subscriber receives the same events through its own buffer.
+`router.events` exposes an `AsyncSequence` of lifecycle events. Multiple consumers are supported: each call to `router.events` returns an independent sequence, and every subscriber receives the same events through its own buffer. The default buffer is unbounded; long-lived production bots can cap each subscriber independently:
+
+```swift
+let router = Teleroute(
+    bot: bot,
+    logger: logger,
+    eventBufferingPolicy: .bufferingNewest(1_000)
+)
+```
+
+Use `.bufferingOldest(_:)` when preserving the earliest pending events is more important than observing the newest state.
 
 ```swift
 Task {
@@ -890,6 +902,8 @@ Task {
 ```
 
 Events are emitted for received updates, skipped duplicates, handled routes, unmatched updates, and failures. `TelerouteEvent` carries `startedAt`/`duration` timing and a typed `error` payload on `.failed` events.
+
+Call `router.shutdown()` during application teardown. It stops accepting updates, cancels in-flight handlers, stops cleanup tasks, and finishes every event sequence. The operation is synchronous and idempotent.
 
 ## Error Handling
 
@@ -946,11 +960,11 @@ Inline keyboards can be built declaratively with `TelerouteKeyboardBuilder`:
 
 ```swift
 let keyboard = try router.callbackKeyboard {
-    TelerouteKeyboardBuilder.Row {
+    try TelerouteKeyboardBuilder.Row {
         try router.callbackButton("Prev", path: "page", parameters: ["page": "0"])
         try router.callbackButton("Next", path: "page", parameters: ["page": "2"])
     }
-    TelerouteKeyboardBuilder.Row {
+    try TelerouteKeyboardBuilder.Row {
         try router.callbackButton("Cancel", path: "cancel")
     }
 }
