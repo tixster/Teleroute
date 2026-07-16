@@ -9,6 +9,7 @@ struct ExampleStartScreen {
         let approveOrder: TelerouteCallbackRoute<ApproveOrderCallback>
         let archiveTicket: TelerouteCallbackRoute<ArchiveTicketCallback>
         let adminBan: TelerouteCallbackRoute<AdminBanCallback>
+        let payInvoice: TelerouteCallbackRoute<PayInvoiceCallback>
     }
 
     let text: String
@@ -49,6 +50,13 @@ struct ExampleStartScreen {
                     AdminBanCallback(userID: "99"),
                     "Admin ban #99",
                     style: "danger"
+                ),
+            ],
+            [
+                callbacks.payInvoice.button(
+                    PayInvoiceCallback(invoiceID: "42"),
+                    "Pay invoice #42",
+                    style: "success"
                 ),
             ],
         ])

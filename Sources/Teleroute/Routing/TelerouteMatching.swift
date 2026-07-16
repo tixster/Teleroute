@@ -4,9 +4,7 @@ import Synchronization
 
 final class TelerouteStorage: Sendable {
     private struct State: Sendable {
-        var commandRoutes: [TelerouteCommandRoute] = []
-        var callbackRoutes: [TelerouteCallbackHandlerRoute] = []
-        var flowRoutes: [TelerouteFlowRoute] = []
+        var routeGraph = TelerouteRouteGraph()
         var publishedCommands: [TeleroutePublishedCommand] = []
         var registeredCallbackPaths: Set<String> = []
         var routeSignatures: OrderedSet<TelerouteRouteSignature> = []
@@ -18,16 +16,8 @@ final class TelerouteStorage: Sendable {
     let commandQueue = TelerouteCommandQueue()
     let flowQueue = TelerouteCommandQueue()
 
-    var commandRoutes: [TelerouteCommandRoute] {
-        self.state.withLock { $0.commandRoutes }
-    }
-
-    var callbackRoutes: [TelerouteCallbackHandlerRoute] {
-        self.state.withLock { $0.callbackRoutes }
-    }
-
-    var flowRoutes: [TelerouteFlowRoute] {
-        self.state.withLock { $0.flowRoutes }
+    var routeGraph: TelerouteRouteGraph {
+        self.state.withLock { $0.routeGraph }
     }
 
     var publishedCommands: [TeleroutePublishedCommand] {
@@ -44,7 +34,7 @@ final class TelerouteStorage: Sendable {
     ) {
         self.state.withLock {
             Self.register(signature, in: &$0)
-            $0.commandRoutes.append(route)
+            $0.routeGraph.appendCommand(route)
         }
     }
 
@@ -55,7 +45,7 @@ final class TelerouteStorage: Sendable {
         self.state.withLock {
             Self.register(signature, in: &$0)
             $0.registeredCallbackPaths.insert(route.pattern.routeDescription)
-            $0.callbackRoutes.append(route)
+            $0.routeGraph.appendCallback(route)
         }
     }
 
@@ -68,7 +58,13 @@ final class TelerouteStorage: Sendable {
             if case let .callback(pattern) = route.matcher {
                 $0.registeredCallbackPaths.insert(pattern.routeDescription)
             }
-            $0.flowRoutes.append(route)
+            $0.routeGraph.appendFlow(route)
+        }
+    }
+
+    func registerFlow() {
+        self.state.withLock {
+            $0.routeGraph.hasMountedFlows = true
         }
     }
 
@@ -135,13 +131,35 @@ struct TelerouteCommandRoute: Sendable {
     let name: String
     let botUsername: String?
     let middlewares: [any TelerouteMiddleware]
-    let handler: TelerouteHandler
+    let executor: TelerouteRouteExecutor
+
+    init(
+        name: String,
+        botUsername: String?,
+        middlewares: [any TelerouteMiddleware],
+        handler: @escaping TelerouteHandler
+    ) {
+        self.name = name
+        self.botUsername = botUsername
+        self.middlewares = middlewares
+        self.executor = .init(middlewares: middlewares, handler: handler)
+    }
 }
 
 struct TelerouteCallbackHandlerRoute: Sendable {
     let pattern: TelerouteCallbackPattern
     let middlewares: [any TelerouteMiddleware]
-    let handler: TelerouteHandler
+    let executor: TelerouteRouteExecutor
+
+    init(
+        pattern: TelerouteCallbackPattern,
+        middlewares: [any TelerouteMiddleware],
+        handler: @escaping TelerouteHandler
+    ) {
+        self.pattern = pattern
+        self.middlewares = middlewares
+        self.executor = .init(middlewares: middlewares, handler: handler)
+    }
 }
 
 enum TelerouteFlowRouteMatcher: Sendable {
@@ -155,7 +173,123 @@ struct TelerouteFlowRoute: Sendable {
     let step: String
     let matcher: TelerouteFlowRouteMatcher
     let middlewares: [any TelerouteMiddleware]
-    let handler: TelerouteHandler
+    let executor: TelerouteRouteExecutor
+
+    init(
+        flowID: String,
+        step: String,
+        matcher: TelerouteFlowRouteMatcher,
+        middlewares: [any TelerouteMiddleware],
+        handler: @escaping TelerouteHandler
+    ) {
+        self.flowID = flowID
+        self.step = step
+        self.matcher = matcher
+        self.middlewares = middlewares
+        self.executor = .init(middlewares: middlewares, handler: handler)
+    }
+}
+
+struct TelerouteFlowStepKey: Hashable, Sendable {
+    let flowID: String
+    let step: String
+}
+
+struct TelerouteCallbackRouteIndex<Route: Sendable>: Sendable {
+    struct Entry: Sendable {
+        let sequence: Int
+        let pattern: TelerouteCallbackPattern
+        let route: Route
+    }
+
+    private struct Bucket: Sendable {
+        var literalFirst: [String: [Entry]] = [:]
+        var wildcardFirst: [Entry] = []
+    }
+
+    private var buckets: [Int: Bucket] = [:]
+    private var nextSequence = 0
+
+    mutating func append(pattern: TelerouteCallbackPattern, route: Route) {
+        let entry = Entry(sequence: self.nextSequence, pattern: pattern, route: route)
+        self.nextSequence += 1
+
+        var bucket = self.buckets[pattern.segmentCount, default: .init()]
+        if let firstLiteral = pattern.firstLiteral {
+            bucket.literalFirst[firstLiteral, default: []].append(entry)
+        } else {
+            bucket.wildcardFirst.append(entry)
+        }
+        self.buckets[pattern.segmentCount] = bucket
+    }
+
+    func candidates(for components: [String]) -> [Entry] {
+        guard let bucket = self.buckets[components.count] else { return [] }
+        guard let first = components.first else { return bucket.wildcardFirst }
+
+        let literal = bucket.literalFirst[first] ?? []
+        let wildcard = bucket.wildcardFirst
+        guard literal.isEmpty == false else { return wildcard }
+        guard wildcard.isEmpty == false else { return literal }
+
+        var merged: [Entry] = []
+        merged.reserveCapacity(literal.count + wildcard.count)
+        var literalIndex = literal.startIndex
+        var wildcardIndex = wildcard.startIndex
+
+        while literalIndex < literal.endIndex, wildcardIndex < wildcard.endIndex {
+            if literal[literalIndex].sequence < wildcard[wildcardIndex].sequence {
+                merged.append(literal[literalIndex])
+                literal.formIndex(after: &literalIndex)
+            } else {
+                merged.append(wildcard[wildcardIndex])
+                wildcard.formIndex(after: &wildcardIndex)
+            }
+        }
+        merged.append(contentsOf: literal[literalIndex...])
+        merged.append(contentsOf: wildcard[wildcardIndex...])
+        return merged
+    }
+}
+
+struct TelerouteFlowStepRoutes: Sendable {
+    var messages: [TelerouteFlowRoute] = []
+    var commandsByName: [String: [TelerouteFlowRoute]] = [:]
+    var callbacks = TelerouteCallbackRouteIndex<TelerouteFlowRoute>()
+
+    mutating func append(_ route: TelerouteFlowRoute) {
+        switch route.matcher {
+        case .message:
+            self.messages.append(route)
+        case let .command(name, _):
+            self.commandsByName[name, default: []].append(route)
+        case let .callback(pattern):
+            self.callbacks.append(pattern: pattern, route: route)
+        }
+    }
+}
+
+struct TelerouteRouteGraph: Sendable {
+    var commandsByName: [String: [TelerouteCommandRoute]] = [:]
+    var callbacks = TelerouteCallbackRouteIndex<TelerouteCallbackHandlerRoute>()
+    var flowSteps: [TelerouteFlowStepKey: TelerouteFlowStepRoutes] = [:]
+    var hasMountedFlows = false
+
+    mutating func appendCommand(_ route: TelerouteCommandRoute) {
+        self.commandsByName[route.name, default: []].append(route)
+    }
+
+    mutating func appendCallback(_ route: TelerouteCallbackHandlerRoute) {
+        self.callbacks.append(pattern: route.pattern, route: route)
+    }
+
+    mutating func appendFlow(_ route: TelerouteFlowRoute) {
+        self.hasMountedFlows = true
+        let key = TelerouteFlowStepKey(flowID: route.flowID, step: route.step)
+        var routes = self.flowSteps[key, default: .init()]
+        routes.append(route)
+        self.flowSteps[key] = routes
+    }
 }
 
 enum TeleroutePath: Sendable {
@@ -179,6 +313,15 @@ struct TelerouteCallbackPattern: Sendable {
 
     let segments: [Segment]
 
+    var segmentCount: Int {
+        self.segments.count
+    }
+
+    var firstLiteral: String? {
+        guard case let .some(.literal(value)) = self.segments.first else { return nil }
+        return value
+    }
+
     var routeDescription: String {
         self.segments.map { segment in
             switch segment {
@@ -201,7 +344,10 @@ struct TelerouteCallbackPattern: Sendable {
     }
 
     func match(_ value: String) -> TelerouteParameters? {
-        let components = TeleroutePath.components(from: value)
+        self.match(components: TeleroutePath.components(from: value))
+    }
+
+    func match(components: [String]) -> TelerouteParameters? {
         guard components.count == self.segments.count else {
             return nil
         }
@@ -285,6 +431,26 @@ enum TelerouteCommandExtractor: Sendable {
         if let text = update.businessMessage?.text { return text }
         if let text = update.editedBusinessMessage?.text { return text }
         return nil
+    }
+}
+
+enum TelerouteCommandMatcher: Sendable {
+    static func matches(
+        _ command: TelerouteCommandMatch,
+        routeName: String,
+        botUsername: String?
+    ) -> Bool {
+        guard routeName == command.name else { return false }
+        guard let botUsername else { return true }
+        guard let mentionedBotUsername = command.mentionedBotUsername else { return false }
+        return self.normalizedBotUsername(botUsername) == self.normalizedBotUsername(mentionedBotUsername)
+    }
+
+    private static func normalizedBotUsername(_ username: String) -> String {
+        let username = username.hasPrefix("@")
+            ? String(username.dropFirst())
+            : username
+        return username.lowercased()
     }
 }
 

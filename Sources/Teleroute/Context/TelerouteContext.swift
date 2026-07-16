@@ -11,12 +11,11 @@ public typealias TelerouteHandler = @Sendable (_ context: TelerouteContext) asyn
 public struct TelerouteContext: Sendable {
     /// Bot instance associated with the router.
     public let bot: TGBot
-    /// Raw Telegram update currently being processed.
-    public let update: TGUpdate
     /// Route parameters extracted from a callback pattern.
     public let parameters: TelerouteParameters
     /// Parsed command metadata when the handler was invoked by a command route.
     public let command: TelerouteCommandMatch?
+    let parsedUpdate: TelerouteParsedUpdate
     let flowStorage: (any TelerouteFlowStorage)?
     let flowSession: TelerouteFlowSession?
 
@@ -28,37 +27,42 @@ public struct TelerouteContext: Sendable {
         command: TelerouteCommandMatch? = nil
     ) {
         self.bot = bot
-        self.update = update
         self.parameters = parameters
         self.command = command
+        self.parsedUpdate = .init(update)
         self.flowStorage = nil
         self.flowSession = nil
     }
 
     init(
         bot: TGBot,
-        update: TGUpdate,
+        parsedUpdate: TelerouteParsedUpdate,
         parameters: TelerouteParameters = .init(),
         command: TelerouteCommandMatch? = nil,
         flowStorage: (any TelerouteFlowStorage)?,
         flowSession: TelerouteFlowSession?
     ) {
         self.bot = bot
-        self.update = update
         self.parameters = parameters
         self.command = command
+        self.parsedUpdate = parsedUpdate
         self.flowStorage = flowStorage
         self.flowSession = flowSession
     }
 
+    /// Raw Telegram update currently being processed.
+    public var update: TGUpdate {
+        self.parsedUpdate.update
+    }
+
     /// Current callback query, if the update was produced by an inline button press.
     public var callbackQuery: TGCallbackQuery? {
-        self.update.callbackQuery
+        self.parsedUpdate.callbackQuery
     }
 
     /// Raw callback data attached to the current callback query.
     public var callbackData: String? {
-        self.callbackQuery?.data
+        self.parsedUpdate.callbackData
     }
 
     /// Best-effort resolved Telegram message for the current update.
@@ -66,49 +70,22 @@ public struct TelerouteContext: Sendable {
     /// This checks regular messages, edited messages, business messages, and
     /// callback queries that still have an accessible backing message.
     public var message: TGMessage? {
-        if let message = self.update.message { return message }
-        if let message = self.update.editedMessage { return message }
-        if let message = self.update.channelPost { return message }
-        if let message = self.update.editedChannelPost { return message }
-        if let message = self.update.businessMessage { return message }
-        if let message = self.update.editedBusinessMessage { return message }
-        if case let .some(.message(message)) = self.update.callbackQuery?.message {
-            return message
-        }
-        return nil
+        self.parsedUpdate.message
     }
 
     /// Target chat identifier inferred from the current message or callback query.
     public var chatId: Int64? {
-        if let message = self.message {
-            return message.chat.id
-        }
-        if let callbackMessage = self.callbackQuery?.message {
-            return callbackMessage.chat.id
-        }
-        return nil
+        self.parsedUpdate.chatId
     }
 
     /// Telegram chat type inferred from the current message or callback query.
     public var chatType: TGChatType? {
-        if let message = self.message {
-            return message.chat.type
-        }
-        if let callbackMessage = self.callbackQuery?.message {
-            return callbackMessage.chat.type
-        }
-        return nil
+        self.parsedUpdate.chatType
     }
 
     /// Best-effort resolved user identifier for the current update.
     public var userId: Int64? {
-        if let callbackUserID = self.callbackQuery?.from.id {
-            return callbackUserID
-        }
-        if let from = self.message?.from {
-            return from.id
-        }
-        return nil
+        self.parsedUpdate.userId
     }
 
     /// Active flow session for the current chat/user scope, if one exists.
@@ -118,10 +95,7 @@ public struct TelerouteContext: Sendable {
 
     /// Flow scope derived from the current update.
     public var flowKey: TelerouteFlowKey? {
-        guard let chatId = self.chatId else {
-            return nil
-        }
-        return .init(chatId: chatId, userId: self.userId)
+        self.parsedUpdate.flowKey
     }
 
     /// Replies to the current message when available, otherwise sends a message to the resolved chat.

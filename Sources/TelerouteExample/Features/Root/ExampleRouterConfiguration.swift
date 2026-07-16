@@ -4,7 +4,8 @@ import Teleroute
 struct ExampleRouterConfiguration: TelerouteModule {
     func register(in routes: TelerouteRoutes) {
         let admin = routes.group("admin")
-        let callbacks = self.registerCallbacks(routes: routes, admin: admin)
+        let billing = routes.group("billing").mount(BillingModule())
+        let callbacks = self.registerCallbacks(routes: routes, admin: admin, billing: billing)
 
         self.registerRootCommands(routes: routes, callbacks: callbacks)
         self.registerAdminCommands(admin: admin)
@@ -57,7 +58,8 @@ struct ExampleRouterConfiguration: TelerouteModule {
 
     private func registerCallbacks(
         routes: TelerouteRoutes,
-        admin: TelerouteRoutes
+        admin: TelerouteRoutes,
+        billing: BillingModule.Routes
     ) -> ExampleStartScreen.CallbackRoutes {
         let approveOrder = routes.callback(
             ApproveOrderCallback.self,
@@ -84,7 +86,8 @@ struct ExampleRouterConfiguration: TelerouteModule {
             support: support,
             approveOrder: approveOrder,
             archiveTicket: archiveTicket,
-            adminBan: adminBan
+            adminBan: adminBan,
+            payInvoice: billing.pay
         )
     }
 
@@ -98,7 +101,6 @@ struct ExampleRouterConfiguration: TelerouteModule {
     }
 
     private func mountModulesAndFlows(in routes: TelerouteRoutes) {
-        routes.group("billing").mount(BillingModule())
         routes.group("diag").mount(DiagnosticsModule())
         routes.group("moderation").mount(ModerationModule())
         routes.flow(SignupFlow())

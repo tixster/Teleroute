@@ -1,40 +1,57 @@
 import Foundation
 import Synchronization
 
-actor TelerouteMiddlewareRunner {
-    let middlewares: [any TelerouteMiddleware]
-    let handler: TelerouteHandler
-    private var handled = false
+/// Immutable middleware chain compiled once when its route is registered.
+struct TelerouteRouteExecutor: Sendable {
+    private typealias Step = @Sendable (
+        _ context: TelerouteContext,
+        _ state: TelerouteRouteExecutionState
+    ) async throws -> Void
+
+    private let firstStep: Step
 
     init(
         middlewares: [any TelerouteMiddleware],
         handler: @escaping TelerouteHandler
     ) {
-        self.middlewares = middlewares
-        self.handler = handler
+        var next: Step = { context, state in
+            state.markHandled()
+            try await handler(context)
+        }
+
+        for middleware in middlewares.reversed() {
+            let downstream = next
+            let consumesWithoutCallingNext = middleware is any TelerouteConsumingMiddleware
+            next = { context, state in
+                let didCallNext = Mutex(false)
+                try await middleware.handle(context) { nextContext in
+                    didCallNext.withLock { $0 = true }
+                    try await downstream(nextContext, state)
+                }
+                if didCallNext.withLock({ $0 }) == false,
+                   consumesWithoutCallingNext {
+                    state.markHandled()
+                }
+            }
+        }
+        self.firstStep = next
     }
 
     func run(context: TelerouteContext) async throws -> Bool {
-        try await self.execute(index: 0, context: context)
-        return self.handled
+        let state = TelerouteRouteExecutionState()
+        try await self.firstStep(context, state)
+        return state.isHandled
+    }
+}
+
+private final class TelerouteRouteExecutionState: Sendable {
+    private let handled = Mutex(false)
+
+    func markHandled() {
+        self.handled.withLock { $0 = true }
     }
 
-    private func execute(index: Int, context: TelerouteContext) async throws {
-        if index == self.middlewares.count {
-            self.handled = true
-            try await self.handler(context)
-            return
-        }
-        let middleware = self.middlewares[index]
-        let didCallNext = Mutex(false)
-        try await middleware.handle(context) { [weak self] nextContext in
-            didCallNext.withLock { $0 = true }
-            guard let self else { return }
-            try await self.execute(index: index + 1, context: nextContext)
-        }
-        if didCallNext.withLock({ $0 }) == false,
-           middleware is any TelerouteConsumingMiddleware {
-            self.handled = true
-        }
+    var isHandled: Bool {
+        self.handled.withLock { $0 }
     }
 }

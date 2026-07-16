@@ -38,6 +38,9 @@ let package = Package(
             name: "MyBot",
             dependencies: [
                 .product(name: "Teleroute", package: "Teleroute"),
+                // Add only when this target uses @TelerouteCommand or
+                // @TelerouteCallback:
+                // .product(name: "TelerouteMacros", package: "Teleroute"),
             ]
         )
     ]
@@ -91,6 +94,7 @@ let router = Teleroute(
         flowStorage: DatabaseFlowStorage(),
         replayProtectionStorage: RedisReplayProtectionStorage(),
         replayProtectionTTL: .seconds(5),
+        maximumConcurrentUpdates: 64,
         flowCancellationPolicy: .manual,
         metricsSink: MetricsSink(),
         onError: { error, context in
@@ -101,7 +105,9 @@ let router = Teleroute(
 ```
 
 Every argument has a default. Pass `replayProtectionStorage: nil` to disable
-replay protection.
+replay protection. `maximumConcurrentUpdates` defaults to `64`; when all slots
+are occupied, `process(_:)` suspends until capacity is available instead of
+creating an unbounded number of tasks.
 
 ## Routes and Scopes
 
@@ -246,6 +252,9 @@ The bundled macros synthesize decoding, callback encoding, and memberwise
 initializers:
 
 ```swift
+import Teleroute
+import TelerouteMacros
+
 @TelerouteCommand("ban")
 struct BanCommand {
     let userID: String
@@ -257,6 +266,10 @@ struct ApproveOrder {
     let orderID: String
 }
 ```
+
+Macros live in the optional `TelerouteMacros` product. Targets that only use the
+runtime can depend on `Teleroute` alone and do not build the SwiftSyntax compiler
+plugin.
 
 Macros also compose with self-handling routes:
 
@@ -394,15 +407,21 @@ struct BillingScreen: Sendable {
 }
 
 struct BillingController: TelerouteModule {
+    struct Routes: Sendable {
+        let pay: TelerouteCallbackRoute<PayInvoice>
+    }
+
     let service: any InvoiceService
 
-    func register(in routes: TelerouteRoutes) {
+    func register(in routes: TelerouteRoutes) -> Routes {
         let pay = routes.callback(PayInvoice.self, use: self.markPaid)
         let screen = BillingScreen(pay: pay)
 
         routes.command("invoice") { context in
             try await self.showInvoice(context, screen: screen, routes: routes)
         }
+
+        return .init(pay: pay)
     }
 
     private func showInvoice(
@@ -427,8 +446,13 @@ struct BillingController: TelerouteModule {
     }
 }
 
-router.group("billing").mount(
+let billing = router.group("billing").mount(
     BillingController(service: invoiceService)
+)
+
+let shortcut = billing.pay.button(
+    PayInvoice(id: "42"),
+    "Pay invoice #42"
 )
 ```
 
@@ -436,7 +460,10 @@ This produces `/billing_invoice` and
 `billing/invoice/{id}/pay`. The controller never repeats `"billing"`, so app
 composition can mount the same feature under a different namespace. For a
 screen with several actions, group its handles in a small `CallbackRoutes`
-structure; `TelerouteExample` demonstrates that pattern for `/start`.
+structure. `mount(_:)` returns whatever `register(in:)` exports, so parent
+composition can safely reuse selected child routes without copying callback
+paths. Modules that export nothing keep their ordinary inferred `Void` return. `TelerouteExample`
+demonstrates both module-local and cross-feature route handles for `/start`.
 
 ## Guards and Middleware
 
@@ -658,6 +685,28 @@ for duplicate in router.duplicateRouteSignatures {
 
 Guarded duplicates are allowed because the same path may intentionally select
 different handlers.
+
+## Concurrency and Performance
+
+Each update is parsed once into the values used by matching, context, replay
+protection, logging, events, and metrics. Registration incrementally builds an
+immutable routing snapshot: commands are indexed by name, callbacks by path
+shape and first literal segment, and flow routes by flow identifier and step.
+Middleware chains are also compiled once at registration.
+
+The update executor applies the `maximumConcurrentUpdates` limit with
+backpressure. Flow storage and per-session queues are skipped entirely when no
+flow has been mounted.
+
+Run the bundled release benchmark to compare routing changes across 10, 100,
+and 1000 registered command and callback routes:
+
+```bash
+swift run -c release TelerouteBenchmarks
+```
+
+The benchmark reports elapsed time and throughput but deliberately contains no
+machine-dependent timing assertions.
 
 ## Testing
 

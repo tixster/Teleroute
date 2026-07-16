@@ -420,6 +420,7 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
 public extension TelerouteRoutes {
     /// Mounts a flow into the current route scope.
     func flow<Flow: TelerouteFlow>(_ flow: Flow) {
+        self.storage.registerFlow()
         flow.boot(
             flow: .init(
                 storage: self.storage,

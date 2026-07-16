@@ -1,17 +1,18 @@
 import Teleroute
+import TelerouteMacros
 
 /// Reusable feature module with nested command and callback routes.
 ///
 /// The module owns its route declarations and handler methods without exposing
 /// either to the top-level app configuration.
 struct BillingModule: TelerouteModule {
-    private struct CallbackRoutes: Sendable {
+    struct Routes: Sendable {
         let pay: TelerouteCallbackRoute<PayInvoiceCallback>
         let fail: TelerouteCallbackRoute<FailInvoiceCallback>
     }
 
-    func register(in routes: TelerouteRoutes) {
-        let callbacks = CallbackRoutes(
+    func register(in routes: TelerouteRoutes) -> Routes {
+        let callbacks = Routes(
             pay: routes.callback(PayInvoiceCallback.self, use: self.markInvoicePaid),
             fail: routes.callback(FailInvoiceCallback.self, use: self.markInvoiceFailed)
         )
@@ -23,12 +24,14 @@ struct BillingModule: TelerouteModule {
         ) { context in
             try await self.openInvoice(context, routes: routes, callbacks: callbacks)
         }
+
+        return callbacks
     }
 
     private func openInvoice(
         _ context: TelerouteContext,
         routes: TelerouteRoutes,
-        callbacks: CallbackRoutes
+        callbacks: Routes
     ) async throws {
         let invoiceID = context.command?.get("invoiceID") ?? "unknown"
         let keyboard = try routes.keyboard([[
@@ -60,11 +63,11 @@ struct BillingModule: TelerouteModule {
 }
 
 @TelerouteCallback("invoice/{invoiceID}/pay")
-private struct PayInvoiceCallback {
+struct PayInvoiceCallback {
     let invoiceID: String
 }
 
 @TelerouteCallback("invoice/{invoiceID}/fail")
-private struct FailInvoiceCallback {
+struct FailInvoiceCallback {
     let invoiceID: String
 }

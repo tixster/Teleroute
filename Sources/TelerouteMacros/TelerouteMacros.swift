@@ -1,4 +1,5 @@
 import Foundation
+import Teleroute
 
 /// Synthesizes `TelerouteCallback` conformance for a struct from a path pattern.
 ///
@@ -15,7 +16,7 @@ import Foundation
 @attached(extension, conformances: TelerouteCallback)
 @attached(member, names: named(path), named(init(parameters:)), named(parameters), arbitrary)
 public macro TelerouteCallback(_ path: String) = #externalMacro(
-    module: "TelerouteMacros",
+    module: "TelerouteMacroPlugin",
     type: "TelerouteCallbackMacro"
 )
 
@@ -34,6 +35,6 @@ public macro TelerouteCallback(_ path: String) = #externalMacro(
 @attached(extension, conformances: TelerouteCommand)
 @attached(member, names: named(path), named(init(command:)), arbitrary)
 public macro TelerouteCommand(_ path: String) = #externalMacro(
-    module: "TelerouteMacros",
+    module: "TelerouteMacroPlugin",
     type: "TelerouteCommandMacro"
 )

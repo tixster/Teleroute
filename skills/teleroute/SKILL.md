@@ -31,18 +31,23 @@ Use this skill to modify, test, document, review, or consume the Teleroute libra
 - `Teleroute` owns lifecycle, integration, and the root registration API. Register root routes directly with `router.command`, `router.callback`, `router.group`, `router.mount`, and `router.flow`; `TelerouteRoutes` is exposed for nested scopes and module registration contexts, never as a public root property.
 - A router is bound to the `TGBot` supplied at initialization. Attach it with idempotent `try await router.attach()` before starting the bot; do not add bot-side Teleroute convenience overloads.
 - Advanced dependencies and policies belong in `Teleroute.Configuration`; avoid adding parallel router initializers.
+- `maximumConcurrentUpdates` bounds in-flight update handlers. Preserve suspension-based backpressure, cancellation-aware waiting, and synchronous shutdown accounting.
 - Commands use Telegram-compatible `_`-joined names under groups, for example `group("admin").command("ban")` matches `/admin_ban`.
 - Callback routes keep slash-separated paths and support `{parameter}` placeholders. Generated callback data must encode parameter values and match the same route definition.
 - Active flow routes run before regular callbacks and commands. Regular callbacks run before regular commands.
+- Keep one `TelerouteParsedUpdate` and one route-graph snapshot per routing pass. Command, callback, and flow indexes must preserve registration-order fallback semantics.
 - Flow cancellation behavior is configurable. Preserve the semantics of `TelerouteFlowCancellationPolicy` when unmatched commands arrive during an active flow.
 - Middleware that intentionally consumes an update without calling `next` must conform to the internal `TelerouteConsumingMiddleware` marker so fallback routes do not run.
+- Middleware pipelines are compiled at registration. Preserve support for middleware that invokes `next` repeatedly (for example retry) without adding a per-match actor.
 - Built-in middleware includes access logging, throttle/debounce, timeout, retry, and error-handling flows. Preserve cancellation and error propagation semantics when changing them.
 - Built-in guards include chat-type, allowlist, argument-count, and admin checks. Remember that `TelerouteAdminGuard` performs a Telegram API lookup and should not be treated like a pure local predicate in docs or tests.
 - Preserve command-queue and flow isolation. `TelerouteQueueScope` serializes by `.global`, `.perChat`, or `.perChatAndUser`; active flow updates for the same `chatId + userId` must observe the latest session.
 - Keep event emission, `onError`, and `TelerouteMetricsSink` callbacks behaviorally aligned. Observability changes usually touch `Core/Teleroute.swift`, `Routing/TelerouteEvents.swift`, and `Context/TelerouteMetricsSink.swift` together.
 - Treat `TelerouteButton`, `TelerouteCallbackRoute`, pagination helpers, typed routes, and macros as first-class public APIs. Typed callback registration returns a scope-bound route handle; prefer `route.button(callback, ...)`, while `callback.button(...)` is validated against the rendering scope. Route scopes render descriptions with `render(_:)` or `keyboard(_:)`. Keep pagination route-bound and typed, keep `callbackData(for:)` as the encoded-string escape hatch, and do not reintroduce public path/parameter button factories, a result-builder DSL, or batch button overloads.
 - `TelerouteCommand` and `TelerouteCallback` decode data only. Keep explicit handlers as the dependency-friendly default; `TelerouteHandlingCommand` and `TelerouteHandlingCallback` are opt-in conveniences for small self-contained routes and must never become requirements of the base protocols.
+- `TelerouteModule` may return a typed `Exports` value, and `mount(_:)` forwards it. Use exports for selected cross-feature route handles instead of duplicating callback paths.
 - Callback macro placeholders must map one-to-one to required stored `String` properties so `parameters` remains nonthrowing and every value is renderable.
+- Macro declarations live in the optional `TelerouteMacros` product and implementations in `TelerouteMacroPlugin`; runtime-only consumers must not need the compiler plugin target.
 - `TelerouteContext` includes media/message/chat-action helpers in addition to basic text replies. Preserve fallback target resolution for `chatId` and `messageId`.
 - Public API changes should have at least one non-`@testable` test when access control or consumer visibility matters.
 - Review changes against registration-order behavior: active flow routes first, then regular callbacks, then regular commands, with first-match wins once guards and middleware reach the final handler.
@@ -60,6 +65,7 @@ swift test
 swift test --filter <test-name>
 swift test --sanitize=thread
 swift build -c release
+swift run -c release TelerouteBenchmarks
 ```
 
 Prefer focused `swift test --filter ...` while iterating. Run `swift test --sanitize=thread` for changes involving flow ordering, middleware execution, queues, replay protection, event emission, or shared mutable state.
@@ -77,16 +83,17 @@ Use targeted suites when they fit the change:
 
 - Adding a route API: implement it once on `TelerouteRoutes`, mirror the root forwarding method on `Teleroute`, and update typed/flow extensions, tests, README, and example code when applicable.
 - Adding typed support: keep explicit and self-handling overloads, route-scope callback generation, macros, and public API tests consistent.
-- Changing flow behavior: inspect `TelerouteFlow.swift`, `TelerouteFlowState.swift`, `TelerouteFlowStorage.swift`, and tests around flow session serialization and command cancellation.
+- Changing flow behavior: inspect `TelerouteFlow.swift`, `TelerouteFlowCoordinator.swift`, `TelerouteFlowState.swift`, `TelerouteFlowStorage.swift`, and tests around flow session serialization and command cancellation.
 - Changing flow cancellation behavior: inspect `TelerouteFlowCancellationPolicy.swift`, `Core/Teleroute.swift`, README flow docs, and tests covering unmatched commands during active flows.
 - Changing middleware behavior: inspect `TelerouteMiddleware.swift`, `TelerouteMiddlewareRunner.swift`, rate-limit middleware, and fallback-route tests.
 - Changing built-in middleware or guards: inspect `Composition/TelerouteBuiltInMiddleware.swift`, `Composition/TelerouteGuards.swift`, and `TelerouteStageBTests.swift`.
 - Changing published commands: inspect `TeleroutePublishedCommands.swift` and tests that assert visibility grouping, duplicate detection, and fake-client publishing.
-- Changing matching: inspect `TelerouteMatching.swift`, route signatures, command extraction, callback patterns, percent encoding, and duplicate diagnostics.
+- Changing matching: inspect `TelerouteParsedUpdate.swift`, `TelerouteMatching.swift`, compiled indexes, route signatures, command extraction, callback patterns, percent encoding, and duplicate diagnostics; compare the release benchmark for hot-path changes.
 - Changing observability or failures: inspect `Routing/TelerouteEvents.swift`, `Context/TelerouteMetricsSink.swift`, `Context/TelerouteErrorHandler.swift`, and README sections for events, metrics, and error handling.
 - Changing keyboards or pagination: inspect `Composition/TelerouteKeyboard.swift`, route-scope callback button/data helpers, and `TelerouteStageETests.swift`.
 - Changing modules: inspect `Composition/TelerouteModule.swift`, example modules, and public composition tests.
-- Changing macros: inspect `Macros/TelerouteMacros.swift`, the `TelerouteMacros` implementation target, README examples, and macro tests.
+- Changing macros: inspect the `TelerouteMacros` declaration target, `TelerouteMacroPlugin` implementation target, README imports/dependencies, and macro tests.
+- Changing update concurrency: inspect `TelerouteUpdateExecutor.swift`, `Configuration.maximumConcurrentUpdates`, shutdown tests, backpressure tests, TSan, and the release benchmark.
 - Changing context helpers: inspect `Context/TelerouteContext.swift`, `Context/TelerouteContext+Media.swift`, related `TelerouteError` cases, and README helper examples.
 - Reviewing a change: prioritize routing-order regressions, consuming-middleware correctness, flow cancellation semantics, queue serialization, replay protection scope, and README/example drift.
 

@@ -10,6 +10,7 @@ capability in one executable target with enough structure to use as a starting p
 - show explicit and self-handling typed routes
 - show route groups
 - show controller-style modules with handler methods
+- show a module exporting selected callback route handles to parent composition
 - show scope-bound callback route handles and validated keyboards
 - show guards and middleware
 - show command queues
@@ -93,14 +94,17 @@ This structure is intentional:
 The `/start` feature shows the full composition path:
 
 1. `ExampleRouterConfiguration` creates root and `admin` scopes.
-2. Typed callback registration returns route handles for those exact scopes.
-3. The handles are grouped in `ExampleStartScreen.CallbackRoutes`.
-4. `ExampleStartScreen` builds one keyboard containing both root and admin
-   callbacks; no path strings or manual nested-scope rendering are needed.
+2. Root composition mounts `BillingModule` and receives its exported route handles.
+3. Typed callback registration returns route handles for their exact scopes.
+4. Root, admin, and billing handles are grouped in `ExampleStartScreen.CallbackRoutes`.
+5. `ExampleStartScreen` builds one keyboard containing callbacks from all three
+   features; no path strings or manual nested-scope rendering are needed.
 
 `BillingModule` shows the same pattern inside a reusable feature: root
 composition mounts it into `billing`, the module registers callbacks before its
-command, and the command captures those handles for keyboard construction.
+command, and the command captures those handles for keyboard construction. Its
+`Routes` export intentionally exposes the pay/fail actions to parent composition;
+the `/start` screen reuses `pay` as a cross-feature shortcut.
 
 ## Capability Matrix
 
@@ -113,7 +117,7 @@ command, and the command captures those handles for keyboard construction.
 | Self-handling typed callback | `Features/Callbacks/ExampleCallbacks.swift` |
 | Scope-bound callback buttons | `Features/Root/ExampleStartScreen.swift` |
 | Grouped routes | `Features/Root/ExampleRouterConfiguration.swift` |
-| Reusable modules | `Features/Modules/*Module.swift` |
+| Reusable modules and exports | `Features/Modules/*Module.swift`, `Features/Root/ExampleRouterConfiguration.swift` |
 | Guard | `Support/ExampleRoutingSupport.swift` |
 | Middleware | `Support/ExampleRoutingSupport.swift` |
 | Command queues | `Features/Commands/ExampleCommands.swift`, `Features/Flows/SignupFlow.swift` |
@@ -163,7 +167,7 @@ command, and the command captures those handles for keyboard construction.
 Run these in order against the example bot:
 
 1. Send `/start`.
-2. Tap `Billing FAQ`, `Approve order #42`, and `Archive ticket #42`.
+2. Tap `Billing FAQ`, `Approve order #42`, `Archive ticket #42`, and `Pay invoice #42`.
 3. Send `/refresh_menu` if the private-chat command menu looks stale or incomplete.
 4. Send `/profile name`.
 5. Send `/sync_catalog`.

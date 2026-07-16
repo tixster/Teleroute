@@ -1,5 +1,6 @@
 import Testing
 @testable import Teleroute
+import TelerouteMacros
 import TelerouteTestSupport
 import SwiftTelegramBot
 

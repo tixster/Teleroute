@@ -1,5 +1,6 @@
 import Testing
 import Teleroute
+import TelerouteMacros
 import TelerouteTestSupport
 
 @Test func externalCodeCanCreateFlowSessionForCustomStorage() {
@@ -12,6 +13,13 @@ import TelerouteTestSupport
     #expect(session.id == "SignupFlow")
     #expect(session.step == "name")
     #expect(session.values["name"] == "Alice")
+}
+
+@Test func publicConfigurationExposesUpdateConcurrencyLimit() {
+    var configuration = Teleroute.Configuration(maximumConcurrentUpdates: 7)
+    #expect(configuration.maximumConcurrentUpdates == 7)
+    configuration.maximumConcurrentUpdates = 3
+    #expect(configuration.maximumConcurrentUpdates == 3)
 }
 
 @Test func legacyCustomStorageReceivesDefaultSessionMutationAPI() async throws {
@@ -137,13 +145,18 @@ import TelerouteTestSupport
     router.group("nested").command("ping") { _ in
         await recorder.record("nested")
     }
-    router.mount(PublicV2Module(recorder: recorder))
+    let moduleRoutes = router.mount(PublicV2Module(recorder: recorder))
     router.flow(PublicV2Flow())
 
     let callback = PublicV2Callback(value: "7")
     #expect(try router.callbackData(for: callback) == "public/7")
     #expect(try router.callbackData(for: PublicV2Callback(value: "8")) == "public/8")
     #expect(try router.render(callback.button("Open")).callbackData == "public/7")
+    #expect(
+        try router.render(
+            moduleRoutes.action.button(PublicV2Callback(value: "9"), "Module action")
+        ).callbackData == "module/public/9"
+    )
 
     router.command("duplicate") { _ in }
     router.command("duplicate") { _ in }
@@ -156,10 +169,11 @@ import TelerouteTestSupport
         TelerouteTestSupport.makeCallbackUpdate(data: "public/42", updateId: 902),
         TelerouteTestSupport.makeCommandUpdate(text: "/module_ping", updateId: 903),
         TelerouteTestSupport.makeCommandUpdate(text: "/nested_ping", updateId: 904),
+        TelerouteTestSupport.makeCallbackUpdate(data: "module/public/9", updateId: 905),
     ])
 
-    let values = await recorder.waitForCount(5, retries: 100)
-    #expect(Set(values) == ["raw:900", "typed:value", "callback:42", "module", "nested"])
+    let values = await recorder.waitForCount(6, retries: 100)
+    #expect(Set(values) == ["raw:900", "typed:value", "callback:42", "module", "module:9", "nested"])
     router.shutdown()
 }
 
@@ -335,11 +349,20 @@ private struct PublicV2Flow: TelerouteFlow {
 }
 
 private struct PublicV2Module: TelerouteModule {
+    struct Exports: Sendable {
+        let action: TelerouteCallbackRoute<PublicV2Callback>
+    }
+
     let recorder: TelerouteTestRecorder<String>
 
-    func register(in routes: TelerouteRoutes) {
-        routes.group("module").command("ping") { _ in
+    func register(in routes: TelerouteRoutes) -> Exports {
+        let module = routes.group("module")
+        module.command("ping") { _ in
             await self.recorder.record("module")
         }
+        let action = module.callback(PublicV2Callback.self) { callback, _ in
+            await self.recorder.record("module:\(callback.value)")
+        }
+        return .init(action: action)
     }
 }

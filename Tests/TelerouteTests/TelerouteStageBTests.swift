@@ -64,6 +64,30 @@ struct TelerouteStageBTests {
         #expect(attempts.withLock { $0 } == 3)
     }
 
+    @Test func compiledMiddlewareCanInvokeDownstreamMoreThanOnce() async throws {
+        let bot = try await TelerouteTestSupport.makeBot(label: "router.middleware.multiple-next")
+        let recorder = TelerouteTestRecorder<String>()
+        let router = Teleroute(
+            bot: bot,
+            logger: .init(label: "router.middleware.multiple-next"),
+            configuration: .init(replayProtectionStorage: nil)
+        )
+        router.command("twice", middlewares: [CallNextTwiceMiddleware()]) { _ in
+            await recorder.record("primary")
+        }
+        router.command("twice") { _ in
+            await recorder.record("fallback")
+        }
+
+        await router.handle()
+        await router.process([
+            TelerouteTestSupport.makeCommandUpdate(text: "/twice", updateId: 619),
+        ])
+
+        #expect(await recorder.waitForCount(2) == ["primary", "primary"])
+        router.shutdown()
+    }
+
     @Test func timeoutMiddlewareThrowsWhenHandlerExceedsDeadline() async throws {
         let bot = try await TelerouteTestSupport.makeBot(label: "router.timeout")
         let sawTimeout = Mutex(false)
@@ -171,5 +195,15 @@ private struct RecordingMiddleware: TelerouteMiddleware {
         await self.recorder.record(["\(self.label):before"])
         try await next(context)
         await self.recorder.record(["\(self.label):after"])
+    }
+}
+
+private struct CallNextTwiceMiddleware: TelerouteMiddleware {
+    func handle(
+        _ context: TelerouteContext,
+        next: @escaping @Sendable (TelerouteContext) async throws -> Void
+    ) async throws {
+        try await next(context)
+        try await next(context)
     }
 }

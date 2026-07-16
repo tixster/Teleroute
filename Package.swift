@@ -24,12 +24,20 @@ let package = Package(
             targets: [name]
         ),
         .library(
+            name: "TelerouteMacros",
+            targets: ["TelerouteMacros"]
+        ),
+        .library(
             name: "TelerouteTestSupport",
             targets: ["TelerouteTestSupport"]
         ),
         .executable(
             name: "TelerouteExample",
             targets: ["TelerouteExample"]
+        ),
+        .executable(
+            name: "TelerouteBenchmarks",
+            targets: ["TelerouteBenchmarks"]
         ),
     ],
     dependencies: [
@@ -48,12 +56,19 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "SwiftTelegramBot", package: "swift-telegram-bot"),
-                .target(name: "TelerouteMacros"),
+            ],
+            swiftSettings: settings
+        ),
+        .target(
+            name: "TelerouteMacros",
+            dependencies: [
+                .byName(name: name),
+                .target(name: "TelerouteMacroPlugin"),
             ],
             swiftSettings: settings
         ),
         .macro(
-            name: "TelerouteMacros",
+            name: "TelerouteMacroPlugin",
             dependencies: [
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
@@ -65,7 +80,7 @@ let package = Package(
             dependencies: [
                 .byName(name: name),
                 .byName(name: "TelerouteTestSupport"),
-                .target(name: "TelerouteMacros"),
+                .byName(name: "TelerouteMacros"),
             ],
             swiftSettings: settings
         ),
@@ -81,9 +96,18 @@ let package = Package(
             name: "TelerouteExample",
             dependencies: [
                 .byName(name: name),
+                .byName(name: "TelerouteMacros"),
             ],
             resources: [
                 .copy("README.md"),
+            ],
+            swiftSettings: settings
+        ),
+        .executableTarget(
+            name: "TelerouteBenchmarks",
+            dependencies: [
+                .byName(name: name),
+                .byName(name: "TelerouteTestSupport"),
             ],
             swiftSettings: settings
         ),

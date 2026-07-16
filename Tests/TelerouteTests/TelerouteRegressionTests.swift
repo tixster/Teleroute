@@ -99,7 +99,9 @@ struct TelerouteRegressionTests {
         }
 
         #expect(router.duplicateRouteSignatures.isEmpty)
-        let middlewares = try #require(router.storage.commandRoutes.first?.middlewares)
+        let middlewares = try #require(
+            router.storage.routeGraph.commandsByName["guarded_same"]?.first?.middlewares
+        )
         #expect(middlewares.count >= 2)
         #expect(middlewares[0] is TelerouteGuardMiddleware)
         #expect(middlewares[1] is TelerouteCommandQueueMiddleware)
@@ -291,12 +293,50 @@ struct TelerouteRegressionTests {
         #expect(await probe.startCount == 1)
     }
 
-    @Test func completedProcessingTasksAreAlwaysRemovedFromRegistry() async throws {
+    @Test func shutdownResumesProducerWaitingForExecutorCapacity() async throws {
+        let bot = try await TelerouteTestSupport.makeBot()
+        let probe = RegressionShutdownProbe()
+        let router = Teleroute(
+            bot: bot,
+            logger: .init(label: "regression.shutdown.backpressure"),
+            configuration: .init(
+                replayProtectionStorage: nil,
+                maximumConcurrentUpdates: 1
+            )
+        )
+        router.command("wait") { _ in
+            await probe.started()
+            do {
+                try await Task.sleep(for: .seconds(30))
+            } catch is CancellationError {
+                await probe.cancelled()
+                throw CancellationError()
+            }
+        }
+        await router.handle()
+
+        let processing = Task {
+            await router.process((0..<3).map { value in
+                TelerouteTestSupport.makeCommandUpdate(
+                    text: "/wait",
+                    updateId: 1_100 + value
+                )
+            })
+        }
+        #expect(await eventually { await probe.startCount == 1 })
+
+        router.shutdown()
+        await processing.value
+        #expect(await eventually { await probe.cancelCount == 1 })
+        #expect(router.processingTaskCount == 0)
+    }
+
+    @Test func completedProcessingTasksAreRemovedFromExecutor() async throws {
         let bot = try await TelerouteTestSupport.makeBot()
         let recorder = RegressionRecorder<Int>()
         let router = Teleroute(
             bot: bot,
-            logger: .init(label: "regression.task-registry"),
+            logger: .init(label: "regression.update-executor"),
             configuration: .init(replayProtectionStorage: nil)
         )
         router.command("fast") { context in
@@ -314,6 +354,102 @@ struct TelerouteRegressionTests {
 
         #expect(await recorder.waitForCount(updates.count, retries: 200).count == updates.count)
         #expect(await eventually(attempts: 200) { router.processingTaskCount == 0 })
+        router.shutdown()
+    }
+
+    @Test func updateExecutorAppliesBackpressureAtConfiguredLimit() async throws {
+        let bot = try await TelerouteTestSupport.makeBot()
+        let probe = RegressionConcurrencyProbe()
+        let router = Teleroute(
+            bot: bot,
+            logger: .init(label: "regression.executor.limit"),
+            configuration: .init(
+                replayProtectionStorage: nil,
+                maximumConcurrentUpdates: 2
+            )
+        )
+        router.command("bounded") { _ in
+            await probe.enterAndWait()
+            await probe.leave()
+        }
+        await router.handle()
+
+        let updates = (0..<6).map { value in
+            TelerouteTestSupport.makeCommandUpdate(
+                text: "/bounded",
+                updateId: 3_000 + value
+            )
+        }
+        let processing = Task {
+            await router.process(updates)
+        }
+
+        await probe.waitForStarts(2)
+        #expect(await probe.peak == 2)
+        #expect(router.processingTaskCount == 2)
+
+        await probe.release()
+        await processing.value
+        await probe.waitForCompletions(updates.count)
+        #expect(await probe.peak == 2)
+        #expect(await eventually { router.processingTaskCount == 0 })
+        router.shutdown()
+    }
+
+    @Test func callbackIndexPreservesWildcardAndLiteralRegistrationOrder() async throws {
+        let bot = try await TelerouteTestSupport.makeBot()
+        let recorder = RegressionRecorder<String>()
+        let router = Teleroute(
+            bot: bot,
+            logger: .init(label: "regression.callback-index.order"),
+            configuration: .init(
+                replayProtectionStorage: nil,
+                maximumConcurrentUpdates: 1
+            )
+        )
+        router.callback(
+            "{section}/action",
+            guards: [RegressionUpdateIDGuard(allowed: [3_100])]
+        ) { context in
+            await recorder.record("wildcard:\(context.update.updateId)")
+        }
+        router.callback("orders/action") { context in
+            await recorder.record("literal:\(context.update.updateId)")
+        }
+        await router.handle()
+        await router.process([
+            TelerouteTestSupport.makeCallbackUpdate(data: "orders/action", updateId: 3_100),
+            TelerouteTestSupport.makeCallbackUpdate(data: "orders/action", updateId: 3_101),
+        ])
+
+        #expect(
+            await recorder.waitForCount(2) == ["wildcard:3100", "literal:3101"]
+        )
+        router.shutdown()
+    }
+
+    @Test func routerSkipsFlowStorageWhenNoFlowIsMounted() async throws {
+        let bot = try await TelerouteTestSupport.makeBot()
+        let flowStorage = RegressionCountingFlowStorage()
+        let recorder = RegressionRecorder<String>()
+        let router = Teleroute(
+            bot: bot,
+            logger: .init(label: "regression.flow.fast-path"),
+            configuration: .init(
+                flowStorage: flowStorage,
+                replayProtectionStorage: nil
+            )
+        )
+        router.command("ping") { _ in
+            await recorder.record("pong")
+        }
+        await router.handle()
+        await router.process([
+            TelerouteTestSupport.makeCommandUpdate(text: "/ping", updateId: 3_200),
+        ])
+
+        #expect(await recorder.waitForCount(1) == ["pong"])
+        #expect(await flowStorage.sessionLookupCount == 0)
         router.shutdown()
     }
 
@@ -367,6 +503,14 @@ private struct RegressionDenyGuard: TelerouteGuard {
 
 private struct RegressionAllowGuard: TelerouteGuard {
     func matches(_ context: TelerouteContext) async throws -> Bool { true }
+}
+
+private struct RegressionUpdateIDGuard: TelerouteGuard {
+    let allowed: Set<Int>
+
+    func matches(_ context: TelerouteContext) async throws -> Bool {
+        self.allowed.contains(context.update.updateId)
+    }
 }
 
 private struct RegressionRecordingMiddleware: TelerouteMiddleware {
@@ -490,6 +634,84 @@ private actor RegressionShutdownProbe {
 
     var startCount: Int { self.starts }
     var cancelCount: Int { self.cancellations }
+}
+
+private actor RegressionConcurrencyProbe {
+    private var active = 0
+    private var maximumActive = 0
+    private var starts = 0
+    private var completions = 0
+    private var isReleased = false
+    private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+    private var startWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var completionWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+
+    var peak: Int { self.maximumActive }
+
+    func enterAndWait() async {
+        self.active += 1
+        self.starts += 1
+        self.maximumActive = max(self.maximumActive, self.active)
+        self.resumeSatisfiedWaiters()
+        guard self.isReleased == false else { return }
+        await withCheckedContinuation { continuation in
+            self.releaseWaiters.append(continuation)
+        }
+    }
+
+    func leave() {
+        self.active -= 1
+        self.completions += 1
+        self.resumeSatisfiedWaiters()
+    }
+
+    func release() {
+        self.isReleased = true
+        let waiters = self.releaseWaiters
+        self.releaseWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+
+    func waitForStarts(_ target: Int) async {
+        guard self.starts < target else { return }
+        await withCheckedContinuation { continuation in
+            self.startWaiters.append((target, continuation))
+        }
+    }
+
+    func waitForCompletions(_ target: Int) async {
+        guard self.completions < target else { return }
+        await withCheckedContinuation { continuation in
+            self.completionWaiters.append((target, continuation))
+        }
+    }
+
+    private func resumeSatisfiedWaiters() {
+        let readyStarts = self.startWaiters.filter { self.starts >= $0.0 }
+        self.startWaiters.removeAll { self.starts >= $0.0 }
+        let readyCompletions = self.completionWaiters.filter { self.completions >= $0.0 }
+        self.completionWaiters.removeAll { self.completions >= $0.0 }
+        for (_, waiter) in readyStarts + readyCompletions {
+            waiter.resume()
+        }
+    }
+}
+
+private actor RegressionCountingFlowStorage: TelerouteFlowStorage {
+    private var lookups = 0
+
+    var sessionLookupCount: Int { self.lookups }
+
+    func session(for key: TelerouteFlowKey) -> TelerouteFlowSession? {
+        self.lookups += 1
+        return nil
+    }
+
+    func setSession(_ session: TelerouteFlowSession, for key: TelerouteFlowKey) {}
+
+    func removeSession(for key: TelerouteFlowKey) {}
 }
 
 private func regressionEvent(updateID: Int) -> TelerouteEvent {

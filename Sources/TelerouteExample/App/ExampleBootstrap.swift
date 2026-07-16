@@ -28,6 +28,7 @@ enum ExampleBootstrap {
                 flowStorage: TelerouteInMemoryFlowStorage(),
                 replayProtectionStorage: TelerouteInMemoryReplayProtectionStorage(),
                 replayProtectionTTL: .seconds(3),
+                maximumConcurrentUpdates: 32,
                 // The example exposes explicit `/cancel_signup` and `/resume_signup`
                 // commands, so unrelated commands do not tear down the flow.
                 flowCancellationPolicy: .manual
