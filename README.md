@@ -274,6 +274,9 @@ plugin.
 Macros also compose with self-handling routes:
 
 ```swift
+import Teleroute
+import TelerouteMacros
+
 @TelerouteCommand("hello")
 struct HelloCommand: TelerouteHandlingCommand {
     let name: String
@@ -293,16 +296,63 @@ callback path must be renderable.
 
 ## Callback Data and Keyboards
 
-Callback types are the single source of truth for button data. Typed
-registration returns a `TelerouteCallbackRoute` handle bound to the exact scope
-and router where the callback was registered:
+Callback types are the single source of truth for button data. The callback,
+button, and keyboard APIs are part of the core `Teleroute` product and do not
+require macros. Choose either declaration style below.
+
+### Without Macros
+
+Declare the `TelerouteCallback` conformance explicitly when the target should
+depend only on the core runtime:
 
 ```swift
+import Teleroute
+
+struct BanUser: TelerouteCallback {
+    static let path = "users/{id}/ban"
+
+    let id: String
+
+    init(id: String) {
+        self.id = id
+    }
+
+    init(parameters: TelerouteParameters) throws {
+        self.id = try parameters.require("id")
+    }
+
+    var parameters: [String: String] {
+        ["id": self.id]
+    }
+}
+```
+
+### With Macros
+
+The optional `TelerouteMacros` product generates the same conformance,
+decoding, encoding, and memberwise initializer:
+
+```swift
+import Teleroute
+import TelerouteMacros
+
 @TelerouteCallback("users/{id}/ban")
 struct BanUser {
     let id: String
 }
+```
 
+Add the macro product only to targets that use this shorter form:
+
+```swift
+.product(name: "TelerouteMacros", package: "Teleroute")
+```
+
+Both declarations are registered and rendered identically. Typed registration
+returns a `TelerouteCallbackRoute` handle bound to the exact scope and router
+where the callback was registered:
+
+```swift
 let admin = router.group("admin")
 let banUsers = admin.callback(BanUser.self) { callback, context in
     try await context.answerCallbackQuery("Banned \(callback.id)")
@@ -318,9 +368,14 @@ router renders it: the handle carries its registration scope. It cannot be
 rendered by a different `Teleroute` instance.
 
 Self-handling callbacks return the same kind of handle, so registration and
-keyboard construction stay connected without duplicating paths:
+keyboard construction stay connected without duplicating paths. The following
+example uses macros for brevity; it can use the explicit `static path`,
+`init(parameters:)`, and `parameters` implementation shown above instead:
 
 ```swift
+import Teleroute
+import TelerouteMacros
+
 @TelerouteCallback("orders/{id}/reject")
 struct RejectOrder: TelerouteHandlingCallback {
     let id: String
@@ -377,16 +432,32 @@ feature usually has four small parts:
 - a screen/presenter receives route handles and builds keyboards;
 - root composition chooses the feature's prefix and mounts it.
 
-For example:
+The complete example below uses an explicit callback conformance and therefore
+depends only on the core runtime:
 
 ```swift
+import Teleroute
+
 protocol InvoiceService: Sendable {
     func markPaid(id: String) async throws
 }
 
-@TelerouteCallback("invoice/{id}/pay")
-struct PayInvoice {
+struct PayInvoice: TelerouteCallback {
+    static let path = "invoice/{id}/pay"
+
     let id: String
+
+    init(id: String) {
+        self.id = id
+    }
+
+    init(parameters: TelerouteParameters) throws {
+        self.id = try parameters.require("id")
+    }
+
+    var parameters: [String: String] {
+        ["id": self.id]
+    }
 }
 
 struct BillingScreen: Sendable {
@@ -454,6 +525,20 @@ let shortcut = billing.pay.button(
     PayInvoice(id: "42"),
     "Pay invoice #42"
 )
+```
+
+When the feature target depends on `TelerouteMacros`, only the transport type
+declaration needs to change; the screen, controller, exports, and registration
+remain identical:
+
+```swift
+import Teleroute
+import TelerouteMacros
+
+@TelerouteCallback("invoice/{id}/pay")
+struct PayInvoice {
+    let id: String
+}
 ```
 
 This produces `/billing_invoice` and
@@ -531,12 +616,28 @@ Flow entry commands accept the same `queue:` argument.
 
 ## Flows
 
-Flows provide stateful routing scoped by `chatId + userId`:
+Flows provide stateful routing scoped by `chatId + userId` and do not require
+macros. Here is the complete runtime-only form:
 
 ```swift
-@TelerouteCallback("confirm/{decision}")
-struct SignupDecision {
+import Teleroute
+
+struct SignupDecision: TelerouteCallback {
+    static let path = "confirm/{decision}"
+
     let decision: String
+
+    init(decision: String) {
+        self.decision = decision
+    }
+
+    init(parameters: TelerouteParameters) throws {
+        self.decision = try parameters.require("decision")
+    }
+
+    var parameters: [String: String] {
+        ["decision": self.decision]
+    }
 }
 
 struct SignupFlow: TelerouteFlow {
@@ -574,11 +675,23 @@ struct SignupFlow: TelerouteFlow {
                 replyMarkup: .inlineKeyboardMarkup(keyboard)
             )
         }
-
     }
 }
 
 router.flow(SignupFlow())
+```
+
+With the optional macro product, the callback contract can be shortened while
+the flow itself remains unchanged:
+
+```swift
+import Teleroute
+import TelerouteMacros
+
+@TelerouteCallback("confirm/{decision}")
+struct SignupDecision {
+    let decision: String
+}
 ```
 
 `TelerouteFlowContext` supports `restart(at:values:)`,

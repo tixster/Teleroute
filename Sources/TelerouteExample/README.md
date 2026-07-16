@@ -8,6 +8,7 @@ capability in one executable target with enough structure to use as a starting p
 
 - show string commands and typed callbacks
 - show explicit and self-handling typed routes
+- show optional macro-backed route declarations without coupling keyboards or flows to macros
 - show route groups
 - show controller-style modules with handler methods
 - show a module exporting selected callback route handles to parent composition
@@ -25,6 +26,12 @@ TELEGRAM_BOT_TOKEN=123456:abc swift run TelerouteExample
 ```
 
 The bot starts in long-polling mode and keeps the process alive after startup.
+
+The example target depends on both `Teleroute` and the optional
+`TelerouteMacros` product because some transport types use annotations for
+brevity. Commands, callbacks, keyboards, modules, and flows can all be used with
+explicit protocol conformances and only the core `Teleroute` product, as shown
+in the root README.
 
 ## Folder Layout
 
