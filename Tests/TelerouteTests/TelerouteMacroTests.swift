@@ -2,12 +2,11 @@ import Testing
 @_spi(Testing) @testable import Teleroute
 import TelerouteMacros
 import TelerouteTestSupport
-import SwiftTelegramBot
 
 @Suite(.serialized)
 struct TelerouteMacroTests {
     @Test func commandMacroSynthesizesPathAndInit() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.macro.command"))
         let recorder = TelerouteTestRecorder<[String]>()
 
@@ -15,7 +14,6 @@ struct TelerouteMacroTests {
             await recorder.record([command.userID, command.reason ?? "none"])
         }
 
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCommandUpdate(text: "/ban 42 spammer", chatId: 200, updateId: 800),
         ])
@@ -47,7 +45,7 @@ struct TelerouteMacroTests {
     }
 
     @Test func callbackMacroSynthesizesPathAndRoundTrips() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.macro.callback"))
         let recorder = TelerouteTestRecorder<String>()
 
@@ -55,7 +53,6 @@ struct TelerouteMacroTests {
             await recorder.record("approved:\(callback.orderID)")
         }
 
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCallbackUpdate(data: "orders/77/approve", chatId: 201, updateId: 801),
         ])
@@ -66,7 +63,7 @@ struct TelerouteMacroTests {
     }
 
     @Test func callbackMacroParametersRoundTrip() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.macro.callback-rt"))
 
         let original = MacroApproveCallback(orderID: "42")
@@ -84,7 +81,7 @@ struct TelerouteMacroTests {
         await MacroHandlingCommand.recorder.reset()
         await MacroHandlingCallback.recorder.reset()
 
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(
             bot: bot,
             logger: .init(label: "router.macro.self-handling"),
@@ -94,7 +91,6 @@ struct TelerouteMacroTests {
         router.command(MacroHandlingCommand.self)
         router.callback(MacroHandlingCallback.self)
 
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCommandUpdate(text: "/remember hello", updateId: 802),
             TelerouteTestSupport.makeCallbackUpdate(data: "remember/42", updateId: 803),

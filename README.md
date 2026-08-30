@@ -4,9 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/tixster/Teleroute/blob/main/LICENSE)
 [![Swift 6.3](https://img.shields.io/badge/Swift-6.3-F05138?logo=swift&logoColor=white)](https://swift.org)
 
-Teleroute is a route-style application layer for
-[swift-telegram-bot](https://github.com/nerzh/swift-telegram-bot). Its
-architecture follows the same useful separation as Hummingbird:
+Teleroute is a route-style framework for the Telegram Bot API. The API types
+and client are generated from an OpenAPI specification of the Bot API with
+[swift-openapi-generator](https://github.com/apple/swift-openapi-generator)
+and ship as the bundled `TelegramBotAPI` module. Its architecture follows the
+same useful separation as Hummingbird:
 
 - `Teleroute` builds a bot-independent route graph;
 - `TelerouteBot` owns the bot, configuration, lifecycle, and update runtime;
@@ -21,7 +23,6 @@ flows, command queues, replay protection, events, metrics, and in-process tests.
 
 - Swift 6.3
 - macOS 15+
-- swift-telegram-bot 10.0+
 
 ## Installation
 
@@ -79,15 +80,8 @@ router.callback("orders/{id}/approve") { context in
     ])
 }
 
-let telegramBot = try await TGBot(
-    connectionType: .longpolling(),
-    tgClient: TGClientDefault(),
-    botId: "<token>",
-    log: Logger(label: "telegram.bot")
-)
-
-let bot = TelerouteBot(
-    bot: telegramBot,
+let bot = try TelerouteBot(
+    token: "<token>",
     router: router,
     logger: Logger(label: "telegram.teleroute"),
     configuration: .init(syncPublishedCommandsOnStart: true)
@@ -96,9 +90,12 @@ let bot = TelerouteBot(
 try await bot.run()
 ```
 
-`bot.run()` attaches the internal dispatcher, optionally synchronizes command
-menus, starts the bot, waits until cancellation, and then shuts down gracefully.
-There is no separate `bot.add(router:)` or public `router.attach()` step.
+`TelerouteBot` owns the Telegram client: it builds an AsyncHTTPClient-backed
+transport, applies a 30 req/s outbound rate limit (configurable via the
+`rateLimit:` parameter), and runs the `getUpdates` long-polling loop itself.
+`bot.run()` optionally synchronizes command menus, starts long polling, waits
+until cancellation, and then shuts down gracefully. Updates delivered by an
+external webhook server can be fed through `bot.process(_:)` instead.
 
 For handlers that need arbitrary Telegram operations, use the explicitly named
 side-effect API:
@@ -145,9 +142,8 @@ are occupied instead of creating an unbounded number of tasks.
 For embedding and tests, the lifecycle can also be controlled explicitly:
 
 ```swift
-try await bot.attach()       // no polling/webhook start
-await bot.process(updates)   // synthetic or externally supplied updates
-try await bot.start()        // idempotent
+await bot.process(updates)   // synthetic or externally supplied updates; no polling
+try await bot.start()        // starts long polling; idempotent
 await bot.shutdown()         // idempotent
 ```
 
@@ -670,8 +666,11 @@ router.onCommand("photo") { context in
 }
 ```
 
-The raw `TGUpdate` remains available as `context.update`, and the bot escape
-hatch remains available as `context.bot`.
+The raw `Update` remains available as `context.update`, and the bot escape
+hatch remains available as `context.bot`. For Telegram methods the client does
+not wrap, `context.bot.api` exposes every generated Bot API operation; add
+`import TelegramBotAPI` to reach the raw `Components`/`Operations` namespaces.
+See [openapi/README.md](openapi/README.md) for the API generation workflow.
 
 ## Matching and Performance
 
@@ -712,7 +711,7 @@ func startCommand() async throws {
     let router = Teleroute()
     router.command("start") { _ in .reply("Welcome") }
 
-    let (bot, telegram) = try await TelerouteTestSupport.makeTelerouteBot(
+    let (bot, telegram) = try TelerouteTestSupport.makeTelerouteBot(
         router: router
     )
 
@@ -729,9 +728,10 @@ func startCommand() async throws {
 }
 ```
 
-The recording client captures sent text and reply markup, message edits,
-callback answers, and command-menu updates. The test client also provides
-`sendMessage`, `pressCallback`, and raw `execute(TGUpdate)` methods.
+The recording transport captures sent text and reply markup, message edits,
+callback answers, and command-menu updates by faking the HTTP layer under the
+generated Telegram client. The test client also provides `sendMessage`,
+`pressCallback`, and raw `execute(Update)` methods.
 
 ## Example Project
 

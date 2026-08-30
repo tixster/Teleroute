@@ -24,14 +24,12 @@ struct TelerouteBenchmarks {
     }
 
     private static func measureCommands(routeCount: Int) async throws -> Duration {
-        let telegramBot = try await TelerouteTestSupport.makeBot(
-            label: "teleroute.benchmark.command"
-        )
+        let telegramBot = try TelerouteTestSupport.makeClient()
         var logger = Logger(label: "teleroute.benchmark.command")
         logger.logLevel = .critical
         let router = Teleroute()
         let bot = TelerouteBot(
-            bot: telegramBot,
+            client: telegramBot,
             router: router,
             logger: logger,
             configuration: .init(replayProtectionStorage: nil)
@@ -46,11 +44,10 @@ struct TelerouteBenchmarks {
             }
         }
 
-        try await bot.attach()
         let updates = (0..<self.updateCount).map { index in
             TelerouteTestSupport.makeCommandUpdate(
                 text: "/route\(routeCount - 1)",
-                updateId: 10_000 + index
+                updateId: Int64(10_000 + index)
             )
         }
         let duration = await ContinuousClock().measure {
@@ -62,14 +59,12 @@ struct TelerouteBenchmarks {
     }
 
     private static func measureCallbacks(routeCount: Int) async throws -> Duration {
-        let telegramBot = try await TelerouteTestSupport.makeBot(
-            label: "teleroute.benchmark.callback"
-        )
+        let telegramBot = try TelerouteTestSupport.makeClient()
         var logger = Logger(label: "teleroute.benchmark.callback")
         logger.logLevel = .critical
         let router = Teleroute()
         let bot = TelerouteBot(
-            bot: telegramBot,
+            client: telegramBot,
             router: router,
             logger: logger,
             configuration: .init(replayProtectionStorage: nil)
@@ -84,11 +79,10 @@ struct TelerouteBenchmarks {
             }
         }
 
-        try await bot.attach()
         let updates = (0..<self.updateCount).map { index in
             TelerouteTestSupport.makeCallbackUpdate(
                 data: "route\(routeCount - 1)/\(index)",
-                updateId: 20_000 + index
+                updateId: Int64(20_000 + index)
             )
         }
         let duration = await ContinuousClock().measure {

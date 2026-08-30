@@ -48,7 +48,7 @@ public struct TelerouteEvent: Equatable, Sendable {
     /// Matched route name or callback pattern when available.
     public let routeName: String?
     /// Telegram update identifier.
-    public let updateId: Int
+    public let updateId: Int64
     /// Resolved chat identifier, if present in the update.
     public let chatId: Int64?
     /// Resolved user identifier, if present in the update.
@@ -67,7 +67,7 @@ public struct TelerouteEvent: Equatable, Sendable {
         kind: Kind,
         routeKind: RouteKind,
         routeName: String? = nil,
-        updateId: Int,
+        updateId: Int64,
         chatId: Int64?,
         userId: Int64?,
         startedAt: ContinuousClock.Instant = ContinuousClock().now,

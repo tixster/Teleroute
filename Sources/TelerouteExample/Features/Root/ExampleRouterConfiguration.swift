@@ -136,11 +136,7 @@ struct ExampleRouterConfiguration: TelerouteRouteCollection {
         }
 
         try await context.bot.deleteMyCommands(
-            params: .init(
-                scope: .botCommandScopeChat(
-                    .init(type: .chat, chatId: .chat(chatId))
-                )
-            )
+            scope: .chat(.init(_type: "chat", chatId: .id(chatId)))
         )
         try await context.coreContext.publishCommands(
             ExampleCommandMenus.privateChat,

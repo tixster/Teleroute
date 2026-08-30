@@ -1,5 +1,4 @@
 import Foundation
-import SwiftTelegramBot
 
 /// A typed callback button description rendered by a ``Teleroute`` or
 /// nested ``TelerouteRouterGroup``.
@@ -7,7 +6,7 @@ public struct TelerouteButton: Sendable {
     private enum Destination: Sendable {
         case callback(any TelerouteCallback)
         case registeredCallback(any TelerouteCallback, TelerouteCallbackRouteBinding)
-        case raw(TGInlineKeyboardButton)
+        case raw(InlineKeyboardButton)
     }
 
     private let text: String
@@ -57,7 +56,7 @@ public struct TelerouteButton: Sendable {
     }
 
     /// Includes an already-created Telegram button unchanged.
-    public static func raw(_ button: TGInlineKeyboardButton) -> Self {
+    public static func raw(_ button: InlineKeyboardButton) -> Self {
         .init(
             text: button.text,
             iconCustomEmojiId: button.iconCustomEmojiId,
@@ -66,7 +65,7 @@ public struct TelerouteButton: Sendable {
         )
     }
 
-    func render(in routes: TelerouteRoutes) throws -> TGInlineKeyboardButton {
+    func render(in routes: TelerouteRoutes) throws -> InlineKeyboardButton {
         switch self.destination {
         case let .callback(callback):
             .init(

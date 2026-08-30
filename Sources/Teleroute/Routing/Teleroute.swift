@@ -1,5 +1,4 @@
 import Foundation
-import SwiftTelegramBot
 import Synchronization
 
 /// Middleware for statically typed request contexts.
@@ -434,12 +433,12 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
     }
 
     /// Renders one typed button description in this namespace.
-    public func render(_ button: TelerouteButton) throws -> TGInlineKeyboardButton {
+    public func render(_ button: TelerouteButton) throws -> InlineKeyboardButton {
         try self.routes.render(button)
     }
 
     /// Renders typed button descriptions into Telegram keyboard rows.
-    public func keyboard(_ rows: [[TelerouteButton]]) throws -> TGInlineKeyboardMarkup {
+    public func keyboard(_ rows: [[TelerouteButton]]) throws -> InlineKeyboardMarkup {
         try self.routes.keyboard(rows)
     }
 

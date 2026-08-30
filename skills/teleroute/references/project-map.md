@@ -12,9 +12,15 @@
 
 ## Source Areas
 
+- `Sources/TelegramBotAPI/Generated`: committed swift-openapi-generator output (Telegram Bot API types + client). Regenerate with `Scripts/generate-api.sh`; never edit by hand. Spec, patch script, and workflow live in `openapi/`.
+- `Telegram/TelegramVocabulary.swift`: prefix-free public typealiases over `Components.Schemas.*` plus Teleroute-owned `ParseMode`, `ChatType`, `ChatAction`, `FileInput`, and ergonomics extensions (`ChatId.id/.username`, `ReplyMarkup.inline`, `MaybeInaccessibleMessage.accessibleMessage`).
+- `Telegram/TelegramBotClient.swift`: the client wrapper — generated `api: any APIProtocol` escape hatch, token/transport construction, typed convenience methods unwrapping the `{ok, result}` envelope.
+- `Telegram/TelegramAPIError.swift`: error decoded from undocumented (non-200) responses.
+- `Telegram/TelegramLongPollingConnection.swift`: owned `getUpdates` loop with offset tracking, jittered backoff, webhook cleanup, cancellation.
+- `Telegram/TelegramRateLimit.swift`: token-bucket `ClientMiddleware` (default 30 req/s, `getUpdates` exempt).
 - `Core/TelerouteBot.swift`: public routed-bot lifecycle, command publishing delegation, event streams, in-process test client, and graceful shutdown.
 - `Core/TelerouteConfiguration.swift`: public runtime dependencies and policies.
-- `Core/TelerouteRuntime.swift`: test-SPI `TGDefaultDispatcherPrtcl` runtime, update processing order, event emission, error handling, metrics, and replay protection.
+- `Core/TelerouteRuntime.swift`: test-SPI runtime owning the update pipeline: processing order, event emission, error handling, metrics, and replay protection.
 - `Core/TelerouteParsedUpdate.swift`: one-pass extraction of command, callback, message, identity, flow key, and route-kind metadata for one routing pass.
 - `Core/TelerouteUpdateExecutor.swift`: bounded update execution, backpressure, cancellation, and synchronous shutdown state.
 - `Routing/Teleroute.swift`: public generic router/group APIs, middleware collections, custom/child context execution, response and side-effect registration.
@@ -77,7 +83,7 @@
 ## Test Patterns
 
 - Keep tests in `Tests/TelerouteTests` and prefer Swift Testing.
-- Shared fixtures live in `TelerouteTestSupport`; reuse `makeBot`, `makeTelerouteBot`, `makeCommandUpdate`, `makeMessageUpdate`, `makeCallbackUpdate`, `TelerouteTestRecorder`, mock flow storage, fake `TGClientPrtcl` implementations, and command publishing recorders.
+- Shared fixtures live in `TelerouteTestSupport`; reuse `makeClient`, `makeTelerouteBot`, `makeCommandUpdate`, `makeMessageUpdate`, `makeCallbackUpdate`, `TelerouteTestRecorder`, mock flow storage, fake `ClientTransport` implementations, and command publishing recorders.
 - `TelerouteStageBTests.swift` covers guards and built-in middleware.
 - `TelerouteStageETests.swift` covers keyboard descriptions, pagination, metrics, and route scopes.
 - `TelerouteMacroTests.swift` covers public macros.

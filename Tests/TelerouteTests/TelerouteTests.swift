@@ -1,3 +1,6 @@
+import Foundation
+import HTTPTypes
+import OpenAPIRuntime
 import Testing
 @_spi(Testing) @testable import Teleroute
 
@@ -16,7 +19,6 @@ struct TelerouteTests {
         ])
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/start hello world")])
 
     let values = await recorder.waitForCount(1)
@@ -34,7 +36,6 @@ struct TelerouteTests {
         }
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/admin_ban 42")])
 
     let values = await recorder.waitForCount(1)
@@ -50,7 +51,6 @@ struct TelerouteTests {
         await recorder.record(context.command?.rawValue ?? "")
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/start", updateId: 10)])
     try? await Task.sleep(for: .milliseconds(50))
     #expect(await recorder.values.isEmpty)
@@ -77,7 +77,6 @@ struct TelerouteTests {
         ])
     }
 
-    await router.handle()
     await router.process([
         makeCallbackUpdate(data: "orders/42/items/green%20tea"),
     ])
@@ -129,7 +128,6 @@ struct TelerouteTests {
         await recorder.record([command.userID, command.reason ?? ""])
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/ban 42 spam")])
 
     let values = await recorder.waitForCount(1)
@@ -158,7 +156,6 @@ struct TelerouteTests {
         await ExplicitBanCommand.recorder.record(command.userID)
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/explicit_ban 77")])
 
     let values = await ExplicitBanCommand.recorder.waitForCount(1)
@@ -175,7 +172,6 @@ struct TelerouteTests {
     }
 
     let data = try router.callbackData(for: ApproveOrderCallback(orderID: "42"))
-    await router.handle()
     await router.process([makeCallbackUpdate(data: data)])
 
     let button = try router.render(
@@ -196,7 +192,6 @@ struct TelerouteTests {
         await ExplicitApproveOrderCallback.recorder.record(callback.orderID)
     }
 
-    await router.handle()
     await router.process([makeCallbackUpdate(data: "orders/55/explicit_approve")])
 
     let values = await ExplicitApproveOrderCallback.recorder.waitForCount(1)
@@ -212,7 +207,6 @@ struct TelerouteTests {
         admin.mount(AdminModule(recorder: recorder))
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/admin_ban 42")])
 
     let values = await recorder.waitForCount(1)
@@ -226,7 +220,6 @@ struct TelerouteTests {
 
     router.mount(GroupedAdminModule(recorder: recorder))
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/admin_ban 42")])
 
     let values = await recorder.waitForCount(1)
@@ -245,7 +238,6 @@ struct TelerouteTests {
         await recorder.record("private")
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/start", chatType: .private)])
 
     let values = await recorder.waitForCount(1)
@@ -264,7 +256,6 @@ struct TelerouteTests {
         await recorder.record(try context.parameters.require("id"))
     }
 
-    await router.handle()
     await router.process([makeCallbackUpdate(data: "orders/42/approve", chatType: .private)])
 
     let values = await recorder.waitForCount(1)
@@ -283,7 +274,6 @@ struct TelerouteTests {
         await recorder.record(["handler"])
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/start")])
 
     let values = await recorder.waitForCount(3)
@@ -307,7 +297,6 @@ struct TelerouteTests {
         await recorder.record(context.command?.arguments.first ?? "")
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/tap first", updateId: 220)])
     let values = await recorder.waitForCount(1, retries: 100)
     await router.process([makeCommandUpdate(text: "/tap second", updateId: 221)])
@@ -338,7 +327,6 @@ struct TelerouteTests {
         await recorder.record("fallback:\(context.command?.arguments.first ?? "")")
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/tap first", updateId: 222)])
     _ = await recorder.waitForCount(1, retries: 100)
     await router.process([makeCommandUpdate(text: "/tap second", updateId: 223)])
@@ -364,7 +352,6 @@ struct TelerouteTests {
         await recorder.record(context.command?.arguments.first ?? "")
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/search first", updateId: 230)])
     try? await Task.sleep(for: .milliseconds(20))
     await router.process([makeCommandUpdate(text: "/search second", updateId: 231)])
@@ -396,7 +383,6 @@ struct TelerouteTests {
         await recorder.record("fallback:\(context.command?.arguments.first ?? "")")
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/search first", updateId: 232)])
     try? await Task.sleep(for: .milliseconds(20))
     await router.process([makeCommandUpdate(text: "/search second", updateId: 233)])
@@ -424,7 +410,6 @@ struct TelerouteTests {
 
     router.command("events") { _ in }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/events", updateId: 235)])
 
     let events = await recorder.waitForCount(2, retries: 100)
@@ -441,7 +426,7 @@ struct TelerouteTests {
 
     let collectionTask = Task {
         var iterator = events.makeAsyncIterator()
-        var updateIds: [Int] = []
+        var updateIds: [Int64] = []
         while updateIds.count < eventCount {
             guard let event = await iterator.next() else { break }
             updateIds.append(event.updateId)
@@ -454,7 +439,7 @@ struct TelerouteTests {
             .init(
                 kind: .received,
                 routeKind: .command,
-                updateId: updateId,
+                updateId: Int64(updateId),
                 chatId: nil,
                 userId: nil
             )
@@ -464,7 +449,7 @@ struct TelerouteTests {
     let updateIds = await collectionTask.value
     hub.finish()
 
-    #expect(updateIds == Array(0..<eventCount))
+    #expect(updateIds == Array(Int64(0)..<Int64(eventCount)))
 }
 
 @Test func eventHubBroadcastsToMultipleConsumers() async throws {
@@ -475,7 +460,7 @@ struct TelerouteTests {
 
     let consumerA = Task {
         var iterator = eventsA.makeAsyncIterator()
-        var updateIds: [Int] = []
+        var updateIds: [Int64] = []
         while updateIds.count < 3 {
             guard let event = await iterator.next() else { break }
             updateIds.append(event.updateId)
@@ -484,7 +469,7 @@ struct TelerouteTests {
     }
     let consumerB = Task {
         var iterator = eventsB.makeAsyncIterator()
-        var updateIds: [Int] = []
+        var updateIds: [Int64] = []
         while updateIds.count < 3 {
             guard let event = await iterator.next() else { break }
             updateIds.append(event.updateId)
@@ -494,7 +479,7 @@ struct TelerouteTests {
 
     try? await Task.sleep(for: .milliseconds(20))
     for updateId in 1...3 {
-        hub.emit(.init(kind: .handled, routeKind: .command, updateId: updateId, chatId: nil, userId: nil))
+        hub.emit(.init(kind: .handled, routeKind: .command, updateId: Int64(updateId), chatId: nil, userId: nil))
     }
 
     let idsA = await consumerA.value
@@ -522,7 +507,6 @@ struct TelerouteTests {
         throw BoomError()
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/boom", updateId: 600)])
 
     let captured = await recorder.waitForCount(1)
@@ -546,7 +530,6 @@ struct TelerouteTests {
         throw BoomError()
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/boom", updateId: 601)])
     _ = await recorder.waitForCount(2, retries: 100)
 
@@ -565,7 +548,6 @@ struct TelerouteTests {
 
     router.flow(SignupFlow(recorder: recorder))
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/signup")])
     _ = await recorder.waitForCount(1)
     await router.process([makeMessageUpdate(text: "Alice")])
@@ -584,7 +566,6 @@ struct TelerouteTests {
 
     router.flow(SignupFlow(recorder: recorder))
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/signup", updateId: 240)])
     _ = await recorder.waitForCount(1)
     await router.process([makeMessageUpdate(text: "Alice", updateId: 241)])
@@ -603,7 +584,6 @@ struct TelerouteTests {
 
     router.flow(SignupFlow(recorder: recorder))
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/signup", updateId: 250)])
     _ = await recorder.waitForCount(1)
     await router.process([
@@ -627,7 +607,6 @@ struct TelerouteTests {
 
     router.flow(SignupFlow(recorder: recorder))
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/signup", userId: 42, chatId: 42)])
     _ = await recorder.waitForCount(1)
     await router.process([makeMessageUpdate(text: "Alice", userId: 42, chatId: 42)])
@@ -656,7 +635,6 @@ struct TelerouteTests {
         await recorder.record("help")
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/signup")])
     _ = await recorder.waitForCount(1)
     await router.process([makeCommandUpdate(text: "/help")])
@@ -679,7 +657,6 @@ struct TelerouteTests {
 
     router.flow(SignupFlow(recorder: Recorder<String>()))
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/signup")])
 
     let session = await flowStorage.waitForSession(for: key)
@@ -700,7 +677,6 @@ struct TelerouteTests {
         await recorder.record("start")
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/start", updateId: 100)])
     await router.process([makeCommandUpdate(text: "/start", updateId: 101)])
 
@@ -721,7 +697,6 @@ struct TelerouteTests {
         await recorder.record(try context.parameters.require("id"))
     }
 
-    await router.handle()
     await router.process([makeCallbackUpdate(data: "orders/42/approve", updateId: 200)])
     await router.process([makeCallbackUpdate(data: "orders/42/approve", updateId: 201)])
 
@@ -755,7 +730,6 @@ struct TelerouteTests {
         await recorder.record("end:\(value)")
     }
 
-    await router.handle()
     await router.process([
         makeCommandUpdate(text: "/sync 1", updateId: 300),
         makeCommandUpdate(text: "/sync 2", updateId: 301),
@@ -786,7 +760,6 @@ struct TelerouteTests {
         await recorder.record("end:\(command.value)")
     }
 
-    await router.handle()
     await router.process([
         makeCommandUpdate(text: "/queued 1", updateId: 302),
         makeCommandUpdate(text: "/queued 2", updateId: 303),
@@ -885,7 +858,7 @@ struct TelerouteTests {
 
 @Test func routerCanPublishExplicitCommands() async throws {
     let recorder = PublishedCommandsRecorder()
-    let bot = try await makeBot(client: RecordingCommandsClient(recorder: recorder))
+    let bot = try await makeBot(transport: RecordingCommandsTransport(recorder: recorder))
     let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.commands.publish"))
 
     try await router.publishCommands(
@@ -901,7 +874,7 @@ struct TelerouteTests {
 
 @Test func contextCanPublishExplicitCommands() async throws {
     let recorder = PublishedCommandsRecorder()
-    let bot = try await makeBot(client: RecordingCommandsClient(recorder: recorder))
+    let bot = try await makeBot(transport: RecordingCommandsTransport(recorder: recorder))
     let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.commands.context-publish"))
 
     router.command("start") { context in
@@ -911,7 +884,6 @@ struct TelerouteTests {
         )
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/start", updateId: 400)])
 
     let params = try await recorder.waitForCount(1).first.unwrap()
@@ -921,7 +893,7 @@ struct TelerouteTests {
 
 @Test func routerCanPublishTypedCommands() async throws {
     let recorder = PublishedCommandsRecorder()
-    let bot = try await makeBot(client: RecordingCommandsClient(recorder: recorder))
+    let bot = try await makeBot(transport: RecordingCommandsTransport(recorder: recorder))
     let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.commands.publish.typed"))
 
     try await router.publishCommands([VisibleCommand.self])
@@ -934,14 +906,13 @@ struct TelerouteTests {
 
 @Test func contextCanPublishTypedCommands() async throws {
     let recorder = PublishedCommandsRecorder()
-    let bot = try await makeBot(client: RecordingCommandsClient(recorder: recorder))
+    let bot = try await makeBot(transport: RecordingCommandsTransport(recorder: recorder))
     let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.commands.context-publish.typed"))
 
     router.command("start") { context in
         try await context.publishCommands([VisibleCommand.self], visibility: .chat(.id(1)))
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/start", updateId: 401)])
 
     let params = try await recorder.waitForCount(1).first.unwrap()
@@ -969,7 +940,6 @@ struct TelerouteTests {
         await recorder.record("start")
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/start", updateId: 500)])
     _ = await recorder.waitForCount(1)
 
@@ -1001,7 +971,6 @@ struct TelerouteTests {
         await recorder.record("end:\(value)")
     }
 
-    await router.handle()
     // Different chats and users share the global queue, so they must serialize.
     await router.process([
         makeCommandUpdate(text: "/sync 1", userId: 10, chatId: 10, updateId: 510),
@@ -1029,7 +998,6 @@ struct TelerouteTests {
         await probe.leave()
     }
 
-    await router.handle()
     // Same chat, different users: serialized.
     // Different chat: allowed to run in parallel with the first.
     await router.process([
@@ -1054,7 +1022,7 @@ struct TelerouteTests {
 @Test func contextSendThrowsWhenChatCannotBeResolved() async throws {
     let bot = try await makeBot()
     // An update without a message or callback query yields no resolvable chat.
-    let update = TGUpdate(updateId: 530, message: nil)
+    let update = Update(updateId: 530)
     let context = TelerouteContext(bot: bot, update: update)
 
     await #expect(throws: TelerouteError.self) {
@@ -1064,7 +1032,7 @@ struct TelerouteTests {
 
 @Test func contextEditThrowsWhenMessageIsMissing() async throws {
     let bot = try await makeBot()
-    let update = TGUpdate(updateId: 531, message: nil)
+    let update = Update(updateId: 531)
     let context = TelerouteContext(bot: bot, update: update)
 
     await #expect(throws: TelerouteError.self) {
@@ -1074,7 +1042,7 @@ struct TelerouteTests {
 
 @Test func contextAnswerCallbackQueryThrowsWhenCallbackIsMissing() async throws {
     let bot = try await makeBot()
-    let update = TGUpdate(updateId: 532, message: nil)
+    let update = Update(updateId: 532)
     let context = TelerouteContext(bot: bot, update: update)
 
     await #expect(throws: TelerouteError.self) {
@@ -1098,7 +1066,6 @@ struct TelerouteTests {
         }
     }
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/save", updateId: 540)])
     // Let the debounce arm, then tear down processing tasks to cancel the sleep.
     try? await Task.sleep(for: .milliseconds(20))
@@ -1125,7 +1092,6 @@ struct TelerouteTests {
 
     router.flow(SignupFlow(recorder: recorder))
 
-    await router.handle()
     await router.process([makeCommandUpdate(text: "/signup", updateId: 550)])
     _ = await recorder.waitForCount(1)
     await router.process([makeMessageUpdate(text: "Alice", updateId: 551)])
@@ -1177,7 +1143,7 @@ struct TelerouteTests {
 
 @Test func duplicatePublishedCommandIsPublishedOnceWhenDescriptionsMatch() async throws {
     let recorder = PublishedCommandsRecorder()
-    let bot = try await makeBot(client: RecordingCommandsClient(recorder: recorder))
+    let bot = try await makeBot(transport: RecordingCommandsTransport(recorder: recorder))
     let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.commands.dedup"))
 
     // Same command registered twice with identical description: published once.
@@ -1451,50 +1417,42 @@ private struct SignupFlow: TelerouteFlow {
     }
 }
 
-private struct TestClient: TGClientPrtcl {
-    func post<Params: Encodable, Response: Decodable>(
-        _ url: URL,
-        params: Params?,
-        as mediaType: HTTPMediaType?
-    ) async throws -> Response {
-        throw TestError.unexpectedNetworkCall
-    }
-
-    func post<Response: Decodable>(_ url: URL) async throws -> Response {
+private struct TestTransport: ClientTransport {
+    func send(
+        _ request: HTTPRequest,
+        body: HTTPBody?,
+        baseURL: URL,
+        operationID: String
+    ) async throws -> (HTTPResponse, HTTPBody?) {
         throw TestError.unexpectedNetworkCall
     }
 }
 
-private struct RecordingCommandsClient: TGClientPrtcl {
+private struct RecordingCommandsTransport: ClientTransport {
     let recorder: PublishedCommandsRecorder
 
-    func post<Params: Encodable, Response: Decodable>(
-        _ url: URL,
-        params: Params?,
-        as mediaType: HTTPMediaType?
-    ) async throws -> Response {
-        guard url.absoluteString.contains("setMyCommands"),
-              let params else {
+    func send(
+        _ request: HTTPRequest,
+        body: HTTPBody?,
+        baseURL: URL,
+        operationID: String
+    ) async throws -> (HTTPResponse, HTTPBody?) {
+        guard operationID == "setMyCommands", let body else {
             throw TestError.unexpectedClientCall
         }
 
-        let data = try JSONEncoder().encode(params)
+        let data = try await Data(collecting: body, upTo: 1024 * 1024)
         let decoded = try JSONDecoder().decode(DecodedSetMyCommandsParams.self, from: data)
         await self.recorder.record(decoded)
 
-        guard Response.self == Bool.self else {
-            throw TestError.unexpectedClientCall
-        }
-        return true as! Response
-    }
-
-    func post<Response: Decodable>(_ url: URL) async throws -> Response {
-        throw TestError.unexpectedClientCall
+        var response = HTTPResponse(status: .ok)
+        response.headerFields[.contentType] = "application/json"
+        return (response, HTTPBody(Data(#"{"ok":true,"result":true}"#.utf8)))
     }
 }
 
 private struct DecodedSetMyCommandsParams: Decodable {
-    let commands: [TGBotCommand]
+    let commands: [BotCommand]
     let scope: RawScope?
     let languageCode: String?
 
@@ -1506,7 +1464,7 @@ private struct DecodedSetMyCommandsParams: Decodable {
 
     struct RawScope: Decodable {
         let type: String
-        let chatId: TGChatId?
+        let chatId: ChatId?
         let userId: Int64?
 
         private enum CodingKeys: String, CodingKey {
@@ -1517,117 +1475,86 @@ private struct DecodedSetMyCommandsParams: Decodable {
     }
 }
 
-private func makeBot() async throws -> TGBot {
-    try await SharedTestBot.make()
+private func makeBot() async throws -> TelegramBotClient {
+    try await makeBot(transport: TestTransport())
 }
 
-private func makeBot<Client: TGClientPrtcl>(client: Client) async throws -> TGBot {
-    try await TGBot(
-        connectionType: .longpolling(),
-        tgClient: client,
-        botId: "123456:test-token",
-        log: .init(label: "tests.bot.custom")
-    )
-}
-
-private actor SharedTestBot {
-    static let shared = SharedTestBot()
-
-    private var bot: TGBot?
-
-    func get() async throws -> TGBot {
-        if let bot = self.bot {
-            return bot
-        }
-
-        let bot = try await TGBot(
-            connectionType: .longpolling(),
-            tgClient: TestClient(),
-            botId: "123456:test-token",
-            log: .init(label: "tests.bot")
-        )
-        self.bot = bot
-        return bot
-    }
-
-    static func make() async throws -> TGBot {
-        try await Self.shared.get()
-    }
+private func makeBot(transport: some ClientTransport) async throws -> TelegramBotClient {
+    try TelegramBotClient(token: "123456:test-token", transport: transport)
 }
 
 private func makeCommandUpdate(
     text: String,
-    chatType: TGChatType = .private,
+    chatType: ChatType = .private,
     userId: Int64 = 1,
     chatId: Int64 = 1,
-    updateId: Int = 1
-) -> TGUpdate {
+    updateId: Int64 = 1
+) -> Update {
     let commandToken = String(text.split(maxSplits: 1, whereSeparator: \.isWhitespace).first ?? "")
-    let entity = TGMessageEntity(
-        type: .botCommand,
+    let entity = MessageEntity.botCommand(
         offset: 0,
-        length: commandToken.utf16.count
+        length: Int64(commandToken.utf16.count)
     )
-    let message = TGMessage(
+    let message = Message(
         messageId: 1,
         from: makeUser(id: userId),
-        date: 0,
+        date: 1,
         chat: makeChat(id: chatId, type: chatType),
         text: text,
         entities: [entity]
     )
-    return TGUpdate(updateId: updateId, message: message)
+    return Update(updateId: Int64(updateId), message: message)
 }
 
 private func makeMessageUpdate(
     text: String,
-    chatType: TGChatType = .private,
+    chatType: ChatType = .private,
     userId: Int64 = 1,
     chatId: Int64 = 1,
-    updateId: Int = 3
-) -> TGUpdate {
-    let message = TGMessage(
+    updateId: Int64 = 3
+) -> Update {
+    let message = Message(
         messageId: 3,
         from: makeUser(id: userId),
-        date: 0,
+        date: 1,
         chat: makeChat(id: chatId, type: chatType),
         text: text
     )
-    return TGUpdate(updateId: updateId, message: message)
+    return Update(updateId: Int64(updateId), message: message)
 }
 
 private func makeCallbackUpdate(
     data: String,
-    chatType: TGChatType = .private,
+    chatType: ChatType = .private,
     messageUserId: Int64 = 1,
     messageIsBot: Bool = false,
     callbackUserId: Int64 = 1,
     chatId: Int64 = 1,
-    updateId: Int = 2
-) -> TGUpdate {
-    let message = TGMessage(
+    updateId: Int64 = 2
+) -> Update {
+    let message = Message(
         messageId: 1,
         from: makeUser(id: messageUserId, isBot: messageIsBot),
-        date: 0,
+        date: 1,
         chat: makeChat(id: chatId, type: chatType),
         text: "callback host"
     )
-    let callbackQuery = TGCallbackQuery(
+    let callbackQuery = CallbackQuery(
         id: "callback-id",
         from: makeUser(id: callbackUserId),
-        message: .message(message),
+        message: .Message(message),
         chatInstance: "chat-instance",
         data: data
     )
-    return TGUpdate(updateId: updateId, callbackQuery: callbackQuery)
+    return Update(updateId: Int64(updateId), callbackQuery: callbackQuery)
 }
 
-private func makeUser(id: Int64 = 1, isBot: Bool = false) -> TGUser {
-    TGUser(id: id, isBot: isBot, firstName: "Test", username: "tester")
+private func makeUser(id: Int64 = 1, isBot: Bool = false) -> User {
+    User(id: id, isBot: isBot, firstName: "Test", username: "tester")
 }
 
-private func makeChat(id: Int64 = 1, type: TGChatType = .private) -> TGChat {
-    TGChat(id: id, type: type, firstName: "Test")
+private func makeChat(id: Int64 = 1, type: ChatType = .private) -> Chat {
+    Chat(id: id, _type: type.rawValue, firstName: "Test")
 }
 
 private func scopeKey(_ scope: DecodedSetMyCommandsParams.RawScope?) -> String {
@@ -1644,30 +1571,30 @@ private func scopeKey(_ scope: DecodedSetMyCommandsParams.RawScope?) -> String {
         return "allChatAdministrators"
     case "chat":
         switch scope.chatId {
-        case let .chat(id):
+        case let .case1(id):
             return "chat:\(id)"
-        case let .username(username):
+        case let .case2(username):
             return "chat:\(username)"
-        case .undefined, nil:
+        case nil:
             return "chat:undefined"
         }
     case "chat_administrators":
         switch scope.chatId {
-        case let .chat(id):
+        case let .case1(id):
             return "chatAdministrators:\(id)"
-        case let .username(username):
+        case let .case2(username):
             return "chatAdministrators:\(username)"
-        case .undefined, nil:
+        case nil:
             return "chatAdministrators:undefined"
         }
     case "chat_member":
         let chat: String
         switch scope.chatId {
-        case let .chat(id):
+        case let .case1(id):
             chat = "\(id)"
-        case let .username(username):
+        case let .case2(username):
             chat = username
-        case .undefined, nil:
+        case nil:
             chat = "undefined"
         }
         return "chatMember:\(chat):\(scope.userId ?? 0)"

@@ -393,7 +393,7 @@ enum TeleroutePercentEncoding: Sendable {
 }
 
 enum TelerouteCommandExtractor: Sendable {
-    static func extract(from update: TGUpdate) -> TelerouteCommandMatch? {
+    static func extract(from update: Update) -> TelerouteCommandMatch? {
         guard let text = self.commandText(from: update)?.trimmingCharacters(in: .whitespacesAndNewlines),
               text.hasPrefix("/") else {
             return nil
@@ -423,7 +423,7 @@ enum TelerouteCommandExtractor: Sendable {
         )
     }
 
-    private static func commandText(from update: TGUpdate) -> String? {
+    private static func commandText(from update: Update) -> String? {
         if let text = update.message?.text { return text }
         if let text = update.editedMessage?.text { return text }
         if let text = update.channelPost?.text { return text }
@@ -455,7 +455,7 @@ enum TelerouteCommandMatcher: Sendable {
 }
 
 enum TelerouteMessageExtractor: Sendable {
-    static func extract(from update: TGUpdate) -> TGMessage? {
+    static func extract(from update: Update) -> Message? {
         if let message = update.message { return message }
         if let message = update.editedMessage { return message }
         if let message = update.channelPost { return message }

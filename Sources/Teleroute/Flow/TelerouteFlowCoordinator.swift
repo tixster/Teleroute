@@ -1,4 +1,3 @@
-import SwiftTelegramBot
 
 /// Coordinates flow session lookup, per-session ordering, and indexed step matching.
 final class TelerouteFlowCoordinator: Sendable {
@@ -8,13 +7,13 @@ final class TelerouteFlowCoordinator: Sendable {
         _ routeName: String
     ) async throws -> Bool
 
-    private let bot: TGBot
+    private let bot: TelegramBotClient
     private let flowStorage: any TelerouteFlowStorage
     private let queue: TelerouteCommandQueue
     private let cancellationPolicy: TelerouteFlowCancellationPolicy
 
     init(
-        bot: TGBot,
+        bot: TelegramBotClient,
         flowStorage: any TelerouteFlowStorage,
         queue: TelerouteCommandQueue,
         cancellationPolicy: TelerouteFlowCancellationPolicy

@@ -8,7 +8,7 @@ import TelerouteTestSupport
         .reply("Hello from update \(context.update.updateId)")
     }
 
-    let (bot, telegram) = try await TelerouteTestSupport.makeTelerouteBot(
+    let (bot, telegram) = try TelerouteTestSupport.makeTelerouteBot(
         router: router
     )
 
@@ -36,7 +36,7 @@ import TelerouteTestSupport
         .reply("\(context.prefix):\(context.coreContext.userId ?? -1)")
     }
 
-    let (bot, telegram) = try await TelerouteTestSupport.makeTelerouteBot(
+    let (bot, telegram) = try TelerouteTestSupport.makeTelerouteBot(
         router: router
     )
     try await bot.test { client in
@@ -62,7 +62,7 @@ import TelerouteTestSupport
         }
     }
 
-    let (bot, telegram) = try await TelerouteTestSupport.makeTelerouteBot(
+    let (bot, telegram) = try TelerouteTestSupport.makeTelerouteBot(
         router: router
     )
     try await bot.test { client in
@@ -95,29 +95,6 @@ import TelerouteTestSupport
     #expect(try router.publishedCommandSets().count == 1)
 }
 
-@Test func botAttachIsIdempotent() async throws {
-    let router = Teleroute()
-    let telegramBot = try await TelerouteTestSupport.makeBot()
-    let bot = TelerouteBot(
-        bot: telegramBot,
-        router: router,
-        logger: .init(label: "public.bot.attach")
-    )
-
-    try await withThrowingTaskGroup(of: Void.self) { group in
-        for _ in 0..<8 {
-            group.addTask {
-                try await bot.attach()
-            }
-        }
-        try await group.waitForAll()
-    }
-
-    let dispatcherCount = await telegramBot.dispatchers.count
-    #expect(dispatcherCount == 1)
-    await bot.shutdown()
-}
-
 @Test func typedMiddlewareCanShortCircuitWithResponse() async throws {
     let recorder = TelerouteTestRecorder<Bool>()
     let router = Teleroute()
@@ -127,7 +104,7 @@ import TelerouteTestSupport
         return .none
     }
 
-    let (bot, telegram) = try await TelerouteTestSupport.makeTelerouteBot(
+    let (bot, telegram) = try TelerouteTestSupport.makeTelerouteBot(
         router: router
     )
     try await bot.test { client in
@@ -149,21 +126,13 @@ import TelerouteTestSupport
     let router = Teleroute()
     router.command("menu", description: "Show menu") { _ in .none }
 
-    let telegram = TelerouteRecordingClient()
-    let telegramBot = try await TelerouteTestSupport.makeBot(
-        client: telegram,
-        connectionType: .webhook(
-            webHookURL: URL(string: "https://example.com/teleroute-test")!
-        )
-    )
-    let bot = TelerouteBot(
-        bot: telegramBot,
+    let (bot, telegram) = try TelerouteTestSupport.makeTelerouteBot(
         router: router,
-        logger: .init(label: "public.bot.lifecycle"),
         configuration: .init(
             replayProtectionStorage: nil,
             syncPublishedCommandsOnStart: true
-        )
+        ),
+        label: "public.bot.lifecycle"
     )
 
     try await bot.start()
@@ -190,7 +159,7 @@ import TelerouteTestSupport
         ])
     }
     let data = try route.callbackData(for: .init(orderId: "42"))
-    let (bot, telegram) = try await TelerouteTestSupport.makeTelerouteBot(
+    let (bot, telegram) = try TelerouteTestSupport.makeTelerouteBot(
         router: router
     )
 
@@ -217,7 +186,7 @@ import TelerouteTestSupport
     router.middlewares.add(PublicBlockingMiddleware())
     router.flow(PublicBlockedFlow())
 
-    let (bot, telegram) = try await TelerouteTestSupport.makeTelerouteBot(
+    let (bot, telegram) = try TelerouteTestSupport.makeTelerouteBot(
         router: router,
         configuration: .init(
             flowStorage: flowStorage,
@@ -241,17 +210,9 @@ import TelerouteTestSupport
 
 @Test func botRunShutsDownWhenCancelled() async throws {
     let router = Teleroute()
-    let telegram = TelerouteRecordingClient()
-    let telegramBot = try await TelerouteTestSupport.makeBot(
-        client: telegram,
-        connectionType: .webhook(
-            webHookURL: URL(string: "https://example.com/teleroute-run-test")!
-        )
-    )
-    let bot = TelerouteBot(
-        bot: telegramBot,
+    let (bot, _) = try TelerouteTestSupport.makeTelerouteBot(
         router: router,
-        logger: .init(label: "public.bot.run")
+        label: "public.bot.run"
     )
 
     let task = Task {

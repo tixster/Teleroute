@@ -24,6 +24,10 @@ let package = Package(
             targets: [name]
         ),
         .library(
+            name: "TelegramBotAPI",
+            targets: ["TelegramBotAPI"]
+        ),
+        .library(
             name: "TelerouteMacros",
             targets: ["TelerouteMacros"]
         ),
@@ -44,18 +48,35 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-collections", from: "1.5.0"),
         .package(url: "https://github.com/apple/swift-log", from: "1.12.0"),
-        .package(url: "https://github.com/nerzh/swift-telegram-bot", from: "10.0.0"),
         .package(url: "https://github.com/swiftlang/swift-syntax", from: "600.0.0"),
+        .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.8.0"),
+        .package(url: "https://github.com/swift-server/swift-openapi-async-http-client", from: "1.1.0"),
+        .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
     ],
     targets: [
+        // Generated Telegram Bot API types and client (committed output of
+        // Scripts/generate-api.sh). Compiled with minimal settings on purpose:
+        // the package's upcoming-feature flags are not applied to generated code.
+        .target(
+            name: "TelegramBotAPI",
+            dependencies: [
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
         .target(
             name: name,
             dependencies: [
+                .target(name: "TelegramBotAPI"),
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
                 .product(name: "HeapModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Logging", package: "swift-log"),
-                .product(name: "SwiftTelegramBot", package: "swift-telegram-bot"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "OpenAPIAsyncHTTPClient", package: "swift-openapi-async-http-client"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
             ],
             swiftSettings: settings
         ),
@@ -88,7 +109,9 @@ let package = Package(
             name: "TelerouteTestSupport",
             dependencies: [
                 .byName(name: name),
-                .product(name: "SwiftTelegramBot", package: "swift-telegram-bot"),
+                .target(name: "TelegramBotAPI"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
             ],
             swiftSettings: settings
         ),

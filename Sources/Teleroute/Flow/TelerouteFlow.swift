@@ -1,4 +1,3 @@
-import SwiftTelegramBot
 import Foundation
 
 /// A stateful multi-step interaction mounted into a ``Teleroute``.
@@ -165,12 +164,12 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
     }
 
     /// Renders one typed button description in this flow's route scope.
-    public func render(_ button: TelerouteButton) throws -> TGInlineKeyboardButton {
+    public func render(_ button: TelerouteButton) throws -> InlineKeyboardButton {
         try self.routeScope.render(button)
     }
 
     /// Renders callback button descriptions into Telegram keyboard rows.
-    public func keyboard(_ rows: [[TelerouteButton]]) throws -> TGInlineKeyboardMarkup {
+    public func keyboard(_ rows: [[TelerouteButton]]) throws -> InlineKeyboardMarkup {
         try self.routeScope.keyboard(rows)
     }
 
@@ -275,12 +274,12 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
     }
 
     /// Best-effort resolved Telegram message for the current update.
-    public var message: TGMessage? {
+    public var message: Message? {
         self.context.message
     }
 
     /// Current callback query, if any.
-    public var callbackQuery: TGCallbackQuery? {
+    public var callbackQuery: CallbackQuery? {
         self.context.callbackQuery
     }
 
@@ -300,7 +299,7 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
     }
 
     /// Bot instance associated with the router.
-    public var bot: TGBot {
+    public var bot: TelegramBotClient {
         self.context.bot
     }
 
@@ -317,8 +316,8 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
     /// Replies to the current message when available, otherwise sends to the resolved chat.
     public func reply(
         _ text: String,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGReplyMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: ReplyMarkup? = nil
     ) async throws {
         try await self.context.reply(
             text,
@@ -331,8 +330,8 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
     public func send(
         _ text: String,
         to chatId: Int64? = nil,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGReplyMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: ReplyMarkup? = nil
     ) async throws {
         try await self.context.send(
             text,
@@ -345,8 +344,8 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
     /// Edits the current message.
     public func edit(
         _ text: String,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGInlineKeyboardMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: InlineKeyboardMarkup? = nil
     ) async throws {
         try await self.context.edit(
             text,

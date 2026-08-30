@@ -1,15 +1,14 @@
 import Foundation
-import SwiftTelegramBot
 
 /// Route guards shipped with Teleroute. Attach them to route scopes and routes
 /// through the `guards:` parameter.
 
 /// Passes when the current update originates from a chat of the expected type.
 public struct TelerouteChatTypeGuard: TelerouteGuard {
-    private let expected: TGChatType
+    private let expected: ChatType
 
     /// Creates a guard that matches the supplied chat type.
-    public init(_ expected: TGChatType) {
+    public init(_ expected: ChatType) {
         self.expected = expected
     }
 
@@ -104,10 +103,11 @@ public struct TelerouteAdminGuard: TelerouteGuard {
             return false
         }
         let member = try await context.bot.getChatMember(
-            params: .init(chatId: .chat(chatId), userId: userId)
+            chatId: .id(chatId),
+            userId: userId
         )
         switch member {
-        case .chatMemberOwner, .chatMemberAdministrator:
+        case .creator, .administrator:
             return true
         default:
             return false

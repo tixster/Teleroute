@@ -1,5 +1,4 @@
 import Foundation
-import SwiftTelegramBot
 
 /// A scoped route-registration and callback-generation context.
 ///
@@ -143,14 +142,14 @@ public final class TelerouteRoutes: Sendable {
     }
 
     /// Renders one typed button description in this route scope.
-    public func render(_ button: TelerouteButton) throws -> TGInlineKeyboardButton {
+    public func render(_ button: TelerouteButton) throws -> InlineKeyboardButton {
         try button.render(in: self)
     }
 
     /// Renders callback button descriptions into Telegram keyboard rows.
     public func keyboard(
         _ rows: [[TelerouteButton]]
-    ) throws -> TGInlineKeyboardMarkup {
+    ) throws -> InlineKeyboardMarkup {
         try .init(
             inlineKeyboard: rows.map { row in
                 try row.map { try $0.render(in: self) }

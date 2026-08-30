@@ -1,6 +1,7 @@
 import Foundation
 import Logging
-import SwiftTelegramBot
+import OpenAPIRuntime
+import Synchronization
 
 /// Errors raised by the routed bot lifecycle.
 public enum TelerouteBotError: Error, Equatable, Sendable {
@@ -15,9 +16,10 @@ public final class TelerouteBot: Sendable {
     private let runtime: TelerouteRuntime
     private let configuration: Configuration
     private let lifecycle = TelerouteBotLifecycle()
+    private let pollingTask = Mutex<Task<Void, Never>?>(nil)
 
-    /// Underlying `swift-telegram-bot` transport.
-    public var bot: TGBot {
+    /// Telegram Bot API client used by the router.
+    public var bot: TelegramBotClient {
         self.runtime.bot
     }
 
@@ -26,37 +28,83 @@ public final class TelerouteBot: Sendable {
         self.runtime.log
     }
 
-    /// Creates a routed bot from a configured, bot-independent route graph.
+    /// Creates a routed bot from a bot token and a configured, bot-independent
+    /// route graph. The Telegram client is created internally.
+    ///
+    /// - Parameters:
+    ///   - token: Bot token obtained from @BotFather.
+    ///   - router: Route graph to serve.
+    ///   - logger: Logger used by the runtime.
+    ///   - configuration: Processing policies and long-polling behavior.
+    ///   - transport: Optional custom HTTP transport; defaults to
+    ///     AsyncHTTPClient with a long-polling-friendly timeout.
+    ///   - rateLimit: Outbound request throttle; pass `nil` to disable.
+    public convenience init<Context: TelerouteRequestContext>(
+        token: String,
+        router: Teleroute<Context>,
+        logger: Logger,
+        configuration: Configuration = .init(),
+        transport: (any ClientTransport)? = nil,
+        rateLimit: TelegramRateLimit? = .default
+    ) throws {
+        let client: TelegramBotClient
+        if let transport {
+            var middlewares: [any ClientMiddleware] = []
+            if let rateLimit {
+                middlewares.append(TelegramRateLimitMiddleware(limit: rateLimit))
+            }
+            client = try TelegramBotClient(
+                token: token,
+                transport: transport,
+                middlewares: middlewares
+            )
+        } else {
+            client = try TelegramBotClient(token: token, rateLimit: rateLimit)
+        }
+        self.init(
+            client: client,
+            router: router,
+            logger: logger,
+            configuration: configuration
+        )
+    }
+
+    /// Creates a routed bot over a pre-configured Telegram client. Prefer
+    /// ``init(token:router:logger:configuration:transport:rateLimit:)`` unless
+    /// the client needs custom middlewares or a fully custom setup.
     public init<Context: TelerouteRequestContext>(
-        bot: TGBot,
+        client: TelegramBotClient,
         router: Teleroute<Context>,
         logger: Logger,
         configuration: Configuration = .init()
     ) {
         self.configuration = configuration
         self.runtime = TelerouteRuntime(
-            bot: bot,
+            bot: client,
             logger: logger,
             configuration: configuration,
             storage: router.storage
         )
     }
 
-    /// Attaches the route dispatcher without starting the Telegram connection.
-    /// Repeated calls are idempotent.
-    public func attach() async throws {
-        try await self.runtime.attach()
-    }
-
-    /// Attaches the router, optionally synchronizes registered command menus,
-    /// and starts the Telegram bot connection. Repeated calls are idempotent.
+    /// Optionally synchronizes registered command menus and starts the
+    /// long-polling connection. Repeated calls are idempotent.
     public func start() async throws {
-        try await self.lifecycle.start { [runtime, configuration] in
-            try await runtime.attach()
-            if configuration.syncPublishedCommandsOnStart {
-                try await runtime.syncPublishedCommands()
+        try await self.lifecycle.start { [self] in
+            if self.configuration.syncPublishedCommandsOnStart {
+                try await self.runtime.syncPublishedCommands()
             }
-            _ = try await runtime.bot.start()
+            let connection = TelegramLongPollingConnection(
+                client: self.runtime.bot,
+                configuration: self.configuration.polling,
+                logger: self.runtime.log
+            )
+            let task = Task { [runtime] in
+                await connection.run { updates in
+                    await runtime.process(updates)
+                }
+            }
+            self.pollingTask.withLock { $0 = task }
         }
     }
 
@@ -77,20 +125,18 @@ public final class TelerouteBot: Sendable {
         }
     }
 
-    /// Stops update processing, finishes event streams, and stops the bot
-    /// connection when it had been started.
+    /// Stops update processing, finishes event streams, and cancels the
+    /// long-polling connection when it had been started.
     public func shutdown() async {
-        await self.lifecycle.shutdown { [runtime] wasStarted in
-            runtime.shutdown()
+        await self.lifecycle.shutdown { [self] wasStarted in
+            self.runtime.shutdown()
             guard wasStarted else { return }
-            do {
-                _ = try await runtime.bot.stop()
-            } catch {
-                runtime.log.error(
-                    "Failed to stop Telegram bot",
-                    metadata: ["error": .string(String(reflecting: error))]
-                )
+            let task = self.pollingTask.withLock { task in
+                defer { task = nil }
+                return task
             }
+            task?.cancel()
+            await task?.value
         }
     }
 
@@ -103,7 +149,7 @@ public final class TelerouteBot: Sendable {
 
     /// Processes synthetic or externally supplied Telegram updates without
     /// starting a network connection.
-    public func process(_ updates: [TGUpdate]) async {
+    public func process(_ updates: [Update]) async {
         await self.runtime.process(updates)
     }
 
@@ -116,7 +162,6 @@ public final class TelerouteBot: Sendable {
     public func test(
         _ body: (TelerouteBotTestClient) async throws -> Void
     ) async throws {
-        try await self.attach()
         let client = TelerouteBotTestClient(bot: self)
         do {
             try await body(client)
@@ -134,7 +179,7 @@ public final class TelerouteBot: Sendable {
 
     /// Publishes explicit Telegram command values.
     public func publishCommands(
-        _ commands: [TGBotCommand],
+        _ commands: [BotCommand],
         visibility: TelerouteCommandVisibility = .default
     ) async throws {
         try await self.runtime.publishCommands(commands, visibility: visibility)
@@ -179,7 +224,7 @@ public struct TelerouteBotTestClient: Sendable {
 
     /// Sends one synthetic Telegram update and waits for its terminal routing
     /// event.
-    public func execute(_ update: TGUpdate) async -> TelerouteBotTestResult {
+    public func execute(_ update: Update) async -> TelerouteBotTestResult {
         let stream = self.bot.eventStream(buffering: .unbounded)
         var iterator = stream.makeAsyncIterator()
 
@@ -199,7 +244,7 @@ public struct TelerouteBotTestClient: Sendable {
 
     /// Sends updates sequentially and returns one result per update.
     public func execute(
-        _ updates: [TGUpdate]
+        _ updates: [Update]
     ) async -> [TelerouteBotTestResult] {
         var results: [TelerouteBotTestResult] = []
         results.reserveCapacity(updates.count)
@@ -213,7 +258,7 @@ public struct TelerouteBotTestClient: Sendable {
 /// Routing events captured for one in-process test update.
 public struct TelerouteBotTestResult: Sendable {
     /// Synthetic update passed to the bot.
-    public let update: TGUpdate
+    public let update: Update
     /// Events emitted for that update, ending with a terminal event.
     public let events: [TelerouteEvent]
 

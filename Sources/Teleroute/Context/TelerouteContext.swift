@@ -1,5 +1,4 @@
 import Foundation
-import SwiftTelegramBot
 
 /// Async route handler invoked with the complete matched-route context.
 public typealias TelerouteHandler = @Sendable (_ context: TelerouteContext) async throws -> Void
@@ -7,10 +6,10 @@ public typealias TelerouteHandler = @Sendable (_ context: TelerouteContext) asyn
 /// Context passed to router handlers.
 ///
 /// It exposes the matched command, callback data, decoded route parameters,
-/// and a set of helpers for replying through `swift-telegram-bot`.
+/// and a set of helpers for replying through the Telegram Bot API client.
 public struct TelerouteContext: Sendable {
     /// Bot instance associated with the router.
-    public let bot: TGBot
+    public let bot: TelegramBotClient
     /// Route parameters extracted from a callback pattern.
     public let parameters: TelerouteParameters
     /// Parsed command metadata when the handler was invoked by a command route.
@@ -21,8 +20,8 @@ public struct TelerouteContext: Sendable {
 
     /// Creates a context for a matched route.
     public init(
-        bot: TGBot,
-        update: TGUpdate,
+        bot: TelegramBotClient,
+        update: Update,
         parameters: TelerouteParameters = .init(),
         command: TelerouteCommandMatch? = nil
     ) {
@@ -35,7 +34,7 @@ public struct TelerouteContext: Sendable {
     }
 
     init(
-        bot: TGBot,
+        bot: TelegramBotClient,
         parsedUpdate: TelerouteParsedUpdate,
         parameters: TelerouteParameters = .init(),
         command: TelerouteCommandMatch? = nil,
@@ -51,12 +50,12 @@ public struct TelerouteContext: Sendable {
     }
 
     /// Raw Telegram update currently being processed.
-    public var update: TGUpdate {
+    public var update: Update {
         self.parsedUpdate.update
     }
 
     /// Current callback query, if the update was produced by an inline button press.
-    public var callbackQuery: TGCallbackQuery? {
+    public var callbackQuery: CallbackQuery? {
         self.parsedUpdate.callbackQuery
     }
 
@@ -69,7 +68,7 @@ public struct TelerouteContext: Sendable {
     ///
     /// This checks regular messages, edited messages, business messages, and
     /// callback queries that still have an accessible backing message.
-    public var message: TGMessage? {
+    public var message: Message? {
         self.parsedUpdate.message
     }
 
@@ -79,7 +78,7 @@ public struct TelerouteContext: Sendable {
     }
 
     /// Telegram chat type inferred from the current message or callback query.
-    public var chatType: TGChatType? {
+    public var chatType: ChatType? {
         self.parsedUpdate.chatType
     }
 
@@ -101,20 +100,12 @@ public struct TelerouteContext: Sendable {
     /// Replies to the current message when available, otherwise sends a message to the resolved chat.
     public func reply(
         _ text: String,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGReplyMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: ReplyMarkup? = nil
     ) async throws {
-        if let message = self.message {
-            try await message.reply(
-                text: text,
-                bot: self.bot,
-                parseMode: parseMode,
-                replyMarkup: replyMarkup
-            )
-            return
-        }
         try await self.send(
             text,
+            to: self.message?.chat.id,
             parseMode: parseMode,
             replyMarkup: replyMarkup
         )
@@ -124,37 +115,36 @@ public struct TelerouteContext: Sendable {
     public func send(
         _ text: String,
         to chatId: Int64? = nil,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGReplyMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: ReplyMarkup? = nil
     ) async throws {
         guard let resolvedChatId = chatId ?? self.chatId else {
             throw TelerouteError.chatTargetMissing
         }
         try await self.bot.sendMessage(
-            params: .init(
-                chatId: .chat(resolvedChatId),
-                text: text,
-                parseMode: parseMode,
-                replyMarkup: replyMarkup
-            )
+            chatId: .id(resolvedChatId),
+            text: text,
+            parseMode: parseMode,
+            replyMarkup: replyMarkup
         )
     }
 
     /// Edits the current message.
     ///
-    /// This helper requires a concrete accessible `TGMessage` and will throw
+    /// This helper requires a concrete accessible `Message` and will throw
     /// ``TelerouteError/messageTargetMissing`` when the update does not carry one.
     public func edit(
         _ text: String,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGInlineKeyboardMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: InlineKeyboardMarkup? = nil
     ) async throws {
         guard let message = self.message else {
             throw TelerouteError.messageTargetMissing
         }
-        try await message.edit(
+        try await self.bot.editMessageText(
+            chatId: .id(message.chat.id),
+            messageId: message.messageId,
             text: text,
-            bot: self.bot,
             parseMode: parseMode,
             replyMarkup: replyMarkup
         )
@@ -171,13 +161,11 @@ public struct TelerouteContext: Sendable {
             throw TelerouteError.callbackQueryMissing
         }
         try await self.bot.answerCallbackQuery(
-            params: .init(
-                callbackQueryId: callbackQuery.id,
-                text: text,
-                showAlert: showAlert,
-                url: url,
-                cacheTime: cacheTime
-            )
+            callbackQueryId: callbackQuery.id,
+            text: text,
+            showAlert: showAlert,
+            url: url,
+            cacheTime: cacheTime.map(Int64.init)
         )
     }
 

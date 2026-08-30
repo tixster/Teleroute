@@ -1,5 +1,4 @@
 import Foundation
-import SwiftTelegramBot
 
 /// A declarative Telegram action returned by a route handler or typed
 /// middleware.
@@ -12,21 +11,21 @@ public indirect enum TelerouteResponse: Sendable {
     /// Replies to the current message, or sends to the resolved chat.
     case reply(
         String,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGReplyMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: ReplyMarkup? = nil
     )
     /// Sends a message to an explicit chat or the chat resolved from the update.
     case send(
         String,
         to: Int64? = nil,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGReplyMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: ReplyMarkup? = nil
     )
     /// Edits the message associated with the current update.
     case edit(
         String,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGInlineKeyboardMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: InlineKeyboardMarkup? = nil
     )
     /// Answers the current callback query.
     case answerCallback(

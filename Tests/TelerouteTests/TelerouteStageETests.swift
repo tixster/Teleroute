@@ -1,12 +1,11 @@
 import Testing
 @_spi(Testing) @testable import Teleroute
 import TelerouteTestSupport
-import SwiftTelegramBot
 
 @Suite(.serialized)
 struct TelerouteStageETests {
     @Test func keyboardDescriptionsRenderRows() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.keyboard.rows"))
         let items = router.callback(ItemCallback.self) { _, _ in }
         let keyboard = try router.keyboard([
@@ -23,7 +22,7 @@ struct TelerouteStageETests {
     }
 
     @Test func keyboardDescriptionsAcceptRawButtons() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.keyboard.raw"))
         let keyboard = try router.keyboard([[
             .raw(.init(text: "X", callbackData: "x")),
@@ -35,7 +34,7 @@ struct TelerouteStageETests {
     }
 
     @Test func paginationNavigationRowHidesPrevOnFirstPage() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.keyboard.first-page"))
         let pages = router.callback(PageCallback.self) { _, _ in }
         let buttons = TeleroutePagination.navigationRow(pages, page: 0, pageCount: 3) {
@@ -49,7 +48,7 @@ struct TelerouteStageETests {
     }
 
     @Test func paginationNavigationRowHidesNextOnLastPage() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.keyboard.last-page"))
         let pages = router.callback(PageCallback.self) { _, _ in }
         let buttons = TeleroutePagination.navigationRow(pages, page: 2, pageCount: 3) {
@@ -63,12 +62,11 @@ struct TelerouteStageETests {
     }
 
     @Test func flowTypedCallbackRoutesAndBuildsButton() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.flow.typed-callback"))
 
         router.flow(TypedCallbackFlow())
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/typed_flow", updateId: 700)])
         _ = await TypedCallbackFlow.recorder.waitForCount(1, retries: 100)
 
@@ -86,7 +84,7 @@ struct TelerouteStageETests {
     }
 
     @Test func metricsSinkReceivesHandledEventWithDuration() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let sink = RecordingMetricsSink()
         let router = TelerouteRuntime(
             bot: bot,
@@ -98,7 +96,6 @@ struct TelerouteStageETests {
             try? await Task.sleep(for: .milliseconds(10))
         }
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/ping", updateId: 710)])
 
         let handled = await sink.handledRecords.waitForCount(1, retries: 100)
@@ -110,7 +107,7 @@ struct TelerouteStageETests {
     }
 
     @Test func handledEventCarriesDuration() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.timing"))
         let recorder = TelerouteTestRecorder<TelerouteEvent>()
 
@@ -125,7 +122,6 @@ struct TelerouteStageETests {
             try? await Task.sleep(for: .milliseconds(10))
         }
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/work", updateId: 711)])
         let events = await recorder.waitForCount(2, retries: 100)
         eventTask.cancel()
@@ -137,7 +133,7 @@ struct TelerouteStageETests {
     }
 
     @Test func routeScopesRegisterCommandsAndGroups() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.dsl"))
         let recorder = TelerouteTestRecorder<String>()
 
@@ -153,7 +149,6 @@ struct TelerouteStageETests {
             }
         }
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/start", chatId: 100, updateId: 720)])
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/admin_ban", chatType: .private, chatId: 101, updateId: 721)])
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/admin_ban", chatType: .group, chatId: 102, updateId: 722)])

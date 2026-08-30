@@ -16,10 +16,9 @@ and performs graceful shutdown when its task is cancelled.
 ## Startup Flow
 
 ```swift
-let telegramBot = try await ExampleBootstrap.makeTelegramBot(environment: environment)
 let router = ExampleBootstrap.makeRouter()
-let bot = ExampleBootstrap.makeTelerouteBot(
-    telegramBot: telegramBot,
+let bot = try ExampleBootstrap.makeTelerouteBot(
+    environment: environment,
     router: router
 )
 
@@ -32,9 +31,9 @@ try await ExampleBootstrap.run(bot: bot, router: router)
 2. adds `ExampleRequestIDMiddleware` through `router.middlewares.add`;
 3. adds `ExampleRouterConfiguration` as a route collection.
 
-`makeTelerouteBot()` injects the Telegram transport, logger, flow/replay
-configuration, update concurrency limit, and automatic command-menu
-synchronization.
+`makeTelerouteBot()` passes the bot token — `TelerouteBot` builds the Telegram
+client itself — plus the logger, flow/replay configuration, update concurrency
+limit, and automatic command-menu synchronization.
 
 ## Folder Layout
 

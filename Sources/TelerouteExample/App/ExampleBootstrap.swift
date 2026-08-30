@@ -7,18 +7,6 @@ import Teleroute
 /// - constructing loggers
 /// - creating the bot-independent route graph and running `TelerouteBot`
 enum ExampleBootstrap {
-    /// Creates the underlying Telegram transport used by the example.
-    static func makeTelegramBot(
-        environment: ExampleEnvironment
-    ) async throws -> TGBot {
-        try await TGBot(
-            connectionType: .longpolling(),
-            tgClient: TGClientDefault(),
-            botId: environment.botToken,
-            log: ExampleLoggerFactory.makeBotLogger()
-        )
-    }
-
     /// Creates and configures the bot-independent route graph.
     static func makeRouter() -> Teleroute<ExampleRequestContext> {
         let router = Teleroute(context: ExampleRequestContext.self)
@@ -27,13 +15,13 @@ enum ExampleBootstrap {
         return router
     }
 
-    /// Creates the routed bot that owns the Telegram lifecycle.
+    /// Creates the routed bot that owns the Telegram client and lifecycle.
     static func makeTelerouteBot(
-        telegramBot: TGBot,
+        environment: ExampleEnvironment,
         router: Teleroute<ExampleRequestContext>
-    ) -> TelerouteBot {
-        TelerouteBot(
-            bot: telegramBot,
+    ) throws -> TelerouteBot {
+        try TelerouteBot(
+            token: environment.botToken,
             router: router,
             logger: ExampleLoggerFactory.makeRouterLogger(),
             configuration: .init(

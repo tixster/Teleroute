@@ -3,15 +3,15 @@ import Synchronization
 
 @_exported import Foundation
 @_exported import Logging
-@_exported import SwiftTelegramBot
 
 /// Internal dispatcher runtime. Public applications are built with
 /// ``Teleroute`` and ``TelerouteBot``.
 @_spi(Testing)
-public final class TelerouteRuntime: TGDefaultDispatcherPrtcl {
+public final class TelerouteRuntime: Sendable {
     public typealias Configuration = TelerouteConfiguration
 
-    private let dispatcher: TGDefaultDispatcher
+    public let bot: TelegramBotClient
+    public let log: Logger
     let storage: TelerouteStorage
     let routeScope: TelerouteRoutes
     private let flowStorage: any TelerouteFlowStorage
@@ -20,31 +20,13 @@ public final class TelerouteRuntime: TGDefaultDispatcherPrtcl {
     private let flowCoordinator: TelerouteFlowCoordinator
     private let onError: TelerouteErrorHandler?
     private let metricsSink: any TelerouteMetricsSink
-    private let attachmentState = TelerouteAttachmentState()
-    private let handlerRegistrationState = TelerouteHandlerRegistrationState()
     private let eventHub = TelerouteEventHub()
     private let updateExecutor: TelerouteUpdateExecutor
     private let replayProtectionCleanupTask: Task<Void, Never>?
 
-    public var bot: TGBot {
-        self.dispatcher.bot
-    }
-
-    public var log: Logger {
-        self.dispatcher.log
-    }
-
-    public var id: SendableValue<Int> {
-        self.dispatcher.id
-    }
-
-    public var handlersGroup: HandlersGroupActor {
-        self.dispatcher.handlersGroup
-    }
-
     /// Creates a router with one explicit configuration object for advanced dependencies.
     public convenience init(
-        bot: TGBot,
+        bot: TelegramBotClient,
         logger: Logger,
         configuration: Configuration = .init()
     ) {
@@ -57,12 +39,13 @@ public final class TelerouteRuntime: TGDefaultDispatcherPrtcl {
     }
 
     init(
-        bot: TGBot,
+        bot: TelegramBotClient,
         logger: Logger,
         configuration: Configuration,
         storage: TelerouteStorage
     ) {
-        self.dispatcher = TGDefaultDispatcher(bot: bot, logger: logger)
+        self.bot = bot
+        self.log = logger
         self.storage = storage
         self.routeScope = TelerouteRoutes(storage: storage)
         self.flowStorage = configuration.flowStorage
@@ -84,16 +67,6 @@ public final class TelerouteRuntime: TGDefaultDispatcherPrtcl {
         )
     }
 
-    /// Attaches this router to the bot supplied at initialization.
-    ///
-    /// Repeated or concurrent calls share the same registration. If registration
-    /// fails, a later call can retry.
-    public func attach() async throws {
-        try await self.attachmentState.attach { [self] in
-            try await self.bot.add(dispatcher: self)
-        }
-    }
-
     deinit {
         self.shutdown()
     }
@@ -113,88 +86,69 @@ public final class TelerouteRuntime: TGDefaultDispatcherPrtcl {
         self.eventHub.sequence(buffering: buffering)
     }
 
-    /// `TGDefaultDispatcher` entry point. Registers internal Telegram handlers once.
-    public func handle() async {
-        guard self.handlerRegistrationState.claim() else { return }
-
-        await self.add(
-            TGBaseHandler(name: "TelerouteDispatcher") { [weak self] update in
-                guard let self else { return }
-                let startedAt = ContinuousClock().now
-                let parsedUpdate = TelerouteParsedUpdate(update)
-                let routeKind = parsedUpdate.routeKind
-                do {
-                    self.emitEvent(.received, parsedUpdate: parsedUpdate, startedAt: startedAt)
-                    await self.metricsSink.recordReceived(
-                        routeKind: routeKind,
-                        chatId: parsedUpdate.chatId,
-                        userId: parsedUpdate.userId
-                    )
-                    self.log.debug("Received update", metadata: self.updateMetadata(for: parsedUpdate))
-                    guard await self.shouldHandle(parsedUpdate) else {
-                        self.emitEvent(.skippedDuplicate, parsedUpdate: parsedUpdate, startedAt: startedAt)
-                        await self.metricsSink.recordSkippedDuplicate(
-                            routeKind: routeKind,
-                            chatId: parsedUpdate.chatId,
-                            userId: parsedUpdate.userId
-                        )
-                        self.log.debug("Skipped duplicate update", metadata: self.updateMetadata(for: parsedUpdate))
-                        return
-                    }
-                    let routeGraph = self.storage.routeGraph
-                    if try await self.processFlow(parsedUpdate, routeGraph: routeGraph, startedAt: startedAt) {
-                        self.log.debug("Handled update with flow route", metadata: self.updateMetadata(for: parsedUpdate))
-                        return
-                    }
-                    if try await self.processCallback(parsedUpdate, routeGraph: routeGraph, startedAt: startedAt) {
-                        self.log.debug("Handled update with callback route", metadata: self.updateMetadata(for: parsedUpdate))
-                        return
-                    }
-                    if try await self.processCommand(parsedUpdate, routeGraph: routeGraph, startedAt: startedAt) {
-                        self.log.debug("Handled update with command route", metadata: self.updateMetadata(for: parsedUpdate))
-                        return
-                    }
-                    self.emitEvent(
-                        .unmatched,
-                        parsedUpdate: parsedUpdate,
-                        startedAt: startedAt,
-                        duration: startedAt.duration(to: ContinuousClock().now)
-                    )
-                    await self.metricsSink.recordUnmatched(
-                        routeKind: routeKind,
-                        chatId: parsedUpdate.chatId,
-                        userId: parsedUpdate.userId
-                    )
-                    self.log.debug("No route matched update", metadata: self.updateMetadata(for: parsedUpdate))
-                } catch {
-                    await self.handleError(error, parsedUpdate: parsedUpdate, startedAt: startedAt)
-                }
-            }
-        )
-    }
-
-    public func process(_ updates: [TGUpdate]) async {
+    /// Routes updates through the bounded executor. Each update runs the full
+    /// pipeline: events, metrics, replay protection, flow/callback/command
+    /// matching, and the central error path.
+    public func process(_ updates: [Update]) async {
         guard self.updateExecutor.isShutdown == false else { return }
-        let handlers = await self.handlersGroup.value
-        guard handlers.isEmpty == false else { return }
 
         for update in updates {
-            self.log.trace("processByHandler start:\n\(dump(update))")
-
-            for handler in handlers {
-                guard await handler.check(update: update) else {
-                    continue
-                }
-
-                let accepted = await self.updateExecutor.submit { [weak self] in
-                    do {
-                        try await handler.handle(update: update)
-                    } catch {
-                        await self?.handleError(error, parsedUpdate: .init(update))
-                    }
-                }
-                guard accepted else { return }
+            let accepted = await self.updateExecutor.submit { [weak self] in
+                await self?.handleUpdate(update)
             }
+            guard accepted else { return }
+        }
+    }
+
+    private func handleUpdate(_ update: Update) async {
+        let startedAt = ContinuousClock().now
+        let parsedUpdate = TelerouteParsedUpdate(update)
+        let routeKind = parsedUpdate.routeKind
+        do {
+            self.emitEvent(.received, parsedUpdate: parsedUpdate, startedAt: startedAt)
+            await self.metricsSink.recordReceived(
+                routeKind: routeKind,
+                chatId: parsedUpdate.chatId,
+                userId: parsedUpdate.userId
+            )
+            self.log.debug("Received update", metadata: self.updateMetadata(for: parsedUpdate))
+            guard await self.shouldHandle(parsedUpdate) else {
+                self.emitEvent(.skippedDuplicate, parsedUpdate: parsedUpdate, startedAt: startedAt)
+                await self.metricsSink.recordSkippedDuplicate(
+                    routeKind: routeKind,
+                    chatId: parsedUpdate.chatId,
+                    userId: parsedUpdate.userId
+                )
+                self.log.debug("Skipped duplicate update", metadata: self.updateMetadata(for: parsedUpdate))
+                return
+            }
+            let routeGraph = self.storage.routeGraph
+            if try await self.processFlow(parsedUpdate, routeGraph: routeGraph, startedAt: startedAt) {
+                self.log.debug("Handled update with flow route", metadata: self.updateMetadata(for: parsedUpdate))
+                return
+            }
+            if try await self.processCallback(parsedUpdate, routeGraph: routeGraph, startedAt: startedAt) {
+                self.log.debug("Handled update with callback route", metadata: self.updateMetadata(for: parsedUpdate))
+                return
+            }
+            if try await self.processCommand(parsedUpdate, routeGraph: routeGraph, startedAt: startedAt) {
+                self.log.debug("Handled update with command route", metadata: self.updateMetadata(for: parsedUpdate))
+                return
+            }
+            self.emitEvent(
+                .unmatched,
+                parsedUpdate: parsedUpdate,
+                startedAt: startedAt,
+                duration: startedAt.duration(to: ContinuousClock().now)
+            )
+            await self.metricsSink.recordUnmatched(
+                routeKind: routeKind,
+                chatId: parsedUpdate.chatId,
+                userId: parsedUpdate.userId
+            )
+            self.log.debug("No route matched update", metadata: self.updateMetadata(for: parsedUpdate))
+        } catch {
+            await self.handleError(error, parsedUpdate: parsedUpdate, startedAt: startedAt)
         }
     }
 
@@ -268,8 +222,8 @@ public final class TelerouteRuntime: TGDefaultDispatcherPrtcl {
     }
 
     private static func errorDescription(for error: any Error) -> String {
-        if let botError = error as? BotError {
-            return botError.localizedDescription
+        if let apiError = error as? TelegramAPIError {
+            return apiError.description
         }
 
         if let localizedError = error as? any LocalizedError,
@@ -564,55 +518,6 @@ public final class TelerouteRuntime: TGDefaultDispatcherPrtcl {
                 routeKind: routeKind,
                 routeName: routeName
             )
-        }
-    }
-}
-
-private actor TelerouteAttachmentState {
-    private enum State {
-        case detached
-        case attaching(Task<Void, any Error>)
-        case attached
-    }
-
-    private var state = State.detached
-
-    func attach(
-        _ operation: @escaping @Sendable () async throws -> Void
-    ) async throws {
-        switch self.state {
-        case .detached:
-            let task = Task {
-                try await operation()
-            }
-            self.state = .attaching(task)
-            do {
-                try await task.value
-                self.state = .attached
-            } catch {
-                self.state = .detached
-                throw error
-            }
-
-        case let .attaching(task):
-            try await task.value
-
-        case .attached:
-            return
-        }
-    }
-}
-
-private final class TelerouteHandlerRegistrationState: Sendable {
-    private let hasRegisteredHandlers = Mutex(false)
-
-    func claim() -> Bool {
-        self.hasRegisteredHandlers.withLock {
-            guard $0 == false else {
-                return false
-            }
-            $0 = true
-            return true
         }
     }
 }

@@ -13,7 +13,7 @@ struct ExampleStartScreen {
     }
 
     let text: String
-    let replyMarkup: TGReplyMarkup
+    let replyMarkup: ReplyMarkup
 
     init<Context: TelerouteRequestContext>(
         routes: TelerouteRouterGroup<Context>,
@@ -87,6 +87,6 @@ struct ExampleStartScreen {
         support -> \(supportData)
         archive -> \(archiveData)
         """
-        self.replyMarkup = .inlineKeyboardMarkup(keyboard)
+        self.replyMarkup = .inline(keyboard)
     }
 }

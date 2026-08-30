@@ -15,6 +15,8 @@ public struct TelerouteConfiguration: Sendable {
     /// Whether ``TelerouteBot/start()`` publishes all registered
     /// command menus before starting the bot connection.
     public var syncPublishedCommandsOnStart: Bool
+    /// Long-polling behavior used by ``TelerouteBot/start()``.
+    public var polling: TelegramPollingConfiguration
 
     public init(
         flowStorage: any TelerouteFlowStorage = TelerouteInMemoryFlowStorage(),
@@ -24,7 +26,8 @@ public struct TelerouteConfiguration: Sendable {
         flowCancellationPolicy: TelerouteFlowCancellationPolicy = .cancelOnAnyUnmatchedCommand,
         metricsSink: any TelerouteMetricsSink = TelerouteNoOpMetricsSink(),
         onError: TelerouteErrorHandler? = nil,
-        syncPublishedCommandsOnStart: Bool = false
+        syncPublishedCommandsOnStart: Bool = false,
+        polling: TelegramPollingConfiguration = .init()
     ) {
         self.flowStorage = flowStorage
         self.replayProtectionStorage = replayProtectionStorage
@@ -34,5 +37,6 @@ public struct TelerouteConfiguration: Sendable {
         self.metricsSink = metricsSink
         self.onError = onError
         self.syncPublishedCommandsOnStart = syncPublishedCommandsOnStart
+        self.polling = polling
     }
 }

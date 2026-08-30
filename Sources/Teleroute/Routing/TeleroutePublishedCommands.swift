@@ -1,6 +1,5 @@
 import Foundation
 import OrderedCollections
-import SwiftTelegramBot
 
 /// Chat target used by Telegram command visibility scopes.
 public enum TelerouteCommandChat: Hashable, Sendable {
@@ -9,10 +8,10 @@ public enum TelerouteCommandChat: Hashable, Sendable {
     /// Public Telegram chat username, for example `"@my_group"`.
     case username(String)
 
-    func telegramChatID() -> TGChatId {
+    func telegramChatID() -> ChatId {
         switch self {
         case let .id(value):
-            return .chat(value)
+            return .id(value)
         case let .username(value):
             return .username(value)
         }
@@ -48,25 +47,25 @@ public enum TelerouteCommandScope: Hashable, Sendable {
     /// Commands visible only to one specific user in one specific chat.
     case chatMember(chat: TelerouteCommandChat, userID: Int64)
 
-    func telegramScope() -> TGBotCommandScope {
+    func telegramScope() -> BotCommandScope {
         switch self {
         case .default:
-            return .botCommandScopeDefault(.init(type: .default))
+            return ._default(.init(_type: "default"))
         case .allPrivateChats:
-            return .botCommandScopeAllPrivateChats(.init(type: .allPrivateChats))
+            return .allPrivateChats(.init(_type: "all_private_chats"))
         case .allGroupChats:
-            return .botCommandScopeAllGroupChats(.init(type: .allGroupChats))
+            return .allGroupChats(.init(_type: "all_group_chats"))
         case .allChatAdministrators:
-            return .botCommandScopeAllChatAdministrators(.init(type: .allChatAdministrators))
+            return .allChatAdministrators(.init(_type: "all_chat_administrators"))
         case let .chat(chat):
-            return .botCommandScopeChat(.init(type: .chat, chatId: chat.telegramChatID()))
+            return .chat(.init(_type: "chat", chatId: chat.telegramChatID()))
         case let .chatAdministrators(chat):
-            return .botCommandScopeChatAdministrators(
-                .init(type: .chatAdministrators, chatId: chat.telegramChatID())
+            return .chatAdministrators(
+                .init(_type: "chat_administrators", chatId: chat.telegramChatID())
             )
         case let .chatMember(chat, userID):
-            return .botCommandScopeChatMember(
-                .init(type: .chatMember, chatId: chat.telegramChatID(), userId: userID)
+            return .chatMember(
+                .init(_type: "chat_member", chatId: chat.telegramChatID(), userId: userID)
             )
         }
     }
@@ -146,11 +145,7 @@ public struct TelerouteCommandVisibility: Hashable, Sendable {
 /// Published commands grouped into a Telegram scope.
 public struct TeleroutePublishedCommandSet: Sendable {
     public let visibility: TelerouteCommandVisibility
-    public let commands: [TGBotCommand]
-
-    var telegramParams: TGSetMyCommandsParams {
-        self.visibility.telegramParams(commands: self.commands)
-    }
+    public let commands: [BotCommand]
 }
 
 struct TeleroutePublishedCommand: Sendable {
@@ -181,7 +176,7 @@ enum TeleroutePublishedCommandBuilder {
 
     static func makeBotCommand(
         _ command: any TelerouteCommand.Type
-    ) throws -> TGBotCommand {
+    ) throws -> BotCommand {
         guard let description = command.commandDescription else {
             throw TelerouteError.missingPublishedCommandDescription(command.path)
         }
@@ -202,7 +197,7 @@ enum TeleroutePublishedCommandBuilder {
     }
 
     private static func append(
-        _ botCommand: TGBotCommand,
+        _ botCommand: BotCommand,
         visibility: TelerouteCommandVisibility,
         to grouped: inout GroupedCommands
     ) throws {
@@ -253,16 +248,20 @@ public extension TelerouteRuntime {
     /// Use this when command visibility must change at runtime, for example after
     /// login or after selecting a bot mode.
     func publishCommands(
-        _ commands: [TGBotCommand],
+        _ commands: [BotCommand],
         visibility: TelerouteCommandVisibility = .default
     ) async throws {
-        _ = try await self.bot.setMyCommands(params: visibility.telegramParams(commands: commands))
+        try await self.bot.setMyCommands(
+            commands,
+            scope: visibility.scope.telegramScope(),
+            languageCode: visibility.languageCode
+        )
     }
 
     /// Publishes an explicit list of commands for the supplied visibility scope.
     ///
     /// This overload accepts simple `(command, description)` tuples and converts
-    /// them into `TGBotCommand` values for you.
+    /// them into `BotCommand` values for you.
     func publishCommands(
         _ commands: [(command: String, description: String)],
         visibility: TelerouteCommandVisibility = .default
@@ -310,13 +309,17 @@ public extension TelerouteRuntime {
     /// `allGroupChats` and `default`.
     func syncPublishedCommands() async throws {
         for commandSet in try self.publishedCommandSets() {
-            _ = try await self.bot.setMyCommands(params: commandSet.telegramParams)
+            try await self.bot.setMyCommands(
+                commandSet.commands,
+                scope: commandSet.visibility.scope.telegramScope(),
+                languageCode: commandSet.visibility.languageCode
+            )
         }
     }
 
     static func makePublishedBotCommand(
         _ command: any TelerouteCommand.Type
-    ) throws -> TGBotCommand {
+    ) throws -> BotCommand {
         try TeleroutePublishedCommandBuilder.makeBotCommand(command)
     }
 
@@ -335,16 +338,20 @@ public extension TelerouteContext {
     /// This is useful inside command handlers when the visible command list must
     /// change immediately after the current action completes.
     func publishCommands(
-        _ commands: [TGBotCommand],
+        _ commands: [BotCommand],
         visibility: TelerouteCommandVisibility = .default
     ) async throws {
-        _ = try await self.bot.setMyCommands(params: visibility.telegramParams(commands: commands))
+        try await self.bot.setMyCommands(
+            commands,
+            scope: visibility.scope.telegramScope(),
+            languageCode: visibility.languageCode
+        )
     }
 
     /// Publishes an explicit list of commands for the supplied visibility scope.
     ///
     /// This overload accepts simple `(command, description)` tuples and converts
-    /// them into `TGBotCommand` values for you.
+    /// them into `BotCommand` values for you.
     func publishCommands(
         _ commands: [(command: String, description: String)],
         visibility: TelerouteCommandVisibility = .default
@@ -360,7 +367,11 @@ public extension TelerouteContext {
         _ commands: [any TelerouteCommand.Type]
     ) async throws {
         for commandSet in try TeleroutePublishedCommandBuilder.typedSets(for: commands) {
-            _ = try await self.bot.setMyCommands(params: commandSet.telegramParams)
+            try await self.bot.setMyCommands(
+                commandSet.commands,
+                scope: commandSet.visibility.scope.telegramScope(),
+                languageCode: commandSet.visibility.languageCode
+            )
         }
     }
 
@@ -372,16 +383,6 @@ public extension TelerouteContext {
         try await self.publishCommands(
             try commands.map(TeleroutePublishedCommandBuilder.makeBotCommand),
             visibility: visibility
-        )
-    }
-}
-
-private extension TelerouteCommandVisibility {
-    func telegramParams(commands: [TGBotCommand]) -> TGSetMyCommandsParams {
-        .init(
-            commands: commands,
-            scope: self.scope.telegramScope(),
-            languageCode: self.languageCode
         )
     }
 }

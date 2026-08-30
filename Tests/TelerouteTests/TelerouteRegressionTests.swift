@@ -5,7 +5,7 @@ import TelerouteTestSupport
 @Suite(.serialized)
 struct TelerouteRegressionTests {
     @Test func flowMountedInGuardedGroupHonorsInheritedGuard() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let storage = TelerouteInMemoryFlowStorage()
         let recorder = RegressionRecorder<String>()
         let router = TelerouteRuntime(
@@ -21,7 +21,6 @@ struct TelerouteRegressionTests {
             group.flow(RegressionStartFlow(recorder: recorder))
         }
 
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCommandUpdate(
                 text: "/secure_begin",
@@ -38,7 +37,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func flowMountedInGroupRunsInheritedMiddleware() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let recorder = RegressionRecorder<String>()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "regression.flow.middleware"))
 
@@ -49,7 +48,6 @@ struct TelerouteRegressionTests {
             group.flow(RegressionStartFlow(recorder: recorder))
         }
 
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCommandUpdate(text: "/observed_begin", updateId: 1_001),
         ])
@@ -59,7 +57,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func sequentialFlowUpdatesMergeAgainstLatestStoredSession() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let storage = TelerouteInMemoryFlowStorage()
         let recorder = RegressionRecorder<String>()
         let router = TelerouteRuntime(
@@ -72,7 +70,6 @@ struct TelerouteRegressionTests {
         )
         router.flow(RegressionAtomicFlow(recorder: recorder))
 
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCommandUpdate(text: "/atomic", chatId: 101, updateId: 1_002),
         ])
@@ -90,7 +87,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func inheritedGuardExcludesDuplicatesAndStaysAheadOfQueueMiddleware() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "regression.group.queue-order"))
 
         router.group("guarded", guards: [RegressionAllowGuard()]) { group in
@@ -109,7 +106,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func debounceRethrowsCancellationFromDownstreamHandler() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let context = TelerouteContext(
             bot: bot,
             update: TelerouteTestSupport.makeCommandUpdate(text: "/debounce", updateId: 1_004),
@@ -133,7 +130,7 @@ struct TelerouteRegressionTests {
     @Test func failedCallbackPreservesMatchedParametersAndRouteName() async throws {
         struct CallbackFailure: Error {}
 
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let errors = RegressionRecorder<RegressionErrorObservation>()
         let router = TelerouteRuntime(
             bot: bot,
@@ -158,7 +155,6 @@ struct TelerouteRegressionTests {
         router.callback("orders/{id}") { _ in
             throw CallbackFailure()
         }
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCallbackUpdate(data: "orders/42", updateId: 1_005),
         ])
@@ -172,7 +168,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func failedFlowPreservesFlowContextForEventsMetricsAndOnError() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let starts = RegressionRecorder<String>()
         let errors = RegressionRecorder<RegressionErrorObservation>()
         let metrics = RegressionMetricsSink()
@@ -200,7 +196,6 @@ struct TelerouteRegressionTests {
         }
         router.flow(RegressionFailingFlow(recorder: starts))
 
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCommandUpdate(text: "/failing", updateId: 1_006),
         ])
@@ -251,7 +246,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func shutdownCancelsInFlightHandlersWithoutFailedEvent() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let probe = RegressionShutdownProbe()
         let router = TelerouteRuntime(
             bot: bot,
@@ -276,7 +271,6 @@ struct TelerouteRegressionTests {
             }
         }
 
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCommandUpdate(text: "/wait", updateId: 1_008),
         ])
@@ -294,7 +288,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func shutdownResumesProducerWaitingForExecutorCapacity() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let probe = RegressionShutdownProbe()
         let router = TelerouteRuntime(
             bot: bot,
@@ -313,7 +307,6 @@ struct TelerouteRegressionTests {
                 throw CancellationError()
             }
         }
-        await router.handle()
 
         let processing = Task {
             await router.process((0..<3).map { value in
@@ -332,7 +325,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func completedProcessingTasksAreRemovedFromExecutor() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let recorder = RegressionRecorder<Int>()
         let router = TelerouteRuntime(
             bot: bot,
@@ -342,7 +335,6 @@ struct TelerouteRegressionTests {
         router.command("fast") { context in
             await recorder.record(Int(context.command?.arguments.first ?? "") ?? -1)
         }
-        await router.handle()
 
         let updates = (0..<200).map { value in
             TelerouteTestSupport.makeCommandUpdate(
@@ -358,7 +350,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func updateExecutorAppliesBackpressureAtConfiguredLimit() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let probe = RegressionConcurrencyProbe()
         let router = TelerouteRuntime(
             bot: bot,
@@ -372,7 +364,6 @@ struct TelerouteRegressionTests {
             await probe.enterAndWait()
             await probe.leave()
         }
-        await router.handle()
 
         let updates = (0..<6).map { value in
             TelerouteTestSupport.makeCommandUpdate(
@@ -397,7 +388,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func callbackIndexPreservesWildcardAndLiteralRegistrationOrder() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let recorder = RegressionRecorder<String>()
         let router = TelerouteRuntime(
             bot: bot,
@@ -416,7 +407,6 @@ struct TelerouteRegressionTests {
         router.callback("orders/action") { context in
             await recorder.record("literal:\(context.update.updateId)")
         }
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCallbackUpdate(data: "orders/action", updateId: 3_100),
             TelerouteTestSupport.makeCallbackUpdate(data: "orders/action", updateId: 3_101),
@@ -429,7 +419,7 @@ struct TelerouteRegressionTests {
     }
 
     @Test func routerSkipsFlowStorageWhenNoFlowIsMounted() async throws {
-        let bot = try await TelerouteTestSupport.makeBot()
+        let bot = try TelerouteTestSupport.makeClient()
         let flowStorage = RegressionCountingFlowStorage()
         let recorder = RegressionRecorder<String>()
         let router = TelerouteRuntime(
@@ -443,7 +433,6 @@ struct TelerouteRegressionTests {
         router.command("ping") { _ in
             await recorder.record("pong")
         }
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCommandUpdate(text: "/ping", updateId: 3_200),
         ])
@@ -506,7 +495,7 @@ private struct RegressionAllowGuard: TelerouteGuard {
 }
 
 private struct RegressionUpdateIDGuard: TelerouteGuard {
-    let allowed: Set<Int>
+    let allowed: Set<Int64>
 
     func matches(_ context: TelerouteContext) async throws -> Bool {
         self.allowed.contains(context.update.updateId)
@@ -714,7 +703,7 @@ private actor RegressionCountingFlowStorage: TelerouteFlowStorage {
     func removeSession(for key: TelerouteFlowKey) {}
 }
 
-private func regressionEvent(updateID: Int) -> TelerouteEvent {
+private func regressionEvent(updateID: Int64) -> TelerouteEvent {
     .init(
         kind: .received,
         routeKind: .command,

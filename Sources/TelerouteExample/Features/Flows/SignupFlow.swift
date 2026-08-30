@@ -52,7 +52,7 @@ struct SignupFlow: TelerouteFlow {
             try await context.transition(to: .confirm, merging: ["name": name])
             try await context.reply(
                 "Confirm signup for \(name)?",
-                replyMarkup: .inlineKeyboardMarkup(keyboard)
+                replyMarkup: .inline(keyboard)
             )
         }
 

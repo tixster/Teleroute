@@ -1,13 +1,12 @@
 import Testing
 @_spi(Testing) @testable import Teleroute
 import TelerouteTestSupport
-import SwiftTelegramBot
 import Synchronization
 
 @Suite(.serialized)
 struct TelerouteStageBTests {
     @Test func groupScopedMiddlewareRunsBeforeRouteMiddleware() async throws {
-        let bot = try await TelerouteTestSupport.makeBot(label: "router.group.middleware")
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.group.middleware"))
         let recorder = TelerouteTestRecorder<[String]>()
 
@@ -17,7 +16,6 @@ struct TelerouteStageBTests {
             }
         }
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/admin_ban", updateId: 610)])
 
         let values = await recorder.waitForCount(5, retries: 100)
@@ -25,7 +23,7 @@ struct TelerouteStageBTests {
     }
 
     @Test func groupScopedGuardRejectsChildRoute() async throws {
-        let bot = try await TelerouteTestSupport.makeBot(label: "router.group.guard")
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.group.guard"))
         let recorder = TelerouteTestRecorder<String>()
 
@@ -35,14 +33,13 @@ struct TelerouteStageBTests {
             }
         }
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/admin_ban", chatType: .private, updateId: 611)])
         try? await Task.sleep(for: .milliseconds(30))
         #expect(await recorder.values.isEmpty)
     }
 
     @Test func retryMiddlewareReinvokesHandlerUntilSuccess() async throws {
-        let bot = try await TelerouteTestSupport.makeBot(label: "router.retry")
+        let bot = try TelerouteTestSupport.makeClient()
         let attempts = Mutex(0)
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.retry"))
 
@@ -57,7 +54,6 @@ struct TelerouteStageBTests {
             }
         }
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/flaky", updateId: 612)])
         try? await Task.sleep(for: .milliseconds(30))
 
@@ -65,7 +61,7 @@ struct TelerouteStageBTests {
     }
 
     @Test func compiledMiddlewareCanInvokeDownstreamMoreThanOnce() async throws {
-        let bot = try await TelerouteTestSupport.makeBot(label: "router.middleware.multiple-next")
+        let bot = try TelerouteTestSupport.makeClient()
         let recorder = TelerouteTestRecorder<String>()
         let router = TelerouteRuntime(
             bot: bot,
@@ -79,7 +75,6 @@ struct TelerouteStageBTests {
             await recorder.record("fallback")
         }
 
-        await router.handle()
         await router.process([
             TelerouteTestSupport.makeCommandUpdate(text: "/twice", updateId: 619),
         ])
@@ -89,7 +84,7 @@ struct TelerouteStageBTests {
     }
 
     @Test func timeoutMiddlewareThrowsWhenHandlerExceedsDeadline() async throws {
-        let bot = try await TelerouteTestSupport.makeBot(label: "router.timeout")
+        let bot = try TelerouteTestSupport.makeClient()
         let sawTimeout = Mutex(false)
 
         let router = TelerouteRuntime(
@@ -109,7 +104,6 @@ struct TelerouteStageBTests {
             try? await Task.sleep(for: .milliseconds(200))
         }
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/slow", updateId: 613)])
         try? await Task.sleep(for: .milliseconds(60))
 
@@ -117,7 +111,7 @@ struct TelerouteStageBTests {
     }
 
     @Test func privateChatGuardPassesOnlyForPrivateChats() async throws {
-        let bot = try await TelerouteTestSupport.makeBot(label: "router.guard.private")
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.guard.private"))
         let recorder = TelerouteTestRecorder<String>()
 
@@ -125,7 +119,6 @@ struct TelerouteStageBTests {
             await recorder.record("dm")
         }
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/dm", chatType: .group, chatId: 50, updateId: 614)])
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/dm", chatType: .private, chatId: 51, updateId: 615)])
 
@@ -134,7 +127,7 @@ struct TelerouteStageBTests {
     }
 
     @Test func userAllowlistGuardRestrictsToKnownUsers() async throws {
-        let bot = try await TelerouteTestSupport.makeBot(label: "router.guard.allowlist")
+        let bot = try TelerouteTestSupport.makeClient()
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.guard.allowlist"))
         let recorder = TelerouteTestRecorder<Int64>()
 
@@ -144,7 +137,6 @@ struct TelerouteStageBTests {
             }
         }
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/vip", userId: 1, chatId: 60, updateId: 616)])
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/vip", userId: 42, chatId: 61, updateId: 617)])
 
@@ -154,7 +146,7 @@ struct TelerouteStageBTests {
 
     @Test func errorHandlingMiddlewareConvertsErrorIntoReply() async throws {
         struct BoomError: Error {}
-        let bot = try await TelerouteTestSupport.makeBot(label: "router.error-mw")
+        let bot = try TelerouteTestSupport.makeClient()
         let recorder = TelerouteTestRecorder<String>()
 
         let router = TelerouteRuntime(
@@ -176,7 +168,6 @@ struct TelerouteStageBTests {
             throw BoomError()
         }
 
-        await router.handle()
         await router.process([TelerouteTestSupport.makeCommandUpdate(text: "/boom", updateId: 618)])
 
         let values = await recorder.waitForCount(1, retries: 100)

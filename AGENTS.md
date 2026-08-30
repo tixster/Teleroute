@@ -2,8 +2,11 @@
 
 ## Project Overview
 
-Teleroute is a Swift Package Manager project for a route-style layer on top of
-`swift-telegram-bot`.
+Teleroute is a Swift Package Manager project for a route-style Telegram bot
+framework. The Telegram Bot API types and client live in the `TelegramBotAPI`
+target and are generated from the OpenAPI spec in `openapi/` (see
+`openapi/README.md`; regenerate with `Scripts/generate-api.sh`, never edit
+`Sources/TelegramBotAPI/Generated` by hand).
 
 Main targets:
 
@@ -32,7 +35,7 @@ Use `swift test --filter <test-name>` for focused regression checks.
 - Keep public API changes covered by at least one non-`@testable` test when access control matters.
 - The router handles updates asynchronously; preserve ordering and isolation assumptions in flow, queueing, replay protection, and event code.
 - Middleware that intentionally consumes an update without calling `next` should conform to the internal consuming middleware marker so fallback routes do not run.
-- Do not add network-dependent tests. Existing tests use fake Telegram clients and synthetic `TGUpdate` values.
+- Do not add network-dependent tests. Existing tests use fake `ClientTransport` implementations and synthetic `Update` values.
 - Keep examples in `Sources/TelerouteExample` aligned with README claims when changing public API behavior.
 
 ## Git Hygiene

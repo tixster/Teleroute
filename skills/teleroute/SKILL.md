@@ -2,7 +2,7 @@
 name: teleroute
 description: >-
   Use when working in or against the Teleroute Swift package: route-style APIs
-  for swift-telegram-bot, commands, callbacks, route scopes, typed routes,
+  for the Telegram Bot API, commands, callbacks, route scopes, typed routes,
   modules, guards, middleware, rate limiting, command queues, stateful
   flows, flow cancellation policy, lifecycle events, metrics sinks, replay
   protection, published command menus, callback keyboards, macros, context
@@ -15,7 +15,7 @@ description: >-
 
 ## Overview
 
-Use this skill to modify, test, document, review, or consume the Teleroute library. Teleroute is a Swift 6.3 SwiftPM package that layers route-style command, callback, middleware, flow, command-menu, observability, and keyboard APIs on top of `swift-telegram-bot`.
+Use this skill to modify, test, document, review, or consume the Teleroute library. Teleroute is a Swift 6.3 SwiftPM package that layers route-style command, callback, middleware, flow, command-menu, observability, and keyboard APIs on top of the `TelegramBotAPI` module — Telegram Bot API types and client generated from the OpenAPI spec in `openapi/` with swift-openapi-generator (regenerate with `Scripts/generate-api.sh`; never edit `Sources/TelegramBotAPI/Generated` by hand).
 
 ## First Steps
 
@@ -24,12 +24,12 @@ Use this skill to modify, test, document, review, or consume the Teleroute libra
 3. Map the affected symbols with `rg` before editing when the change touches routing, flows, middleware, or published commands in more than one file.
 4. Keep changes scoped to `Sources/Teleroute`, `Sources/TelerouteExample`, `Tests/TelerouteTests`, README/example docs, or this skill.
 5. Preserve Swift 6 language mode and the package's Swift 6.3 requirement unless the user explicitly asks for a toolchain migration.
-6. Do not add network-dependent tests. Use fake Telegram clients and synthetic `TGUpdate` values like the existing tests.
+6. Do not add network-dependent tests. Use fake `ClientTransport` implementations and synthetic `Update` values like the existing tests.
 
 ## Implementation Guidance
 
 - `Teleroute<Context>` is bot-independent and owns registration. `TelerouteBot` owns the bot, runtime configuration, lifecycle, events, command publishing, and update processing. Do not reintroduce a combined public facade.
-- Configure routes before constructing `TelerouteBot`. `bot.run()` attaches, optionally synchronizes commands, starts the Telegram connection, waits for cancellation, and shuts down. `bot.attach()` exists for embedding and in-process tests; do not add `TGBot`-side route overloads.
+- Configure routes before constructing `TelerouteBot`. `bot.run()` optionally synchronizes commands, starts the owned `getUpdates` long-polling loop, waits for cancellation, and shuts down. `bot.process(_:)` feeds updates directly for embedding, webhook servers, and in-process tests.
 - Advanced dependencies and policies belong in `TelerouteBot.Configuration` / `TelerouteConfiguration`; avoid adding parallel bot initializers.
 - `TelerouteRouterGroup<Context>` is the public nested scope. The low-level `TelerouteRoutes` and `TelerouteRuntime` types are test SPI, not consumer API.
 - `command` and `callback` handlers return `TelerouteResponse`. Direct side-effect handlers use `onCommand` and `onCallback`; do not add same-name `Void` overloads because they make `.reply(...)` closure inference ambiguous.

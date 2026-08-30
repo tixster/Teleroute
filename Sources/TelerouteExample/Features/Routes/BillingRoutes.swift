@@ -41,7 +41,7 @@ struct BillingRoutes: TelerouteRouteCollection {
 
         return .reply(
             "Invoice \(invoiceID)",
-            replyMarkup: .inlineKeyboardMarkup(keyboard)
+            replyMarkup: .inline(keyboard)
         )
     }
 

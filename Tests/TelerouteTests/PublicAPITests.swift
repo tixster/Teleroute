@@ -119,11 +119,11 @@ import TelerouteTestSupport
 }
 
 @Test func publicRootSurfaceRegistersEveryRouteKindAndBuildsCallbacks() async throws {
-    let bot = try await TelerouteTestSupport.makeBot()
+    let bot = try TelerouteTestSupport.makeClient()
     let recorder = TelerouteTestRecorder<String>()
     let router = Teleroute()
     let telerouteBot = TelerouteBot(
-        bot: bot,
+        client: bot,
         router: router,
         logger: .init(label: "public.v2"),
         configuration: .init(replayProtectionStorage: nil)
@@ -178,10 +178,10 @@ import TelerouteTestSupport
     await PublicHandlingCommand.recorder.reset()
     await PublicHandlingCallback.recorder.reset()
 
-    let bot = try await TelerouteTestSupport.makeBot()
+    let bot = try TelerouteTestSupport.makeClient()
     let router = Teleroute()
     let telerouteBot = TelerouteBot(
-        bot: bot,
+        client: bot,
         router: router,
         logger: .init(label: "public.self-handling"),
         configuration: .init(replayProtectionStorage: nil)
@@ -210,14 +210,14 @@ import TelerouteTestSupport
     await telerouteBot.shutdown()
 }
 
-@Test func publicAttachRegistersOnceAndConnectsTheBotPipeline() async throws {
-    let bot = try await TelerouteTestSupport.makeBot()
-    let recorder = TelerouteTestRecorder<Int>()
+@Test func publicProcessConnectsTheBotPipeline() async throws {
+    let bot = try TelerouteTestSupport.makeClient()
+    let recorder = TelerouteTestRecorder<Int64>()
     let router = Teleroute()
     let telerouteBot = TelerouteBot(
-        bot: bot,
+        client: bot,
         router: router,
-        logger: .init(label: "public.attach"),
+        logger: .init(label: "public.process"),
         configuration: .init(replayProtectionStorage: nil)
     )
 
@@ -225,19 +225,7 @@ import TelerouteTestSupport
         await recorder.record(context.update.updateId)
     }
 
-    try await withThrowingTaskGroup(of: Void.self) { group in
-        for _ in 0..<8 {
-            group.addTask {
-                try await telerouteBot.attach()
-            }
-        }
-        try await group.waitForAll()
-    }
-
-    let dispatchers = await bot.dispatchers
-    #expect(dispatchers.count == 1)
-
-    await bot.processing(updates: [
+    await telerouteBot.process([
         TelerouteTestSupport.makeCommandUpdate(text: "/ping", updateId: 904),
     ])
 
@@ -246,10 +234,10 @@ import TelerouteTestSupport
 }
 
 @Test func publicEventStreamAcceptsPerSubscriberBuffering() async throws {
-    let bot = try await TelerouteTestSupport.makeBot()
+    let bot = try TelerouteTestSupport.makeClient()
     let router = Teleroute()
     let telerouteBot = TelerouteBot(
-        bot: bot,
+        client: bot,
         router: router,
         logger: .init(label: "public.events")
     )

@@ -1,4 +1,3 @@
-import SwiftTelegramBot
 
 @_spi(Testing)
 public extension TelerouteRuntime {
@@ -75,14 +74,14 @@ public extension TelerouteRuntime {
     }
 
     /// Renders one typed button description at the router root.
-    func render(_ button: TelerouteButton) throws -> TGInlineKeyboardButton {
+    func render(_ button: TelerouteButton) throws -> InlineKeyboardButton {
         try self.routeScope.render(button)
     }
 
     /// Renders callback button descriptions in the router root scope.
     func keyboard(
         _ rows: [[TelerouteButton]]
-    ) throws -> TGInlineKeyboardMarkup {
+    ) throws -> InlineKeyboardMarkup {
         try self.routeScope.keyboard(rows)
     }
 

@@ -1,5 +1,4 @@
 import Foundation
-import SwiftTelegramBot
 
 /// Framework-owned input used to construct a custom request context.
 public struct TelerouteContextSource: Sendable {
@@ -39,23 +38,23 @@ public protocol TelerouteChildRequestContext<ParentContext>: TelerouteRequestCon
 
 public extension TelerouteRequestContext {
     /// Raw Telegram update currently being processed.
-    var update: TGUpdate { self.coreContext.update }
+    var update: Update { self.coreContext.update }
     /// Bot associated with the running application.
-    var bot: TGBot { self.coreContext.bot }
+    var bot: TelegramBotClient { self.coreContext.bot }
     /// Parameters extracted from a callback route.
     var parameters: TelerouteParameters { self.coreContext.parameters }
     /// Parsed command metadata, when this is a command route.
     var command: TelerouteCommandMatch? { self.coreContext.command }
     /// Current callback query, if any.
-    var callbackQuery: TGCallbackQuery? { self.coreContext.callbackQuery }
+    var callbackQuery: CallbackQuery? { self.coreContext.callbackQuery }
     /// Raw callback data, if any.
     var callbackData: String? { self.coreContext.callbackData }
     /// Best-effort Telegram message resolved from the update.
-    var message: TGMessage? { self.coreContext.message }
+    var message: Message? { self.coreContext.message }
     /// Resolved chat identifier.
     var chatId: Int64? { self.coreContext.chatId }
     /// Resolved chat type.
-    var chatType: TGChatType? { self.coreContext.chatType }
+    var chatType: ChatType? { self.coreContext.chatType }
     /// Resolved Telegram user identifier.
     var userId: Int64? { self.coreContext.userId }
     /// Active flow session, if one exists.
@@ -66,8 +65,8 @@ public extension TelerouteRequestContext {
     /// Replies using the framework context.
     func reply(
         _ text: String,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGReplyMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: ReplyMarkup? = nil
     ) async throws {
         try await self.coreContext.reply(
             text,
@@ -80,8 +79,8 @@ public extension TelerouteRequestContext {
     func send(
         _ text: String,
         to chatId: Int64? = nil,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGReplyMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: ReplyMarkup? = nil
     ) async throws {
         try await self.coreContext.send(
             text,
@@ -94,8 +93,8 @@ public extension TelerouteRequestContext {
     /// Edits the message associated with this update.
     func edit(
         _ text: String,
-        parseMode: TGParseMode? = nil,
-        replyMarkup: TGInlineKeyboardMarkup? = nil
+        parseMode: ParseMode? = nil,
+        replyMarkup: InlineKeyboardMarkup? = nil
     ) async throws {
         try await self.coreContext.edit(
             text,
