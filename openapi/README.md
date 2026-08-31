@@ -1,9 +1,18 @@
 # Telegram Bot API OpenAPI toolchain
 
-`Sources/TelegramBotAPI/Generated` is committed output of Apple's
-[swift-openapi-generator](https://github.com/apple/swift-openapi-generator),
-produced from the spec in this directory. Consumers of Teleroute never build
-the generator — they only need `swift-openapi-runtime` plus a transport.
+Two committed generated layers are produced from the spec in this directory:
+
+- `Sources/TelegramBotAPI/Generated` — output of Apple's
+  [swift-openapi-generator](https://github.com/apple/swift-openapi-generator)
+  (raw types + client for all operations).
+- `Sources/TelegramBotKit/Generated` — output of `Scripts/generate-client.py`:
+  one flat convenience method per operation on `TelegramBotClient`
+  (spec-ordered parameters, `{ok, result}` envelope unwrap,
+  `TelegramAPIError` mapping, per-chat pacing hooks) plus the `UpdateKind`
+  enum derived from the `Update` schema.
+
+Consumers of Teleroute never build the generators — they only need
+`swift-openapi-runtime` plus a transport.
 
 ## Files
 
@@ -19,11 +28,17 @@ the generator — they only need `swift-openapi-runtime` plus a transport.
 Scripts/generate-api.sh
 ```
 
-The script patches the spec and runs the generator pinned by
-`Tooling/APIGen/Package.swift` (`exact` version) + `Tooling/APIGen/Package.resolved`.
-Bump the pin deliberately, rerun the script, and commit spec, patched spec,
-and generated sources together. The script is idempotent: running it twice
-must leave `git status` clean.
+The script patches the spec, runs the generator pinned by
+`Tooling/APIGen/Package.swift` (`exact` version) + `Tooling/APIGen/Package.resolved`,
+then runs `Scripts/generate-client.py`. Bump the pin deliberately, rerun the
+script, and commit spec, patched spec, and both generated layers together.
+`Scripts/verify-generated.sh` runs the pipeline twice and fails on any diff.
+
+`generate-client.py` classifies every operation into one of three templates
+(query, JSON body, multipart) and hard-fails on unclassified schema shapes.
+Array-valued multipart fields are serialized as a single raw JSON part (via
+the payload enum's `additionalProperties`/`undocumented` escape case) because
+Telegram rejects repeated parts.
 
 ## Spec patches (`Scripts/patch-openapi.py`)
 
@@ -53,6 +68,7 @@ hand-written multipart encoder are needed.
 
 Clean debug build of the `TelegramBotAPI` target (Types.swift ~64k lines,
 Client.swift ~19k lines): **~81 s** on an Apple Silicon M-series machine.
-The target builds once and is cached; it deliberately uses minimal
-`swiftSettings` (plain Swift 6 language mode, none of the package's
+The `TelegramBotKit` convenience layer adds ~4.7k generated lines across
+seven files. Both targets build once and are cached; they deliberately use
+minimal `swiftSettings` (plain Swift 6 language mode, none of the package's
 upcoming-feature flags).

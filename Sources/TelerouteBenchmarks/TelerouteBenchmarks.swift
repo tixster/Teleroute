@@ -21,6 +21,46 @@ struct TelerouteBenchmarks {
             let duration = try await self.measureCallbacks(routeCount: routeCount)
             self.printResult(kind: "callback", routeCount: routeCount, duration: duration)
         }
+
+        for routeCount in self.routeCounts {
+            let duration = try await self.measureMessages(routeCount: routeCount)
+            self.printResult(kind: "message ", routeCount: routeCount, duration: duration)
+        }
+    }
+
+    private static func measureMessages(routeCount: Int) async throws -> Duration {
+        let telegramBot = try TelerouteTestSupport.makeClient()
+        var logger = Logger(label: "teleroute.benchmark.message")
+        logger.logLevel = .critical
+        let router = Teleroute()
+        let bot = TelerouteBot(
+            client: telegramBot,
+            router: router,
+            logger: logger,
+            configuration: .init(replayProtectionStorage: nil)
+        )
+        let completion = BenchmarkCompletion()
+
+        for index in 0..<routeCount {
+            router.text("text-\(index)") { (_: TelerouteContext) -> Void in
+                if index == routeCount - 1 {
+                    await completion.record()
+                }
+            }
+        }
+
+        let updates = (0..<self.updateCount).map { index in
+            TelerouteTestSupport.makeMessageUpdate(
+                text: "text-\(routeCount - 1)",
+                updateId: Int64(30_000 + index)
+            )
+        }
+        let duration = await ContinuousClock().measure {
+            await bot.process(updates)
+            await completion.wait(until: self.updateCount)
+        }
+        await bot.shutdown()
+        return duration
     }
 
     private static func measureCommands(routeCount: Int) async throws -> Duration {
@@ -37,7 +77,7 @@ struct TelerouteBenchmarks {
         let completion = BenchmarkCompletion()
 
         for index in 0..<routeCount {
-            router.onCommand("route\(index)") { _ in
+            router.command("route\(index)") { (_: TelerouteContext) -> Void in
                 if index == routeCount - 1 {
                     await completion.record()
                 }
@@ -72,7 +112,7 @@ struct TelerouteBenchmarks {
         let completion = BenchmarkCompletion()
 
         for index in 0..<routeCount {
-            router.onCallback("route\(index)/{value}") { _ in
+            router.callback("route\(index)/{value}") { (_: TelerouteContext) -> Void in
                 if index == routeCount - 1 {
                     await completion.record()
                 }

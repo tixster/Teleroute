@@ -54,16 +54,15 @@ public struct TelerouteThrottleMiddleware: TelerouteMiddleware, Sendable {
 
     public func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
         guard let key = self.scope.key(for: context) else {
-            try await next(context)
-            return
+            return try await next(context)
         }
         guard await self.gate.claim(key: key.rawValue, interval: self.interval) else {
-            return
+            return .none
         }
-        try await next(context)
+        return try await next(context)
     }
 }
 
@@ -85,11 +84,10 @@ public struct TelerouteDebounceMiddleware: TelerouteMiddleware, Sendable {
 
     public func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
         guard let key = self.scope.key(for: context) else {
-            try await next(context)
-            return
+            return try await next(context)
         }
 
         let generation = await self.gate.reserve(key: key.rawValue)
@@ -97,24 +95,23 @@ public struct TelerouteDebounceMiddleware: TelerouteMiddleware, Sendable {
             try await Task.sleep(for: self.interval)
         } catch is CancellationError {
             await self.gate.finish(key: key.rawValue, generation: generation)
-            return
+            return .none
         }
         guard await self.gate.shouldRun(key: key.rawValue, generation: generation) else {
             await self.gate.finish(key: key.rawValue, generation: generation)
-            return
+            return .none
         }
+        let response: TelerouteResponse
         do {
-            try await next(context)
+            response = try await next(context)
         } catch {
             await self.gate.finish(key: key.rawValue, generation: generation)
             throw error
         }
         await self.gate.finish(key: key.rawValue, generation: generation)
+        return response
     }
 }
-
-extension TelerouteThrottleMiddleware: TelerouteConsumingMiddleware {}
-extension TelerouteDebounceMiddleware: TelerouteConsumingMiddleware {}
 
 private actor TelerouteThrottleGate {
     private let clock = ContinuousClock()

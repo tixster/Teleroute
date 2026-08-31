@@ -27,6 +27,20 @@ public struct TelerouteParameters: Sendable {
         return value
     }
 
+    /// Returns the parameter decoded into a `LosslessStringConvertible` type
+    /// or throws when it is missing or malformed.
+    public func require<Value: LosslessStringConvertible>(
+        _ name: String,
+        as type: Value.Type
+    ) throws -> Value {
+        let raw = try self.require(name)
+        guard let value = Value(raw) else {
+            throw TelerouteError.invalidParameter(name: name, value: raw)
+        }
+        return value
+    }
+
+
     /// Returns the value for a parameter name, if it exists.
     public subscript(_ name: String) -> String? {
         self.get(name)

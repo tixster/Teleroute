@@ -4,20 +4,50 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/tixster/Teleroute/blob/main/LICENSE)
 [![Swift 6.3](https://img.shields.io/badge/Swift-6.3-F05138?logo=swift&logoColor=white)](https://swift.org)
 
-Teleroute is a route-style framework for the Telegram Bot API. The API types
-and client are generated from an OpenAPI specification of the Bot API with
-[swift-openapi-generator](https://github.com/apple/swift-openapi-generator)
-and ship as the bundled `TelegramBotAPI` module. Its architecture follows the
-same useful separation as Hummingbird:
+Teleroute is a route-style Swift framework for the Telegram Bot API, designed
+after Hummingbird 2:
 
-- `Teleroute` builds a bot-independent route graph;
-- `TelerouteBot` owns the bot, configuration, lifecycle, and update runtime;
-- `TelerouteRouterGroup` composes route namespaces, middleware, guards, and contexts;
-- `TelerouteRouteCollection` packages controllers/features for reuse;
-- `TelerouteResponse` describes common Telegram actions declaratively.
+- `Teleroute` builds a bot-independent route graph over typed request contexts;
+- `TelerouteBot` owns the Telegram client, lifecycle, and update runtime, and
+  conforms to `Service` (swift-service-lifecycle);
+- handlers return any `TelerouteResponseGenerator` — a `String`, a chainable
+  `Reply(...)`, a full `TelerouteResponse`, or `.unhandled` to fall through;
+- **the entire Bot API** ships as typed flat methods (185 operations) generated
+  from an OpenAPI specification, plus the raw generated client underneath.
 
-Teleroute also provides typed commands and callbacks, scope-bound keyboards,
-flows, command queues, replay protection, events, metrics, and in-process tests.
+```swift
+import Teleroute
+
+let router = Teleroute()
+
+router.command("ping") { _ in "pong" }
+
+router.text(prefix: "!roll") { _ in
+    Reply("🎲 \(Int.random(in: 1...6))").quoting("rolled")
+}
+
+router.message(.photo) { context in
+    "Nice photo, \(context.message?.from?.firstName ?? "friend")!"
+}
+
+router.messageReaction { reaction, context in
+    try await context.send("Thanks!", to: .id(reaction.chat.id))
+}
+
+router.callback("orders/{id}/approve") { context in
+    .sequence([
+        .answerCallback("Approved"),
+        .edit("Order \(context.parameters["id"] ?? "?") approved"),
+    ])
+}
+
+let bot = try TelerouteBot(
+    token: ProcessInfo.processInfo.environment["TELEGRAM_BOT_TOKEN"]!,
+    router: router,
+    logger: Logger(label: "bot")
+)
+try await bot.runService()   // SIGTERM/SIGINT → graceful drain + shutdown
+```
 
 ## Requirements
 
@@ -27,734 +57,362 @@ flows, command queues, replay protection, events, metrics, and in-process tests.
 ## Installation
 
 ```swift
-// swift-tools-version: 6.3
-import PackageDescription
+dependencies: [
+    .package(url: "https://github.com/tixster/Teleroute.git", from: "2.0.0"),
+],
+targets: [
+    .executableTarget(
+        name: "MyBot",
+        dependencies: [
+            .product(name: "Teleroute", package: "Teleroute"),
+            // Only when using @TelerouteCommand / @TelerouteCallback:
+            // .product(name: "TelerouteMacros", package: "Teleroute"),
+        ]
+    ),
+    .testTarget(
+        name: "MyBotTests",
+        dependencies: [
+            "MyBot",
+            .product(name: "TelerouteTestSupport", package: "Teleroute"),
+        ]
+    ),
+]
+```
 
-let package = Package(
-    name: "MyBot",
-    dependencies: [
-        .package(url: "https://github.com/tixster/Teleroute.git", from: "1.0.0"),
-    ],
-    targets: [
-        .executableTarget(
-            name: "MyBot",
-            dependencies: [
-                .product(name: "Teleroute", package: "Teleroute"),
+Additional products:
 
-                // Add only when this target uses @TelerouteCommand or
-                // @TelerouteCallback.
-                // .product(name: "TelerouteMacros", package: "Teleroute"),
-            ]
-        ),
-        .testTarget(
-            name: "MyBotTests",
-            dependencies: [
-                "MyBot",
-                .product(name: "TelerouteTestSupport", package: "Teleroute"),
-            ]
-        ),
-    ]
+- `TelegramBotKit` — the standalone Telegram client (vocabulary types,
+  `TelegramBotClient` with all 185 flat methods, rate limiting, flood-wait
+  retry, per-chat pacing) without the router;
+- `TelegramBotAPI` — the raw OpenAPI-generated types and client;
+- `TelerouteHummingbird` — webhook integration for Hummingbird 2 apps.
+
+## The Client: the Whole Bot API
+
+`TelegramBotClient` exposes one flat, fully typed method per Bot API operation,
+generated from the OpenAPI spec (see [openapi/README.md](openapi/README.md)):
+
+```swift
+try await context.bot.sendPoll(
+    chatId: .id(chatId),
+    question: "Best color?",
+    options: [.init(text: "Red"), .init(text: "Blue")]
+)
+try await context.bot.banChatMember(chatId: "@group", userId: 42)
+try await context.bot.answerPreCheckoutQuery(preCheckoutQueryId: id, ok: true)
+try await context.bot.sendVideo(
+    chatId: .id(chatId),
+    video: .upload(filename: "clip.mp4", data: data)   // or .fileID / .url
 )
 ```
 
-The core runtime does not load the macro compiler plugin. Import
-`TelerouteMacros` only in targets that declare macro-annotated route types.
+Every method unwraps Telegram's `{ok, result}` envelope; failures throw
+`TelegramAPIError` with the decoded `error_code`, `description`, and
+`retry_after`. The raw generated surface stays reachable via `context.bot.api`
+(`import TelegramBotAPI` for the `Components`/`Operations` namespaces).
 
-## Quick Start
+Built-in client policies (all configurable on `TelegramBotClient` /
+`TelerouteBot` initializers):
 
-```swift
-import Logging
-import Teleroute
+- global 30 req/s token-bucket rate limit;
+- bounded automatic retry on 429 flood-wait responses;
+- optional per-chat send pacing (1 msg/s per chat, 20 msg/min per group);
+- `ChatId` literals: `to: 123` and `to: "@channel"` both work.
 
-let router = Teleroute()
+## Routing
 
-router.command("ping", description: "Check bot health") { _ in
-    .reply("pong")
-}
-
-router.callback("orders/{id}/approve") { context in
-    let id = try context.parameters.require("id")
-    return .sequence([
-        .answerCallback("Approved \(id)"),
-        .edit("Order \(id) approved"),
-    ])
-}
-
-let bot = try TelerouteBot(
-    token: "<token>",
-    router: router,
-    logger: Logger(label: "telegram.teleroute"),
-    configuration: .init(syncPublishedCommandsOnStart: true)
-)
-
-try await bot.run()
-```
-
-`TelerouteBot` owns the Telegram client: it builds an AsyncHTTPClient-backed
-transport, applies a 30 req/s outbound rate limit (configurable via the
-`rateLimit:` parameter), and runs the `getUpdates` long-polling loop itself.
-`bot.run()` optionally synchronizes command menus, starts long polling, waits
-until cancellation, and then shuts down gracefully. Updates delivered by an
-external webhook server can be fed through `bot.process(_:)` instead.
-
-For handlers that need arbitrary Telegram operations, use the explicitly named
-side-effect API:
+Every update kind is routable. Dispatch order per update:
+replay-protection → flows → callbacks → commands → message routes →
+update-kind routes → `unmatched` hook.
 
 ```swift
-router.onCommand("report") { context in
-    try await context.bot.sendDocument(/* ... */)
-    try await context.reply("Report sent")
+// Commands (also /admin_ban style names via groups).
+router.command("start", description: "Begin") { _ in "Welcome!" }
+
+// Plain messages with source and content filters.
+router.message(.text) { context in "echo: \(context.message?.text ?? "")" }
+router.message(.document, from: [.message, .business]) { _ in "Got a file" }
+router.text("ping") { _ in "pong" }
+router.text(matching: /order-(\d+)/) { _ in "order!" }
+
+// Typed update-kind handlers (payload first).
+router.inlineQuery { query, context in ... }
+router.preCheckoutQuery { query, context in ... }
+router.chatMember { updated, context in ... }
+router.chatJoinRequest { request, context in try await context.approveJoinRequest() }
+router.poll { poll, _ in ... }
+router.on(.chatBoost, .removedChatBoost) { context in ... }
+
+// Final hook when nothing matched; `.unhandled` falls through.
+router.unmatched { context in
+    context.updateKind == .message ? .reply("I don't understand") : .unhandled
 }
 ```
 
-`command` and `callback` return `TelerouteResponse`; `onCommand` and
-`onCallback` return `Void`. Keeping the two forms separate avoids ambiguous
-Swift overload resolution.
+`allowed_updates` is derived automatically from the registered routes (override
+with `TelegramPollingConfiguration(allowedUpdates: .all/.explicit(...))`).
 
-## Bot Configuration
+## Responses
 
-All runtime dependencies and policies live in one value:
-
-```swift
-let bot = TelerouteBot(
-    bot: telegramBot,
-    router: router,
-    logger: logger,
-    configuration: .init(
-        flowStorage: DatabaseFlowStorage(),
-        replayProtectionStorage: RedisReplayProtectionStorage(),
-        replayProtectionTTL: .seconds(5),
-        maximumConcurrentUpdates: 64,
-        flowCancellationPolicy: .manual,
-        metricsSink: MetricsSink(),
-        onError: { error, context in
-            try? await context.reply("Something went wrong")
-        },
-        syncPublishedCommandsOnStart: true
-    )
-)
-```
-
-Pass `replayProtectionStorage: nil` to disable replay protection.
-`maximumConcurrentUpdates` defaults to `64`; producers suspend when all slots
-are occupied instead of creating an unbounded number of tasks.
-
-For embedding and tests, the lifecycle can also be controlled explicitly:
+Handlers return any `TelerouteResponseGenerator`:
 
 ```swift
-await bot.process(updates)   // synthetic or externally supplied updates; no polling
-try await bot.start()        // starts long polling; idempotent
-await bot.shutdown()         // idempotent
-```
-
-A `TelerouteBot` cannot be restarted after shutdown.
-
-## Routes, Groups, and Middleware Collections
-
-Commands use Telegram-compatible `_`-joined group names. Callbacks retain `/`
-hierarchy:
-
-```swift
-let admin = router.group("admin")
-
-admin.command("status") { _ in
-    .reply("ok")
+router.command("hi") { _ in "hello" }                       // String → reply
+router.command("fancy") { _ in
+    Reply("<b>Done</b>").parseMode(.html).silent().quoting("summary")
 }
-
-admin.callback("users/{id}/ban") { context in
-    .answerCallback("Banned \(try context.parameters.require("id"))")
+router.command("classic") { _ in .send("Posted", to: "@channel") }
+router.command("chain") { _ in
+    [TelerouteResponse.answerCallback("Ok"), .edit("Done")]  // array → sequence
+}
+router.command("quiet") { context in                        // Void → done
+    try await context.sendChatAction(.typing)
 }
 ```
 
-These match `/admin_status` and `admin/users/42/ban`.
+`reply` attaches `reply_parameters`, so replies are visibly linked to the
+incoming message. A configured `defaultParseMode` applies to every text helper.
+Handled callback queries are auto-answered so buttons never keep spinning
+(`autoAnswerCallbackQueries: false` or `context.skipCallbackAutoAnswer()` to
+opt out).
 
-Middleware and guards can be attached once to a router or group:
+## Context Helpers
 
-```swift
-router.middlewares.add(TelerouteAccessLogMiddleware(label: "telegram.routes"))
+Every request context (including custom and flow contexts) carries the full
+helper surface: `reply`, `send`, `edit`, `editCaption`, `editReplyMarkup`,
+`deleteMessage`, `forwardMessage`, `copyMessage`, `react`, `pinMessage`,
+`sendPhoto`/`Video`/`Audio`/`Voice`/`Sticker`/`MediaGroup`/`Location`/`Contact`/`Dice`,
+`sendChatAction`/`typing()`/`withChatAction`, `banMember`/`unbanMember`/
+`restrictMember`, `getChatMember`/`isAdmin`, `approveJoinRequest`,
+`publishCommands`, and flow control (`start`/`cancelFlow`). Anything else:
+`context.bot.<operation>`.
 
-let admin = router.group("admin")
-admin.middlewares.add(TelerouteTimeoutMiddleware(.seconds(3)))
-admin.guards.add(TelerouteAdminGuard())
-
-admin.command("status") { _ in .reply("ok") }
-```
-
-They are snapshotted and compiled when a route or child group is registered, so
-add them before the routes they should affect. Route-local low-level middleware
-and guards remain available:
-
-```swift
-router.command(
-    "slow",
-    guards: [TeleroutePrivateChatGuard()],
-    middlewares: [TelerouteRetryMiddleware(retries: 2)]
-) { _ in
-    .reply("done")
-}
-```
-
-## Typed Commands
-
-Typed commands decode command arguments and keep parsing out of handlers.
-
-### Without Macros
-
-```swift
-struct BanCommand: TelerouteCommand {
-    static let path = "ban"
-    static let commandDescription = "Ban a user"
-    static let visibility: [TelerouteCommandVisibility] = [.allChatAdministrators]
-
-    let userID: String
-    let reason: String?
-
-    init(command: TelerouteCommandMatch) throws {
-        self.userID = try command.require("userID", at: 0)
-        self.reason = command.get("reason", at: 1)
-    }
-}
-
-router.command(BanCommand.self) { command, _ in
-    .reply("Ban \(command.userID): \(command.reason ?? "no reason")")
-}
-```
-
-`/ban 42 spam` produces `BanCommand(userID: "42", reason: "spam")`.
-
-For a side-effect controller method:
-
-```swift
-router.onCommand(BanCommand.self, use: moderationController.ban)
-```
-
-### With Macros
-
-```swift
-import Teleroute
-import TelerouteMacros
-
-@TelerouteCommand("ban")
-struct BanCommand {
-    let userID: String
-    let reason: String?
-}
-```
-
-The macro synthesizes `TelerouteCommand`, `path`, positional decoding in stored
-property order, and a memberwise initializer. Required properties throw when
-missing; optional properties decode as `nil`.
-
-Registration is identical:
-
-```swift
-router.command(BanCommand.self) { command, _ in
-    .reply("Ban \(command.userID)")
-}
-```
-
-### Self-Handling Commands
-
-Data-only commands plus explicit controllers are the dependency-friendly
-default. Small commands may opt into `TelerouteHandlingCommand`:
-
-```swift
-struct HealthCommand: TelerouteHandlingCommand {
-    static let path = "health"
-
-    init(command: TelerouteCommandMatch) throws {}
-
-    func handle(context: TelerouteContext) async throws {
-        try await context.reply("ok")
-    }
-}
-
-router.command(HealthCommand.self)
-```
-
-Self-handling routes always receive the core `TelerouteContext`, including when
-the router uses a custom request context.
-
-## Typed Callbacks and Keyboards
-
-Typed callback registration returns a scope-bound route handle. The same handle
-registers the handler, builds callback data, and creates buttons, so callback
-path strings do not spread through the project.
-
-### Without Macros
-
-```swift
-struct RejectOrder: TelerouteCallback {
-    static let path = "orders/{orderID}/reject"
-
-    let orderID: String
-
-    init(orderID: String) {
-        self.orderID = orderID
-    }
-
-    init(parameters: TelerouteParameters) throws {
-        self.orderID = try parameters.require("orderID")
-    }
-
-    var parameters: [String: String] {
-        ["orderID": self.orderID]
-    }
-}
-
-let rejectOrder = router.callback(RejectOrder.self) { callback, _ in
-    .sequence([
-        .answerCallback("Rejected \(callback.orderID)"),
-        .edit("Order \(callback.orderID) rejected"),
-    ])
-}
-```
-
-### With Macros
-
-```swift
-import TelerouteMacros
-
-@TelerouteCallback("orders/{orderID}/reject")
-struct RejectOrder {
-    let orderID: String
-}
-
-let rejectOrder = router.callback(RejectOrder.self) { callback, _ in
-    .answerCallback("Rejected \(callback.orderID)")
-}
-```
-
-Every `{placeholder}` must map one-to-one to a required stored `String`
-property. The macro synthesizes decoding, `parameters`, and a memberwise
-initializer.
-
-### Buttons
-
-```swift
-let keyboard = try router.keyboard([[
-    rejectOrder.button(
-        RejectOrder(orderID: "42"),
-        "Reject #42",
-        style: "danger"
-    )
-]])
-
-router.command("orders") { _ in
-    .reply(
-        "Orders",
-        replyMarkup: .inlineKeyboardMarkup(keyboard)
-    )
-}
-```
-
-Use `rejectOrder.callbackData(for:)` when an encoded string is required by an
-external Telegram API. `callback.button(...)` is also available, but is
-validated against the scope that renders it. Route-bound buttons are safer for
-cross-feature composition.
-
-Pagination keeps the same route binding:
-
-```swift
-let row = TeleroutePagination.navigationRow(
-    pageRoute,
-    page: page,
-    pageCount: pageCount
-) { PageCallback(page: $0) }
-```
-
-## Route Collections and Controllers
-
-`TelerouteRouteCollection` is the feature-composition boundary. A collection
-can own dependencies and return only the callback handles needed by its parent:
-
-```swift
-struct OrderRoutes: TelerouteRouteCollection {
-    struct Exports: Sendable {
-        let reject: TelerouteCallbackRoute<RejectOrder>
-    }
-
-    let controller: OrderController
-
-    func addRoutes(
-        to routes: TelerouteRouterGroup<TelerouteContext>
-    ) -> Exports {
-        routes.onCommand("orders", use: controller.list)
-        let reject = routes.onCallback(
-            RejectOrder.self,
-            use: controller.reject
-        )
-        return .init(reject: reject)
-    }
-}
-
-let orders = router.group("shop").addRoutes(
-    OrderRoutes(controller: orderController)
-)
-
-let button = orders.reject.button(
-    RejectOrder(orderID: "42"),
-    "Reject"
-)
-```
-
-This produces `/shop_orders` and `shop/orders/42/reject` while the parent never
-duplicates either route path.
-
-## Custom Request Contexts
-
-The default router uses `TelerouteContext`:
-
-```swift
-let router = Teleroute()
-```
-
-A custom context can carry request-scoped state and application services:
+## Groups, Contexts, Middleware, Guards
 
 ```swift
 struct AppContext: TelerouteInitializableRequestContext {
     let coreContext: TelerouteContext
-    var requestID: String?
-
-    init(source: TelerouteContextSource) {
-        self.coreContext = source.coreContext
-    }
+    var user: User?
+    init(source: TelerouteContextSource) { self.coreContext = source.coreContext }
 }
 
 let router = Teleroute(context: AppContext.self)
-```
+router.middlewares.add(AuthMiddleware())          // middleware over AppContext
 
-If construction needs captured dependencies, provide a factory:
-
-```swift
-struct AppContext: TelerouteRequestContext {
-    let coreContext: TelerouteContext
-    let orders: OrderService
-}
-
-let router = Teleroute(context: AppContext.self) { source in
-    AppContext(coreContext: source.coreContext, orders: orderService)
+router.group("admin", context: AdminContext.self) { admin in   // child context
+    admin.guards.add(TelerouteAdminGuard(deny: .reply("Admins only")))
+    admin.command("ban") { context in "Banned by \(context.adminName)" }
 }
 ```
 
-Common Telegram properties and methods (`update`, `bot`, `parameters`,
-`command`, `message`, `chatId`, `userId`, `reply`, `send`, `edit`, flow
-helpers, and others) are forwarded from `coreContext`.
-
-### Typed Context Middleware
-
-`TelerouteRouterMiddleware` can transform a custom context and return a
-response, including a short-circuit response:
+One middleware protocol serves every level:
 
 ```swift
-struct RequestIDMiddleware: TelerouteRouterMiddleware {
-    typealias Context = AppContext
-
+struct AuthMiddleware: TelerouteMiddleware {
     func handle(
         _ context: AppContext,
         next: @escaping @Sendable (AppContext) async throws -> TelerouteResponse
     ) async throws -> TelerouteResponse {
         var context = context
-        context.requestID = UUID().uuidString
-        return try await next(context)
-    }
-}
-
-router.middlewares.add(RequestIDMiddleware())
-```
-
-Low-level `TelerouteMiddleware` continues to wrap `TelerouteContext` and powers
-the built-in timeout, retry, logging, throttle, debounce, queue, and
-error-handling middleware.
-
-### Child Contexts
-
-A child context narrows guarantees for a nested group:
-
-```swift
-struct AuthenticatedContext: TelerouteChildRequestContext {
-    typealias ParentContext = AppContext
-
-    let coreContext: TelerouteContext
-    let userID: Int64
-
-    init(context: AppContext) throws {
-        guard let userID = context.userId else {
-            throw AuthenticationError.userMissing
-        }
-        self.coreContext = context.coreContext
-        self.userID = userID
-    }
-}
-
-router.group("account", context: AuthenticatedContext.self) { account in
-    account.command("me") { context in
-        .reply("User \(context.userID)")
+        context.user = await lookup(context.userId)
+        return try await next(context)      // may inspect/replace the response
     }
 }
 ```
 
-Parent typed middleware runs before the child context is constructed. Child
-contexts and middleware may be chained through multiple nested groups.
+Middleware is snapshotted when a route is registered — **add middleware before
+registering the routes that should use it**.
 
-## Responses
+Guards return a verdict: `.allow`, `.skip` (silent fall-through), or
+`.deny(response)`. Handlers may also `throw TelerouteAbort("Access denied")` —
+rendered to the user and reported as handled. A configuration-level
+`errorRenderer` converts unexpected errors into user-facing responses.
 
-`TelerouteResponse` supports:
+Built-in middleware: access log, timeout, retry, error handling, throttle,
+debounce. Built-in guards: chat type, private/group, user/chat allow-lists,
+argument count, admin (each with an optional `deny:` response).
 
-```swift
-.none
-.reply("text", parseMode: nil, replyMarkup: nil)
-.send("text", to: chatID)
-.edit("new text", replyMarkup: keyboard)
-.answerCallback("done", showAlert: false)
-.sequence([.answerCallback(), .edit("done")])
-```
-
-Responses run in sequence and use the matched core context. Use `onCommand` or
-`onCallback` when a handler needs operations not represented by this enum.
-
-## Guards and Built-In Middleware
-
-Built-in guards:
-
-- `TeleroutePrivateChatGuard`
-- `TelerouteGroupChatGuard`
-- `TelerouteChatTypeGuard`
-- `TelerouteUserAllowlistGuard`
-- `TelerouteChatAllowlistGuard`
-- `TelerouteArgumentCountGuard`
-- `TelerouteAdminGuard`
-
-`TelerouteAdminGuard` calls Telegram `getChatMember`; it is not a local-only
-predicate.
-
-Built-in middleware:
-
-- `TelerouteAccessLogMiddleware`
-- `TelerouteTimeoutMiddleware`
-- `TelerouteRetryMiddleware`
-- `TelerouteErrorHandlingMiddleware`
-- `TelerouteThrottleMiddleware`
-- `TelerouteDebounceMiddleware`
-
-Low-level middleware intentionally consuming an update without calling `next`
-is handled by Teleroute's internal consuming semantics, so fallback routes do
-not run for throttled or superseded updates.
-
-## Command Queues
-
-Commands can serialize work by scope:
+## Typed Commands, Callbacks, and Macros
 
 ```swift
-router.command("rebuild", queue: .global) { _ in .reply("done") }
-router.command("export", queue: .perChat) { _ in .reply("done") }
-router.command("profile", queue: .perChatAndUser) { _ in .reply("done") }
+@TelerouteCommand("transfer")
+struct TransferCommand {
+    let userId: Int64          // required, decoded & validated
+    var amount: Double = 1.0   // optional with default
+    let comment: String?       // optional
+}
+
+@TelerouteCallback("orders/{orderId}/page/{page}")
+struct OrderPageCallback {
+    let orderId: String
+    let page: Int              // non-String path parameters round-trip
+}
+
+router.command(TransferCommand.self) { command, context in
+    "Sending \(command.amount) to \(command.userId)"
+}
+let route = router.callback(OrderPageCallback.self) { callback, _ in
+    .edit("Page \(callback.page)")
+}
 ```
 
-Typed commands may declare a default queue through `TelerouteCommand.queue`.
+Malformed arguments throw `TelerouteError.invalidParameter` before your
+handler runs. Self-handling types (`TelerouteHandlingCommand`/`Callback`)
+declare their own `Context` and return a response.
+
+## Keyboards
+
+```swift
+let markup = try router.keyboard {
+    Row {
+        route.button(OrderPageCallback(orderId: "7", page: 2), "Next")
+        TelerouteButton.url("Docs", "https://example.com")
+    }
+    TelerouteButton.switchInlineQuery("Share", query: "cats")
+}
+
+let replyKeyboard = ReplyKeyboardMarkup(resize: true) {
+    KeyRow {
+        KeyButton("Share contact").requestContact()
+        "Cancel"
+    }
+}
+```
+
+Typed callback buttons are validated against the scope that renders them, so a
+button for an unregistered route fails fast. `TelegramText` provides
+`escapeHTML`/`escapeMarkdownV2` and `bold`/`italic`/`code`/`link`/`mention`
+fragment builders.
 
 ## Flows
 
-Flows route messages, commands, and callbacks according to one active session
-per `chatId + userId`:
+Multi-step conversations with per-chat/user session state:
 
 ```swift
 struct SignupFlow: TelerouteFlow {
-    enum Step: String, Sendable {
-        case name
-        case confirm
-    }
+    enum Step: String { case name, confirm }
 
-    func boot(flow: TelerouteFlowGroup<Self>) {
-        flow.start(
-            "signup",
-            at: .name,
-            description: "Start signup"
-        ) { context in
-            try await context.reply("What is your name?")
+    func boot(flow: TelerouteFlowGroup<SignupFlow>) {
+        flow.start("signup", at: .name) { context in
+            try await context.reply("Send your name.")
         }
-
         flow.message(at: .name) { context in
-            let name = context.message?.text ?? ""
-            try await context.transition(to: .confirm, merging: ["name": name])
-            try await context.reply("Confirm \(name)?")
+            try await context.transition(to: .confirm, merging: ["name": context.message?.text ?? ""])
+            try await context.reply("Confirm?")
         }
-
-        flow.command("cancel", at: .confirm) { context in
+        flow.command("done", at: .confirm) { context in
             try await context.finish()
-            try await context.reply("Cancelled")
+            try await context.reply("Welcome, \(try context.values.require("name"))!")
         }
     }
 }
-
 router.flow(SignupFlow())
 ```
 
-Active flow routes run before regular callbacks and commands. Regular callbacks
-run before regular commands. Flow step handlers use `TelerouteFlowContext`;
-feature dependencies can be captured by the flow value itself.
+Flow contexts conform to `TelerouteRequestContext`, so every helper (media,
+admin, …) is available inside steps.
 
-Unmatched-command behavior is controlled by:
+## Lifecycle and Webhooks
 
-- `.cancelOnAnyUnmatchedCommand` (default)
-- `.preserveOnUnmatchedCommand`
-- `.manual`
-
-## Published Commands
-
-Descriptions registered on routes are grouped by Telegram visibility:
+`TelerouteBot` is a `Service`. Long polling is the default mode; graceful
+shutdown stops intake, drains in-flight handlers (bounded by
+`shutdownGracePeriod`), and then cancels stragglers.
 
 ```swift
-router.command(
-    "help",
-    description: "Show help",
-    visibility: [.allPrivateChats]
-) { _ in .reply("Help") }
+// Standalone: signals → graceful shutdown.
+try await bot.runService()
 
-for commandSet in try router.publishedCommandSets() {
-    print(commandSet.visibility, commandSet.commands)
-}
-```
-
-Set `syncPublishedCommandsOnStart: true` to publish registered menus from
-`bot.start()`/`bot.run()`, or control them explicitly:
-
-```swift
-try await bot.syncPublishedCommands()
-try await bot.publishCommands(
-    [("health", "Check health")],
-    visibility: .allChatAdministrators
+// Composed with other services:
+let group = ServiceGroup(
+    services: [database, bot],
+    gracefulShutdownSignals: [.sigterm, .sigint],
+    logger: logger
 )
-try await bot.publishCommands([BanCommand.self])
+try await group.run()
 ```
 
-Handlers may update a chat/member-specific menu through
-`context.coreContext.publishCommands(...)`.
-
-## Events, Errors, and Shutdown
-
-Every subscriber gets an independent event stream:
+Webhooks via the `TelerouteHummingbird` product:
 
 ```swift
-let events = bot.eventStream(buffering: .newest(256))
+import Hummingbird
+import TelerouteHummingbird
 
-Task {
-    for await event in events {
-        print(event.kind, event.routeKind, event.routeName ?? "-")
-    }
-}
+let bot = try TelerouteBot(token: token, router: router, logger: logger, mode: .webhook)
+let hbRouter = Router()
+hbRouter.registerTelegramWebhook(bot: bot, path: "/telegram", secretToken: secret)
+let app = Application(router: hbRouter, configuration: .init(address: .hostname("0.0.0.0", port: 8080)))
+
+let group = ServiceGroup(
+    services: [
+        app,
+        bot,
+        TelegramWebhookService(bot: bot, configuration: .init(
+            url: "https://bot.example.com/telegram",
+            secretToken: secret
+        )),
+    ],
+    gracefulShutdownSignals: [.sigterm, .sigint],
+    logger: logger
+)
+try await group.run()
 ```
 
-Events are emitted for `received`, `skippedDuplicate`, `handled`, `unmatched`,
-and `failed`. Failed events retain the typed error and a stable description.
-`onError`, logging, events, and `TelerouteMetricsSink` observe the same routing
-outcome.
+The webhook handler verifies `X-Telegram-Bot-Api-Secret-Token` in constant
+time and feeds decoded updates into the same pipeline (`bot.process(_:)` is
+the seam for any custom server).
 
-`await bot.shutdown()` stops accepting updates, cancels in-flight handlers,
-finishes event streams, and stops a started Telegram connection.
+## Observability
 
-## Context Helpers
-
-`TelerouteContext` and custom request contexts expose text, callback, message,
-flow, and identity helpers. `TelerouteContext` additionally includes media,
-forwarding, deletion, editing, and chat-action helpers.
-
-```swift
-router.onCommand("photo") { context in
-    try await context.coreContext.sendPhoto(/* ... */)
-    try await context.reply("Photo sent")
-}
-```
-
-The raw `Update` remains available as `context.update`, and the bot escape
-hatch remains available as `context.bot`. For Telegram methods the client does
-not wrap, `context.bot.api` exposes every generated Bot API operation; add
-`import TelegramBotAPI` to reach the raw `Components`/`Operations` namespaces.
-See [openapi/README.md](openapi/README.md) for the API generation workflow.
-
-## Matching and Performance
-
-For every update, Teleroute creates one internal parsed update and takes one
-immutable route-graph snapshot. Command routes use a name index, callback
-routes use a compiled component index, and flow routes use a flow/step index.
-
-Order is deterministic:
-
-1. active flow routes;
-2. regular callbacks;
-3. regular commands;
-4. first registered route whose guards/middleware reach the handler wins.
-
-Callback generation and matching share the same percent-encoding rules.
-Duplicate unguarded route signatures are exposed through
-`router.duplicateRouteSignatures`; guarded duplicates are allowed because they
-can intentionally select different handlers.
-
-Run the release benchmark with:
-
-```bash
-swift run -c release TelerouteBenchmarks
-```
+- `bot.eventStream()` — an `AsyncSequence` of routing lifecycle events
+  (received / handled / unmatched / duplicate / failed with timings);
+- `TelerouteMetricsSink` — protocol for custom sinks;
+- `TelerouteSwiftMetricsSink` — swift-metrics adapter emitting
+  `teleroute.updates.*` counters and `teleroute.handler.duration` timers.
 
 ## In-Process Testing
 
-`TelerouteTestSupport` creates a `TelerouteBot` backed by a recording Telegram
-client. No polling, webhook server, or network request is started:
+`TelerouteTestSupport` fakes the HTTP transport under the real generated
+client — no network, byte-accurate assertions:
 
 ```swift
-import Testing
-import Teleroute
-import TelerouteTestSupport
-
-@Test
-func startCommand() async throws {
+@Test func startCommand() async throws {
     let router = Teleroute()
-    router.command("start") { _ in .reply("Welcome") }
+    router.command("start") { _ in "Welcome" }
 
-    let (bot, telegram) = try TelerouteTestSupport.makeTelerouteBot(
-        router: router
-    )
-
+    let (bot, telegram) = try TelerouteTestSupport.makeTelerouteBot(router: router)
     try await bot.test { client in
         let result = await client.sendCommand("start")
         #expect(result.terminalEvent?.kind == .handled)
     }
-
-    guard case let .some(.sentMessage(message)) = telegram.effects.first else {
-        Issue.record("Expected a message")
-        return
-    }
+    guard case let .sentMessage(message) = telegram.effects.first else { return }
     #expect(message.text == "Welcome")
 }
 ```
 
-The recording transport captures sent text and reply markup, message edits,
-callback answers, and command-menu updates by faking the HTTP layer under the
-generated Telegram client. The test client also provides `sendMessage`,
-`pressCallback`, and raw `execute(Update)` methods.
+Synthetic update factories cover commands, messages, photos, callbacks, inline
+queries, reactions, member updates, join requests, pre-checkout queries, and
+poll answers. `TelerouteRecordingTransport` accepts a `fallback:` to stub any
+of the 185 operations, and `TelerouteTestMultipart` parses multipart bodies
+for wire-level assertions.
 
 ## Example Project
 
-`Sources/TelerouteExample` is a runnable bot showing:
-
-- `Teleroute`/`TelerouteBot` bootstrap and automatic command synchronization;
-- custom and child request contexts;
-- typed context middleware and group middleware/guards;
-- route collections with exported callback handles;
-- commands/callbacks with and without macros;
-- declarative responses and direct side effects;
-- typed keyboards, flows, and scoped command menus.
-
-Run it with:
+`Sources/TelerouteExample` is a runnable bot showing commands, text and media
+routes, reactions, join-request approval, inline mode, keyboard DSL, flows over
+a custom context, and command-menu publishing:
 
 ```bash
 TELEGRAM_BOT_TOKEN=<token> swift run TelerouteExample
 ```
 
+## Migrating from 1.x
+
+See [docs/MIGRATION-2.0.md](docs/MIGRATION-2.0.md) for the 1.x → 2.0 table
+(single handler style, `TG`-free naming, `ChatId` targets, Int64 identifiers,
+Service lifecycle).
+
 ## Agent Skill Installation
 
-The repository includes a Teleroute Codex skill under `skills/teleroute`.
-
-```bash
-pfw install ./skills/teleroute
-```
+The repository ships a Claude Code skill for working on Teleroute at
+`skills/teleroute`; symlink or copy it into `.claude/skills/` of a consuming
+project to get Teleroute-aware assistance.

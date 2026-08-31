@@ -503,7 +503,7 @@ struct TelerouteTests {
         })
     )
 
-    router.command("boom") { _ in
+    router.command("boom") { (_: TelerouteContext) -> Void in
         throw BoomError()
     }
 
@@ -526,7 +526,7 @@ struct TelerouteTests {
         }
     }
 
-    router.command("boom") { _ in
+    router.command("boom") { (_: TelerouteContext) -> Void in
         throw BoomError()
     }
 
@@ -721,7 +721,7 @@ struct TelerouteTests {
     let recorder = Recorder<String>()
     let probe = ConcurrencyProbe()
 
-    router.command("sync", queue: .perChatAndUser) { context in
+    router.command("sync", queue: .perChatAndUser) { (context: TelerouteContext) -> Void in
         let value = context.command?.arguments.first ?? "unknown"
         await recorder.record("start:\(value)")
         await probe.enter()
@@ -962,7 +962,7 @@ struct TelerouteTests {
     let recorder = Recorder<String>()
     let probe = ConcurrencyProbe()
 
-    router.command("sync", queue: .global) { context in
+    router.command("sync", queue: .global) { (context: TelerouteContext) -> Void in
         let value = context.command?.arguments.first ?? "unknown"
         await recorder.record("start:\(value)")
         await probe.enter()
@@ -992,7 +992,7 @@ struct TelerouteTests {
     let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.queue.chat"))
     let probe = ConcurrencyProbe()
 
-    router.command("sync", queue: .perChat) { _ in
+    router.command("sync", queue: .perChat) { (_: TelerouteContext) -> Void in
         await probe.enter()
         try? await Task.sleep(for: .milliseconds(50))
         await probe.leave()
@@ -1346,11 +1346,12 @@ private struct RecordingMiddleware: TelerouteMiddleware {
 
     func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
         await self.recorder.record(["\(self.label):before"])
-        try await next(context)
+        let response = try await next(context)
         await self.recorder.record(["\(self.label):after"])
+        return response
     }
 }
 

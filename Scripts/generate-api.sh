@@ -15,3 +15,7 @@ swift run --package-path "$ROOT/Tooling/APIGen" -c release \
     "$ROOT/openapi/telegram-bot-api.patched.json" \
     --config "$ROOT/openapi/openapi-generator-config.yaml" \
     --output-directory "$ROOT/Sources/TelegramBotAPI/Generated"
+
+python3 "$ROOT/Scripts/generate-client.py" \
+    "$ROOT/openapi/telegram-bot-api.patched.json" \
+    "$ROOT/Sources/TelegramBotKit/Generated"

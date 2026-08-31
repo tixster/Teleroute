@@ -38,10 +38,15 @@ public struct TelerouteCommandMacro: ExtensionMacro, MemberMacro {
 
         let decodeLines = properties.enumerated().map { index, element -> String in
             let (name, info) = element
-            if info.isOptional {
-                return "self.\(name) = command.get(\"\(name)\", at: \(index))"
+            let base = info.baseType
+            let typedSuffix = base == "String" ? "" : ", as: \(base).self"
+            if let defaultValue = info.defaultValue {
+                return "self.\(name) = command.get(\"\(name)\", at: \(index)\(typedSuffix)) ?? \(defaultValue)"
             }
-            return "self.\(name) = try command.require(\"\(name)\", at: \(index))"
+            if info.isOptional {
+                return "self.\(name) = command.get(\"\(name)\", at: \(index)\(typedSuffix))"
+            }
+            return "self.\(name) = try command.require(\"\(name)\", at: \(index)\(typedSuffix))"
         }.joined(separator: "\n")
         members.append(
             #"""
@@ -51,8 +56,12 @@ public struct TelerouteCommandMacro: ExtensionMacro, MemberMacro {
             """#
         )
 
-        let memberwiseArgs = properties.map { name, info in "\(name): \(info.type)" }
-            .joined(separator: ", ")
+        let memberwiseArgs = properties.map { name, info in
+            if let defaultValue = info.defaultValue {
+                return "\(name): \(info.type) = \(defaultValue)"
+            }
+            return "\(name): \(info.type)"
+        }.joined(separator: ", ")
         let memberwiseAssign = properties.map { name, _ in "self.\(name) = \(name)" }
             .joined(separator: "\n")
         members.append(
@@ -84,6 +93,11 @@ public struct TelerouteCommandMacro: ExtensionMacro, MemberMacro {
     private struct PropertyInfo {
         let type: String
         let isOptional: Bool
+        let defaultValue: String?
+
+        var baseType: String {
+            self.isOptional ? String(self.type.dropLast()) : self.type
+        }
     }
 
     private static func storedProperties(from declaration: any DeclSyntaxProtocol) -> [(String, PropertyInfo)] {
@@ -91,17 +105,28 @@ public struct TelerouteCommandMacro: ExtensionMacro, MemberMacro {
         var result: [(String, PropertyInfo)] = []
         for member in structDecl.memberBlock.members {
             guard let variable = member.decl.as(VariableDeclSyntax.self) else { continue }
-            guard variable.bindingSpecifier.text == "let",
+            let isStatic = variable.modifiers.contains {
+                $0.name.tokenKind == .keyword(.static) || $0.name.tokenKind == .keyword(.class)
+            }
+            guard isStatic == false,
                   variable.bindings.count == 1,
                   let binding = variable.bindings.first,
-                  binding.initializer?.value == nil,
                   let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else {
                 continue
             }
+            let specifier = variable.bindingSpecifier.text
+            let defaultValue = binding.initializer?.value.trimmedDescription
+            // `let x: T` is a required argument; `var x: T = d` decodes with a
+            // default; `let x = c` stays a plain constant.
+            if specifier == "let", defaultValue != nil { continue }
+            guard specifier == "let" || defaultValue != nil else { continue }
             let name = pattern.identifier.text
             let typeText = binding.typeAnnotation?.type.trimmedDescription ?? "String"
             let isOptional = typeText.hasSuffix("?")
-            result.append((name, PropertyInfo(type: typeText, isOptional: isOptional)))
+            result.append((
+                name,
+                PropertyInfo(type: typeText, isOptional: isOptional, defaultValue: defaultValue)
+            ))
         }
         return result
     }

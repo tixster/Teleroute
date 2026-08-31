@@ -31,14 +31,14 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
     let storage: TelerouteStorage
     let commandPrefix: [String]
     let callbackPrefix: [String]
-    let inheritedMiddlewares: [any TelerouteMiddleware]
+    let inheritedMiddlewares: [any TelerouteMiddleware<TelerouteContext>]
     let inheritedGuards: [any TelerouteGuard]
 
     init(
         storage: TelerouteStorage,
         commandPrefix: [String] = [],
         callbackPrefix: [String] = [],
-        inheritedMiddlewares: [any TelerouteMiddleware] = [],
+        inheritedMiddlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         inheritedGuards: [any TelerouteGuard] = []
     ) {
         self.storage = storage
@@ -56,9 +56,9 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
         description: String? = nil,
         visibility: [TelerouteCommandVisibility] = [.default],
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil,
-        use handler: @escaping TelerouteHandler
+        use handler: @escaping @Sendable (TelerouteContext) async throws -> Void
     ) {
         let name = TeleroutePath.commandName(prefix: self.commandPrefix, path: path)
         let hasGuard = self.inheritedGuards.isEmpty == false || guards.isEmpty == false
@@ -96,6 +96,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
                 handler: { context in
                     try await context.start(Flow.self, at: step)
                     try await handler(context)
+                    return .none
                 }
             ),
             signature: hasGuard == false
@@ -108,7 +109,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
     public func message(
         at step: Flow.Step,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         use handler: @escaping TelerouteFlowHandler<Flow>
     ) {
         self.register(
@@ -127,7 +128,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
         at step: Flow.Step,
         botUsername: String? = nil,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         use handler: @escaping TelerouteFlowHandler<Flow>
     ) {
         let name = TeleroutePath.commandName(prefix: self.commandPrefix, path: path)
@@ -149,7 +150,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
         _ path: String,
         at step: Flow.Step,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         use handler: @escaping TelerouteFlowHandler<Flow>
     ) {
         let pattern = TelerouteCallbackPattern(prefix: self.callbackPrefix, path: path)
@@ -178,7 +179,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
         matcher: TelerouteFlowRouteMatcher,
         signatureName: String,
         guards: [any TelerouteGuard],
-        middlewares: [any TelerouteMiddleware],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
         handler: @escaping TelerouteFlowHandler<Flow>
     ) {
         let hasGuard = self.inheritedGuards.isEmpty == false || guards.isEmpty == false
@@ -197,6 +198,7 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
                 handler: { context in
                     let flowContext = try TelerouteFlowContext<Flow>(context: context)
                     try await handler(flowContext)
+                    return .none
                 }
             ),
             signature: hasGuard == false
@@ -329,13 +331,13 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
     /// Sends a message to the supplied chat or to the chat inferred from the current update.
     public func send(
         _ text: String,
-        to chatId: Int64? = nil,
+        to chat: ChatId? = nil,
         parseMode: ParseMode? = nil,
         replyMarkup: ReplyMarkup? = nil
     ) async throws {
         try await self.context.send(
             text,
-            to: chatId,
+            to: chat,
             parseMode: parseMode,
             replyMarkup: replyMarkup
         )
@@ -359,7 +361,7 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
         _ text: String? = nil,
         showAlert: Bool? = nil,
         url: String? = nil,
-        cacheTime: Int? = nil
+        cacheTime: Int64? = nil
     ) async throws {
         try await self.context.answerCallbackQuery(
             text,

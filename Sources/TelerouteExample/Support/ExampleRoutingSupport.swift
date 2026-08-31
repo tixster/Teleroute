@@ -15,7 +15,7 @@ struct ExampleRequestContext: TelerouteInitializableRequestContext {
 }
 
 /// Context middleware can transform typed context values before handlers run.
-struct ExampleRequestIDMiddleware: TelerouteRouterMiddleware {
+struct ExampleRequestIDMiddleware: TelerouteMiddleware {
     typealias Context = ExampleRequestContext
 
     func handle(

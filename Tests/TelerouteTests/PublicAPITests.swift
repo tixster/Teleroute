@@ -45,8 +45,8 @@ import TelerouteTestSupport
 
 @Test func publicTypedCallbackRoutesBindButtonsToTheirRegistrationScope() async throws {
     let router = Teleroute()
-    let rootRoute = router.onCallback(PublicV2Callback.self) { _, _ in }
-    let nestedRoute = router.group("nested").onCallback(PublicV2Callback.self) { _, _ in }
+    let rootRoute = router.callback(PublicV2Callback.self) { _, _ in }
+    let nestedRoute = router.group("nested").callback(PublicV2Callback.self) { _, _ in }
     let callback = PublicV2Callback(value: "42")
     let description = rootRoute.button(callback, "Open", style: "primary")
     let pagination = TeleroutePagination.navigationRow(rootRoute, page: 0, pageCount: 2) { page in
@@ -81,7 +81,7 @@ import TelerouteTestSupport
         return path == "public/{value}"
     }
 
-    let route = router.onCallback(
+    let route = router.callback(
         PublicV2Callback.self,
         guards: [TeleroutePrivateChatGuard()]
     ) { _, _ in }
@@ -129,16 +129,16 @@ import TelerouteTestSupport
         configuration: .init(replayProtectionStorage: nil)
     )
 
-    router.onCommand("raw", queue: .perChat) { context in
+    router.command("raw", queue: .perChat) { context in
         await recorder.record("raw:\(context.update.updateId)")
     }
-    router.onCommand(PublicV2Command.self) { command, _ in
+    router.command(PublicV2Command.self) { command, _ in
         await recorder.record("typed:\(command.value)")
     }
-    router.onCallback(PublicV2Callback.self) { callback, _ in
+    router.callback(PublicV2Callback.self) { callback, _ in
         await recorder.record("callback:\(callback.value)")
     }
-    router.group("nested").onCommand("ping") { _ in
+    router.group("nested").command("ping") { _ in
         await recorder.record("nested")
     }
     let moduleRoutes = router.addRoutes(PublicV2Routes(recorder: recorder))
@@ -154,8 +154,8 @@ import TelerouteTestSupport
         ).callbackData == "module/public/9"
     )
 
-    router.onCommand("duplicate") { _ in }
-    router.onCommand("duplicate") { _ in }
+    router.command("duplicate") { _ in }
+    router.command("duplicate") { _ in }
     #expect(router.duplicateRouteSignatures.count == 1)
 
     try await telerouteBot.test { client in
@@ -221,7 +221,7 @@ import TelerouteTestSupport
         configuration: .init(replayProtectionStorage: nil)
     )
 
-    router.onCommand("ping") { context in
+    router.command("ping") { context in
         await recorder.record(context.update.updateId)
     }
 
@@ -310,8 +310,9 @@ private struct PublicHandlingCommand: TelerouteHandlingCommand {
         self.value = try command.require("value")
     }
 
-    func handle(context: TelerouteContext) async throws {
+    func handle(context: TelerouteContext) async throws -> TelerouteResponse {
         await Self.recorder.record("\(self.value):\(context.update.updateId)")
+        return .none
     }
 }
 
@@ -329,8 +330,9 @@ private struct PublicHandlingCallback: TelerouteHandlingCallback {
         ["value": self.value]
     }
 
-    func handle(context: TelerouteContext) async throws {
+    func handle(context: TelerouteContext) async throws -> TelerouteResponse {
         await Self.recorder.record("\(self.value):\(context.update.updateId)")
+        return .none
     }
 }
 
@@ -353,10 +355,10 @@ private struct PublicV2Routes: TelerouteRouteCollection {
         to routes: TelerouteRouterGroup<TelerouteContext>
     ) -> Exports {
         let module = routes.group("module")
-        module.onCommand("ping") { _ in
+        module.command("ping") { _ in
             await self.recorder.record("module")
         }
-        let action = module.onCallback(PublicV2Callback.self) { callback, _ in
+        let action = module.callback(PublicV2Callback.self) { callback, _ in
             await self.recorder.record("module:\(callback.value)")
         }
         return .init(action: action)

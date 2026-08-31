@@ -25,8 +25,11 @@ public protocol TelerouteCommand: Sendable {
 /// explicit handler from a ``TelerouteRouteCollection`` when the handler owns injected
 /// dependencies or coordinates multiple routes.
 public protocol TelerouteHandlingCommand: TelerouteCommand {
+    /// Request context type the handler expects; defaults to the core context.
+    associatedtype Context: TelerouteRequestContext = TelerouteContext
+
     /// Handles the update after the command value has been decoded.
-    func handle(context: TelerouteContext) async throws
+    func handle(context: Context) async throws -> TelerouteResponse
 }
 
 public extension TelerouteCommand {

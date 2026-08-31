@@ -1,7 +1,29 @@
 import Foundation
+import Synchronization
+import TelegramBotAPI
 
 /// Async route handler invoked with the complete matched-route context.
-public typealias TelerouteHandler = @Sendable (_ context: TelerouteContext) async throws -> Void
+/// Returns the declarative Telegram effect of the route.
+public typealias TelerouteHandler = @Sendable (
+    _ context: TelerouteContext
+) async throws -> TelerouteResponse
+
+/// Per-update mutable flags shared by every context derived from one update.
+public final class TelerouteResponderState: Sendable {
+    private let answeredCallbackFlag = Mutex(false)
+
+    public init() {}
+
+    /// Whether the update's callback query has already been answered
+    /// (or auto-answering was suppressed).
+    public var answeredCallback: Bool {
+        self.answeredCallbackFlag.withLock { $0 }
+    }
+
+    func markCallbackAnswered() {
+        self.answeredCallbackFlag.withLock { $0 = true }
+    }
+}
 
 /// Context passed to router handlers.
 ///
@@ -14,23 +36,29 @@ public struct TelerouteContext: Sendable {
     public let parameters: TelerouteParameters
     /// Parsed command metadata when the handler was invoked by a command route.
     public let command: TelerouteCommandMatch?
+    /// Default parse mode applied by text helpers when none is passed.
+    public let defaultParseMode: ParseMode?
     let parsedUpdate: TelerouteParsedUpdate
     let flowStorage: (any TelerouteFlowStorage)?
     let flowSession: TelerouteFlowSession?
+    let responderState: TelerouteResponderState
 
     /// Creates a context for a matched route.
     public init(
         bot: TelegramBotClient,
         update: Update,
         parameters: TelerouteParameters = .init(),
-        command: TelerouteCommandMatch? = nil
+        command: TelerouteCommandMatch? = nil,
+        defaultParseMode: ParseMode? = nil
     ) {
         self.bot = bot
         self.parameters = parameters
         self.command = command
+        self.defaultParseMode = defaultParseMode
         self.parsedUpdate = .init(update)
         self.flowStorage = nil
         self.flowSession = nil
+        self.responderState = .init()
     }
 
     init(
@@ -38,15 +66,19 @@ public struct TelerouteContext: Sendable {
         parsedUpdate: TelerouteParsedUpdate,
         parameters: TelerouteParameters = .init(),
         command: TelerouteCommandMatch? = nil,
+        defaultParseMode: ParseMode? = nil,
         flowStorage: (any TelerouteFlowStorage)?,
-        flowSession: TelerouteFlowSession?
+        flowSession: TelerouteFlowSession?,
+        responderState: TelerouteResponderState = .init()
     ) {
         self.bot = bot
         self.parameters = parameters
         self.command = command
+        self.defaultParseMode = defaultParseMode
         self.parsedUpdate = parsedUpdate
         self.flowStorage = flowStorage
         self.flowSession = flowSession
+        self.responderState = responderState
     }
 
     /// Raw Telegram update currently being processed.
@@ -97,99 +129,6 @@ public struct TelerouteContext: Sendable {
         self.parsedUpdate.flowKey
     }
 
-    /// Replies to the current message when available, otherwise sends a message to the resolved chat.
-    public func reply(
-        _ text: String,
-        parseMode: ParseMode? = nil,
-        replyMarkup: ReplyMarkup? = nil
-    ) async throws {
-        try await self.send(
-            text,
-            to: self.message?.chat.id,
-            parseMode: parseMode,
-            replyMarkup: replyMarkup
-        )
-    }
-
-    /// Sends a message to the supplied chat or to the chat inferred from the current update.
-    public func send(
-        _ text: String,
-        to chatId: Int64? = nil,
-        parseMode: ParseMode? = nil,
-        replyMarkup: ReplyMarkup? = nil
-    ) async throws {
-        guard let resolvedChatId = chatId ?? self.chatId else {
-            throw TelerouteError.chatTargetMissing
-        }
-        try await self.bot.sendMessage(
-            chatId: .id(resolvedChatId),
-            text: text,
-            parseMode: parseMode,
-            replyMarkup: replyMarkup
-        )
-    }
-
-    /// Edits the current message.
-    ///
-    /// This helper requires a concrete accessible `Message` and will throw
-    /// ``TelerouteError/messageTargetMissing`` when the update does not carry one.
-    public func edit(
-        _ text: String,
-        parseMode: ParseMode? = nil,
-        replyMarkup: InlineKeyboardMarkup? = nil
-    ) async throws {
-        guard let message = self.message else {
-            throw TelerouteError.messageTargetMissing
-        }
-        try await self.bot.editMessageText(
-            chatId: .id(message.chat.id),
-            messageId: message.messageId,
-            text: text,
-            parseMode: parseMode,
-            replyMarkup: replyMarkup
-        )
-    }
-
-    /// Answers the current callback query.
-    public func answerCallbackQuery(
-        _ text: String? = nil,
-        showAlert: Bool? = nil,
-        url: String? = nil,
-        cacheTime: Int? = nil
-    ) async throws {
-        guard let callbackQuery = self.callbackQuery else {
-            throw TelerouteError.callbackQueryMissing
-        }
-        try await self.bot.answerCallbackQuery(
-            callbackQueryId: callbackQuery.id,
-            text: text,
-            showAlert: showAlert,
-            url: url,
-            cacheTime: cacheTime.map(Int64.init)
-        )
-    }
-
-    /// Starts or replaces the active flow session for the current chat/user scope.
-    public func start<Flow: TelerouteFlow>(
-        _ flow: Flow.Type,
-        at step: Flow.Step,
-        values: [String: String] = [:]
-    ) async throws {
-        let storage = try self.requireFlowStorage()
-        let key = try self.requireFlowKey()
-        await storage.setSession(
-            .init(id: Flow.id, step: step.rawValue, values: .init(values)),
-            for: key
-        )
-    }
-
-    /// Cancels the active flow session for the current chat/user scope.
-    public func cancelFlow() async throws {
-        let storage = try self.requireFlowStorage()
-        let key = try self.requireFlowKey()
-        await storage.removeSession(for: key)
-    }
-
     func requireFlowStorage() throws -> any TelerouteFlowStorage {
         guard let flowStorage = self.flowStorage else {
             throw TelerouteError.flowControllerMissing
@@ -202,5 +141,79 @@ public struct TelerouteContext: Sendable {
             throw TelerouteError.flowScopeMissing
         }
         return flowKey
+    }
+}
+
+// MARK: - Rich action execution
+
+extension TelerouteContext {
+    func execute(reply: Reply) async throws {
+        guard let chatId = self.message?.chat.id ?? self.chatId else {
+            throw TelerouteError.chatTargetMissing
+        }
+        var replyParameters: Components.Schemas.ReplyParameters?
+        if let message = self.message {
+            replyParameters = .init(messageId: message.messageId, quote: reply.quote)
+        }
+        try await self.bot.sendMessage(
+            chatId: .id(chatId),
+            text: reply.text,
+            parseMode: reply.parseMode ?? self.defaultParseMode,
+            linkPreviewOptions: reply.options.linkPreviewOptions,
+            disableNotification: reply.options.disableNotification,
+            protectContent: reply.options.protectContent,
+            messageEffectId: reply.options.messageEffectId,
+            replyParameters: replyParameters,
+            replyMarkup: reply.replyMarkup
+        )
+    }
+
+    func execute(send: Send) async throws {
+        guard let chatId = send.chatId ?? self.chatId.map(ChatId.id) else {
+            throw TelerouteError.chatTargetMissing
+        }
+        try await self.bot.sendMessage(
+            chatId: chatId,
+            text: send.text,
+            messageThreadId: send.options.messageThreadId,
+            parseMode: send.parseMode ?? self.defaultParseMode,
+            linkPreviewOptions: send.options.linkPreviewOptions,
+            disableNotification: send.options.disableNotification,
+            protectContent: send.options.protectContent,
+            messageEffectId: send.options.messageEffectId,
+            replyMarkup: send.replyMarkup
+        )
+    }
+
+    func execute(edit: Edit) async throws {
+        let chatId: ChatId
+        let messageId: Int64
+        if let explicitMessageId = edit.messageId {
+            messageId = explicitMessageId
+            guard let chat = edit.chatId ?? self.chatId.map(ChatId.id) else {
+                throw TelerouteError.chatTargetMissing
+            }
+            chatId = chat
+        } else {
+            guard let message = self.message else {
+                throw TelerouteError.messageTargetMissing
+            }
+            chatId = .id(message.chat.id)
+            messageId = message.messageId
+        }
+        try await self.bot.editMessageText(
+            chatId: chatId,
+            messageId: messageId,
+            text: edit.text,
+            parseMode: edit.parseMode ?? self.defaultParseMode,
+            replyMarkup: edit.replyMarkup
+        )
+    }
+}
+
+extension TelerouteSendOptions {
+    var linkPreviewOptions: Components.Schemas.LinkPreviewOptions? {
+        guard self.linkPreviewDisabled == true else { return nil }
+        return .init(isDisabled: true)
     }
 }

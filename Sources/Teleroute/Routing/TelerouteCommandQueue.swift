@@ -318,10 +318,10 @@ struct TelerouteCommandQueueMiddleware: TelerouteMiddleware, Sendable {
 
     func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
         let key = self.scope.key(routeName: self.routeName, context: context)
-        try await self.queue.enqueue(key: key) {
+        return try await self.queue.enqueue(key: key) {
             try await next(context)
         }
     }
@@ -338,14 +338,13 @@ struct TelerouteFlowQueueMiddleware: TelerouteMiddleware, Sendable {
 
     func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
         guard let flowKey = context.flowKey else {
-            try await next(context)
-            return
+            return try await next(context)
         }
 
-        try await self.queue.enqueue(key: TelerouteFlowQueueKey.key(for: flowKey)) {
+        return try await self.queue.enqueue(key: TelerouteFlowQueueKey.key(for: flowKey)) {
             try await next(context)
         }
     }

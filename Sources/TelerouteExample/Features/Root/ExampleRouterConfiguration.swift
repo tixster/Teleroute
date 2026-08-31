@@ -4,7 +4,7 @@ import Teleroute
 struct ExampleRouterConfiguration: TelerouteRouteCollection {
     func addRoutes(to routes: ExampleRoutes) {
         let admin = routes.group("admin", context: ExampleUserContext.self)
-        admin.middlewares.add(TelerouteAccessLogMiddleware(label: "admin"))
+        admin.middlewares.add(core: TelerouteAccessLogMiddleware(label: "admin"))
         admin.guards.add(TelerouteAdminGuard())
 
         let billing = routes.group("billing").addRoutes(BillingRoutes())
@@ -29,21 +29,21 @@ struct ExampleRouterConfiguration: TelerouteRouteCollection {
             try await self.start(context, routes: routes, callbacks: callbacks)
         }
 
-        routes.onCommand(
+        routes.command(
             "resume_signup",
             description: "Restart the signup flow",
             visibility: [.allPrivateChats],
             use: self.resumeSignup
         )
 
-        routes.onCommand(
+        routes.command(
             "cancel_signup",
             description: "Cancel the active signup flow",
             visibility: [.allPrivateChats],
             use: self.cancelSignup
         )
 
-        routes.onCommand(
+        routes.command(
             "refresh_menu",
             description: "Reset and republish this chat's menu",
             visibility: [.allPrivateChats],
@@ -104,6 +104,7 @@ struct ExampleRouterConfiguration: TelerouteRouteCollection {
     private func addCollectionsAndFlows(to routes: ExampleRoutes) {
         routes.group("diag").addRoutes(DiagnosticsRoutes())
         routes.group("moderation").addRoutes(ModerationRoutes())
+        routes.addRoutes(UpdateShowcaseRoutes())
         routes.flow(SignupFlow())
     }
 

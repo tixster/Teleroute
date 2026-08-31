@@ -28,12 +28,20 @@ let package = Package(
             targets: ["TelegramBotAPI"]
         ),
         .library(
+            name: "TelegramBotKit",
+            targets: ["TelegramBotKit"]
+        ),
+        .library(
             name: "TelerouteMacros",
             targets: ["TelerouteMacros"]
         ),
         .library(
             name: "TelerouteTestSupport",
             targets: ["TelerouteTestSupport"]
+        ),
+        .library(
+            name: "TelerouteHummingbird",
+            targets: ["TelerouteHummingbird"]
         ),
         .executable(
             name: "TelerouteExample",
@@ -52,6 +60,9 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.8.0"),
         .package(url: "https://github.com/swift-server/swift-openapi-async-http-client", from: "1.1.0"),
         .package(url: "https://github.com/apple/swift-http-types", from: "1.0.0"),
+        .package(url: "https://github.com/swift-server/swift-service-lifecycle", from: "2.6.0"),
+        .package(url: "https://github.com/hummingbird-project/hummingbird", from: "2.0.0"),
+        .package(url: "https://github.com/apple/swift-metrics", from: "2.5.0"),
     ],
     targets: [
         // Generated Telegram Bot API types and client (committed output of
@@ -66,17 +77,32 @@ let package = Package(
                 .swiftLanguageMode(.v6),
             ]
         ),
+        // Hand-written client layer plus committed flat convenience wrappers for
+        // every Bot API operation (output of Scripts/generate-client.py).
+        // Deliberately compiled without the package's upcoming-feature flags.
+        .target(
+            name: "TelegramBotKit",
+            dependencies: [
+                .target(name: "TelegramBotAPI"),
+                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "OpenAPIAsyncHTTPClient", package: "swift-openapi-async-http-client"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
         .target(
             name: name,
             dependencies: [
-                .target(name: "TelegramBotAPI"),
+                .target(name: "TelegramBotKit"),
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
                 .product(name: "HeapModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
-                .product(name: "OpenAPIAsyncHTTPClient", package: "swift-openapi-async-http-client"),
-                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+                .product(name: "Metrics", package: "swift-metrics"),
             ],
             swiftSettings: settings
         ),
@@ -102,6 +128,8 @@ let package = Package(
                 .byName(name: name),
                 .byName(name: "TelerouteTestSupport"),
                 .byName(name: "TelerouteMacros"),
+                .byName(name: "TelerouteHummingbird"),
+                .product(name: "HummingbirdTesting", package: "hummingbird"),
             ],
             swiftSettings: settings
         ),
@@ -114,6 +142,19 @@ let package = Package(
                 .product(name: "HTTPTypes", package: "swift-http-types"),
             ],
             swiftSettings: settings
+        ),
+        // Webhook integration for Hummingbird 2 applications. Compiled without
+        // the package's upcoming-feature flags to avoid conformance friction
+        // with Hummingbird's own protocols.
+        .target(
+            name: "TelerouteHummingbird",
+            dependencies: [
+                .byName(name: name),
+                .product(name: "Hummingbird", package: "hummingbird"),
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
         ),
         .executableTarget(
             name: "TelerouteExample",

@@ -152,7 +152,7 @@ struct TelerouteRegressionTests {
             return nil
         }
 
-        router.callback("orders/{id}") { _ in
+        router.callback("orders/{id}") { (_: TelerouteContext) -> Void in
             throw CallbackFailure()
         }
         await router.process([
@@ -261,7 +261,7 @@ struct TelerouteRegressionTests {
             }
             return collected
         }
-        router.command("wait") { _ in
+        router.command("wait") { (_: TelerouteContext) -> Void in
             await probe.started()
             do {
                 try await Task.sleep(for: .seconds(30))
@@ -298,7 +298,7 @@ struct TelerouteRegressionTests {
                 maximumConcurrentUpdates: 1
             )
         )
-        router.command("wait") { _ in
+        router.command("wait") { (_: TelerouteContext) -> Void in
             await probe.started()
             do {
                 try await Task.sleep(for: .seconds(30))
@@ -360,7 +360,7 @@ struct TelerouteRegressionTests {
                 maximumConcurrentUpdates: 2
             )
         )
-        router.command("bounded") { _ in
+        router.command("bounded") { (_: TelerouteContext) -> Void in
             await probe.enterAndWait()
             await probe.leave()
         }
@@ -487,18 +487,18 @@ private func eventually(
 }
 
 private struct RegressionDenyGuard: TelerouteGuard {
-    func matches(_ context: TelerouteContext) async throws -> Bool { false }
+    func check(_ context: TelerouteContext) async throws -> TelerouteGuardResult { .skip }
 }
 
 private struct RegressionAllowGuard: TelerouteGuard {
-    func matches(_ context: TelerouteContext) async throws -> Bool { true }
+    func check(_ context: TelerouteContext) async throws -> TelerouteGuardResult { .allow }
 }
 
 private struct RegressionUpdateIDGuard: TelerouteGuard {
     let allowed: Set<Int64>
 
-    func matches(_ context: TelerouteContext) async throws -> Bool {
-        self.allowed.contains(context.update.updateId)
+    func check(_ context: TelerouteContext) async throws -> TelerouteGuardResult {
+        self.allowed.contains(context.update.updateId) ? .allow : .skip
     }
 }
 
@@ -508,11 +508,12 @@ private struct RegressionRecordingMiddleware: TelerouteMiddleware {
 
     func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
         await self.recorder.record("\(self.label):before")
-        try await next(context)
+        let response = try await next(context)
         await self.recorder.record("\(self.label):after")
+        return response
     }
 }
 

@@ -33,6 +33,26 @@ counts = {
     "chat_id_hoisted": 0,
     "reply_markup_hoisted": 0,
     "input_file_rewritten": 0,
+    "union_hoisted": 0,
+}
+
+# frozenset of member $refs -> component name, for pure oneOf-of-refs
+# component schemas (e.g. InputMedia). Filled in main() before transform.
+union_components = {}
+
+# Inline unions that match no existing component get hoisted under these
+# synthesized names so the generated Swift API stays readable.
+SYNTHESIZED_UNIONS = {
+    frozenset(
+        f"#/components/schemas/{name}"
+        for name in (
+            "InputMediaAudio",
+            "InputMediaDocument",
+            "InputMediaLivePhoto",
+            "InputMediaPhoto",
+            "InputMediaVideo",
+        )
+    ): "MediaGroupInputMedia",
 }
 
 
@@ -66,6 +86,19 @@ def is_reply_markup_oneof(node):
     )
 
 
+def matching_union_component(node):
+    """The component name whose oneOf-of-refs exactly matches this inline node."""
+    if not (isinstance(node, dict) and set(node.keys()) <= {"oneOf", "description"}):
+        return None
+    one_of = node.get("oneOf")
+    if not (isinstance(one_of, list) and all(
+        isinstance(e, dict) and set(e.keys()) == {"$ref"} for e in one_of
+    )):
+        return None
+    refs = frozenset(e["$ref"] for e in one_of)
+    return union_components.get(refs) or SYNTHESIZED_UNIONS.get(refs)
+
+
 def transform(node, path):
     if isinstance(node, list):
         return [transform(item, path + (i,)) for i, item in enumerate(node)]
@@ -73,12 +106,7 @@ def transform(node, path):
         return node
 
     # Never rewrite the shared component definitions themselves.
-    is_component_def = (
-        len(path) == 3
-        and path[0] == "components"
-        and path[1] == "schemas"
-        and path[2] in ("ChatId", "ReplyMarkup")
-    )
+    is_component_def = len(path) == 3 and path[0] == "components" and path[1] == "schemas"
 
     if not is_component_def:
         if is_single_ref_allof(node):
@@ -90,6 +118,10 @@ def transform(node, path):
         if is_reply_markup_oneof(node):
             counts["reply_markup_hoisted"] += 1
             return {"$ref": REPLY_MARKUP_REF}
+        union = matching_union_component(node)
+        if union is not None:
+            counts["union_hoisted"] += 1
+            return {"$ref": f"#/components/schemas/{union}"}
 
     return {key: transform(value, path + (key,)) for key, value in node.items()}
 
@@ -104,9 +136,23 @@ def main():
 
     already_patched = "ChatId" in spec.get("components", {}).get("schemas", {})
 
+    for name, schema in spec["components"]["schemas"].items():
+        if name in ("ChatId", "ReplyMarkup"):
+            continue
+        one_of = schema.get("oneOf")
+        if isinstance(one_of, list) and one_of and all(
+            isinstance(e, dict) and set(e.keys()) == {"$ref"} for e in one_of
+        ):
+            union_components[frozenset(e["$ref"] for e in one_of)] = name
+
     spec = transform(spec, ())
 
     schemas = spec["components"]["schemas"]
+    for refs, name in SYNTHESIZED_UNIONS.items():
+        schemas.setdefault(
+            name,
+            {"oneOf": [{"$ref": ref} for ref in sorted(refs)]},
+        )
     schemas.setdefault(
         "ChatId",
         {

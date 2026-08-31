@@ -12668,6 +12668,25 @@
           }
         }
       },
+      "MediaGroupInputMedia": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/InputMediaAudio"
+          },
+          {
+            "$ref": "#/components/schemas/InputMediaDocument"
+          },
+          {
+            "$ref": "#/components/schemas/InputMediaLivePhoto"
+          },
+          {
+            "$ref": "#/components/schemas/InputMediaPhoto"
+          },
+          {
+            "$ref": "#/components/schemas/InputMediaVideo"
+          }
+        ]
+      },
       "ChatId": {
         "oneOf": [
           {
@@ -14789,23 +14808,7 @@
                     "type": "array",
                     "description": "A JSON-serialized Array describing messages to be sent, must include 2-10 items",
                     "items": {
-                      "oneOf": [
-                        {
-                          "$ref": "#/components/schemas/InputMediaAudio"
-                        },
-                        {
-                          "$ref": "#/components/schemas/InputMediaDocument"
-                        },
-                        {
-                          "$ref": "#/components/schemas/InputMediaLivePhoto"
-                        },
-                        {
-                          "$ref": "#/components/schemas/InputMediaPhoto"
-                        },
-                        {
-                          "$ref": "#/components/schemas/InputMediaVideo"
-                        }
-                      ]
+                      "$ref": "#/components/schemas/MediaGroupInputMedia"
                     }
                   },
                   "disable_notification": {

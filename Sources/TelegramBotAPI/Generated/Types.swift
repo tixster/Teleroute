@@ -26627,6 +26627,71 @@ public enum Components {
                 case parameters
             }
         }
+        /// - Remark: Generated from `#/components/schemas/MediaGroupInputMedia`.
+        @frozen public enum MediaGroupInputMedia: Codable, Hashable, Sendable {
+            /// - Remark: Generated from `#/components/schemas/MediaGroupInputMedia/case1`.
+            case InputMediaAudio(Components.Schemas.InputMediaAudio)
+            /// - Remark: Generated from `#/components/schemas/MediaGroupInputMedia/case2`.
+            case InputMediaDocument(Components.Schemas.InputMediaDocument)
+            /// - Remark: Generated from `#/components/schemas/MediaGroupInputMedia/case3`.
+            case InputMediaLivePhoto(Components.Schemas.InputMediaLivePhoto)
+            /// - Remark: Generated from `#/components/schemas/MediaGroupInputMedia/case4`.
+            case InputMediaPhoto(Components.Schemas.InputMediaPhoto)
+            /// - Remark: Generated from `#/components/schemas/MediaGroupInputMedia/case5`.
+            case InputMediaVideo(Components.Schemas.InputMediaVideo)
+            public init(from decoder: any Decoder) throws {
+                var errors: [any Error] = []
+                do {
+                    self = .InputMediaAudio(try .init(from: decoder))
+                    return
+                } catch {
+                    errors.append(error)
+                }
+                do {
+                    self = .InputMediaDocument(try .init(from: decoder))
+                    return
+                } catch {
+                    errors.append(error)
+                }
+                do {
+                    self = .InputMediaLivePhoto(try .init(from: decoder))
+                    return
+                } catch {
+                    errors.append(error)
+                }
+                do {
+                    self = .InputMediaPhoto(try .init(from: decoder))
+                    return
+                } catch {
+                    errors.append(error)
+                }
+                do {
+                    self = .InputMediaVideo(try .init(from: decoder))
+                    return
+                } catch {
+                    errors.append(error)
+                }
+                throw Swift.DecodingError.failedToDecodeOneOfSchema(
+                    type: Self.self,
+                    codingPath: decoder.codingPath,
+                    errors: errors
+                )
+            }
+            public func encode(to encoder: any Encoder) throws {
+                switch self {
+                case let .InputMediaAudio(value):
+                    try value.encode(to: encoder)
+                case let .InputMediaDocument(value):
+                    try value.encode(to: encoder)
+                case let .InputMediaLivePhoto(value):
+                    try value.encode(to: encoder)
+                case let .InputMediaPhoto(value):
+                    try value.encode(to: encoder)
+                case let .InputMediaVideo(value):
+                    try value.encode(to: encoder)
+                }
+            }
+        }
         /// Unique identifier for the target chat or username of the target channel (in the format `@channelusername`)
         ///
         /// - Remark: Generated from `#/components/schemas/ChatId`.
@@ -32555,77 +32620,12 @@ public enum Operations {
                     case directMessagesTopicId(OpenAPIRuntime.MultipartPart<Operations.SendMediaGroup.Input.Body.MultipartFormPayload.DirectMessagesTopicIdPayload>)
                     /// - Remark: Generated from `#/paths/sendMediaGroup/POST/requestBody/multipartForm/media`.
                     public struct MediaPayload: Sendable, Hashable {
-                        /// - Remark: Generated from `#/paths/sendMediaGroup/POST/requestBody/multipartForm/media/content/body`.
-                        @frozen public enum BodyPayload: Codable, Hashable, Sendable {
-                            /// - Remark: Generated from `#/paths/sendMediaGroup/POST/requestBody/multipartForm/media/content/body/case1`.
-                            case InputMediaAudio(Components.Schemas.InputMediaAudio)
-                            /// - Remark: Generated from `#/paths/sendMediaGroup/POST/requestBody/multipartForm/media/content/body/case2`.
-                            case InputMediaDocument(Components.Schemas.InputMediaDocument)
-                            /// - Remark: Generated from `#/paths/sendMediaGroup/POST/requestBody/multipartForm/media/content/body/case3`.
-                            case InputMediaLivePhoto(Components.Schemas.InputMediaLivePhoto)
-                            /// - Remark: Generated from `#/paths/sendMediaGroup/POST/requestBody/multipartForm/media/content/body/case4`.
-                            case InputMediaPhoto(Components.Schemas.InputMediaPhoto)
-                            /// - Remark: Generated from `#/paths/sendMediaGroup/POST/requestBody/multipartForm/media/content/body/case5`.
-                            case InputMediaVideo(Components.Schemas.InputMediaVideo)
-                            public init(from decoder: any Decoder) throws {
-                                var errors: [any Error] = []
-                                do {
-                                    self = .InputMediaAudio(try .init(from: decoder))
-                                    return
-                                } catch {
-                                    errors.append(error)
-                                }
-                                do {
-                                    self = .InputMediaDocument(try .init(from: decoder))
-                                    return
-                                } catch {
-                                    errors.append(error)
-                                }
-                                do {
-                                    self = .InputMediaLivePhoto(try .init(from: decoder))
-                                    return
-                                } catch {
-                                    errors.append(error)
-                                }
-                                do {
-                                    self = .InputMediaPhoto(try .init(from: decoder))
-                                    return
-                                } catch {
-                                    errors.append(error)
-                                }
-                                do {
-                                    self = .InputMediaVideo(try .init(from: decoder))
-                                    return
-                                } catch {
-                                    errors.append(error)
-                                }
-                                throw Swift.DecodingError.failedToDecodeOneOfSchema(
-                                    type: Self.self,
-                                    codingPath: decoder.codingPath,
-                                    errors: errors
-                                )
-                            }
-                            public func encode(to encoder: any Encoder) throws {
-                                switch self {
-                                case let .InputMediaAudio(value):
-                                    try value.encode(to: encoder)
-                                case let .InputMediaDocument(value):
-                                    try value.encode(to: encoder)
-                                case let .InputMediaLivePhoto(value):
-                                    try value.encode(to: encoder)
-                                case let .InputMediaPhoto(value):
-                                    try value.encode(to: encoder)
-                                case let .InputMediaVideo(value):
-                                    try value.encode(to: encoder)
-                                }
-                            }
-                        }
-                        public var body: Operations.SendMediaGroup.Input.Body.MultipartFormPayload.MediaPayload.BodyPayload
+                        public var body: Components.Schemas.MediaGroupInputMedia
                         /// Creates a new `MediaPayload`.
                         ///
                         /// - Parameters:
                         ///   - body:
-                        public init(body: Operations.SendMediaGroup.Input.Body.MultipartFormPayload.MediaPayload.BodyPayload) {
+                        public init(body: Components.Schemas.MediaGroupInputMedia) {
                             self.body = body
                         }
                     }

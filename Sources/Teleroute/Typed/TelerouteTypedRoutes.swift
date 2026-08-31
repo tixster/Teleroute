@@ -5,9 +5,9 @@ public extension TelerouteRoutes {
         description: String? = nil,
         visibility: [TelerouteCommandVisibility]? = nil,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil
-    ) {
+    ) where Command.Context == TelerouteContext {
         self.command(
             commandType,
             description: description,
@@ -26,9 +26,9 @@ public extension TelerouteRoutes {
         description: String? = nil,
         visibility: [TelerouteCommandVisibility]? = nil,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil,
-        use handler: @escaping @Sendable (_ command: Command, _ context: TelerouteContext) async throws -> Void
+        use handler: @escaping @Sendable (_ command: Command, _ context: TelerouteContext) async throws -> TelerouteResponse
     ) {
         self.command(
             Command.path,
@@ -42,7 +42,30 @@ public extension TelerouteRoutes {
             guard let match = context.command else {
                 throw TelerouteError.commandMatchMissing
             }
-            try await handler(Command(command: match), context)
+            return try await handler(Command(command: match), context)
+        }
+    }
+
+    /// Registers a typed command with a side-effect-only handler.
+    func command<Command: TelerouteCommand>(
+        _ commandType: Command.Type,
+        description: String? = nil,
+        visibility: [TelerouteCommandVisibility]? = nil,
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        queue: TelerouteQueueScope? = nil,
+        use handler: @escaping @Sendable (_ command: Command, _ context: TelerouteContext) async throws -> Void
+    ) {
+        self.command(
+            commandType,
+            description: description,
+            visibility: visibility,
+            guards: guards,
+            middlewares: middlewares,
+            queue: queue
+        ) { (command: Command, context: TelerouteContext) -> TelerouteResponse in
+            try await handler(command, context)
+            return .none
         }
     }
 
@@ -51,8 +74,8 @@ public extension TelerouteRoutes {
     func callback<Callback: TelerouteHandlingCallback>(
         _ callbackType: Callback.Type,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = []
-    ) -> TelerouteCallbackRoute<Callback> {
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = []
+    ) -> TelerouteCallbackRoute<Callback> where Callback.Context == TelerouteContext {
         self.callback(
             callbackType,
             guards: guards,
@@ -67,8 +90,8 @@ public extension TelerouteRoutes {
     func callback<Callback: TelerouteCallback>(
         _ callbackType: Callback.Type,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
-        use handler: @escaping @Sendable (_ callback: Callback, _ context: TelerouteContext) async throws -> Void
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (_ callback: Callback, _ context: TelerouteContext) async throws -> TelerouteResponse
     ) -> TelerouteCallbackRoute<Callback> {
         self.callback(
             Callback.path,
@@ -78,6 +101,24 @@ public extension TelerouteRoutes {
             try await handler(Callback(parameters: context.parameters), context)
         }
         return .init(callbackType, routes: self)
+    }
+
+    /// Registers a typed callback with a side-effect-only handler.
+    @discardableResult
+    func callback<Callback: TelerouteCallback>(
+        _ callbackType: Callback.Type,
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (_ callback: Callback, _ context: TelerouteContext) async throws -> Void
+    ) -> TelerouteCallbackRoute<Callback> {
+        self.callback(
+            callbackType,
+            guards: guards,
+            middlewares: middlewares
+        ) { (callback: Callback, context: TelerouteContext) -> TelerouteResponse in
+            try await handler(callback, context)
+            return .none
+        }
     }
 }
 
@@ -89,9 +130,9 @@ public extension TelerouteRuntime {
         description: String? = nil,
         visibility: [TelerouteCommandVisibility]? = nil,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil
-    ) {
+    ) where Command.Context == TelerouteContext {
         self.routeScope.command(
             commandType,
             description: description,
@@ -108,7 +149,7 @@ public extension TelerouteRuntime {
         description: String? = nil,
         visibility: [TelerouteCommandVisibility]? = nil,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil,
         use handler: @escaping @Sendable (_ command: Command, _ context: TelerouteContext) async throws -> Void
     ) {
@@ -128,8 +169,8 @@ public extension TelerouteRuntime {
     func callback<Callback: TelerouteHandlingCallback>(
         _ callbackType: Callback.Type,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = []
-    ) -> TelerouteCallbackRoute<Callback> {
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = []
+    ) -> TelerouteCallbackRoute<Callback> where Callback.Context == TelerouteContext {
         self.routeScope.callback(
             callbackType,
             guards: guards,
@@ -142,7 +183,7 @@ public extension TelerouteRuntime {
     func callback<Callback: TelerouteCallback>(
         _ callbackType: Callback.Type,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         use handler: @escaping @Sendable (_ callback: Callback, _ context: TelerouteContext) async throws -> Void
     ) -> TelerouteCallbackRoute<Callback> {
         self.routeScope.callback(

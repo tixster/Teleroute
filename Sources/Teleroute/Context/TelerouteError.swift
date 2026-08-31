@@ -12,6 +12,7 @@ public enum TelerouteError: LocalizedError, Sendable {
     case invalidFlowStep(flowID: String, step: String)
     case messageTargetMissing
     case missingParameter(String)
+    case invalidParameter(name: String, value: String)
     case duplicatePublishedCommand(String, visibility: String)
     case missingPublishedCommandDescription(String)
 
@@ -35,6 +36,8 @@ public enum TelerouteError: LocalizedError, Sendable {
             "Flow '\(flowID)' does not define a step named '\(step)'."
         case .messageTargetMissing:
             "Unable to determine the target message for this update."
+        case let .invalidParameter(name, value):
+            "Parameter '\(name)' has an invalid value '\(value)'"
         case let .missingParameter(name):
             "Route parameter '\(name)' is missing."
         case let .duplicatePublishedCommand(name, visibility):

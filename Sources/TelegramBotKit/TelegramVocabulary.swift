@@ -26,6 +26,7 @@ public typealias ReplyKeyboardMarkup = Components.Schemas.ReplyKeyboardMarkup
 public typealias ReplyKeyboardRemove = Components.Schemas.ReplyKeyboardRemove
 public typealias ForceReply = Components.Schemas.ForceReply
 public typealias InputMedia = Components.Schemas.InputMedia
+public typealias MediaGroupInputMedia = Components.Schemas.MediaGroupInputMedia
 
 // MARK: - Teleroute-owned enums for spec-untyped strings
 
@@ -94,6 +95,24 @@ public extension ChatId {
     var int64Value: Int64? {
         if case let .case1(value) = self { return value }
         return nil
+    }
+}
+
+extension ChatId: ExpressibleByIntegerLiteral {
+    public init(integerLiteral value: Int64) {
+        self = .case1(value)
+    }
+}
+
+extension ChatId: ExpressibleByStringLiteral {
+    /// A string literal is a `@username` target; a purely numeric literal is
+    /// treated as a numeric chat identifier.
+    public init(stringLiteral value: String) {
+        if let id = Int64(value) {
+            self = .case1(id)
+        } else {
+            self = .case2(value)
+        }
     }
 }
 

@@ -3,6 +3,7 @@ import HTTPTypes
 import OpenAPIRuntime
 import Synchronization
 import Teleroute
+import TelegramBotAPI
 
 /// Test doubles and helpers for users (and the Teleroute test suite) to exercise
 /// routes, middleware, and flows without a live Telegram connection.
@@ -82,9 +83,23 @@ public final class TelerouteRecordingTransport: ClientTransport, Sendable {
         var nextMessageId: Int64 = 1
     }
 
-    private let state = Mutex(State())
+    /// Handler consulted for operations the transport has no built-in fake
+    /// for. Receives the operation id and the collected request body; returns
+    /// the raw response to serve.
+    public typealias Fallback = @Sendable (
+        _ operationID: String,
+        _ body: Data
+    ) throws -> (HTTPResponse, HTTPBody?)
 
-    public init() {}
+    private let state = Mutex(State())
+    private let fallback: Fallback?
+
+    /// - Parameter fallback: Optional handler for operations without a
+    ///   built-in fake; without one, unknown operations throw
+    ///   ``TelerouteTestNetworkError/unsupportedMethod(_:)``.
+    public init(fallback: Fallback? = nil) {
+        self.fallback = fallback
+    }
 
     /// Effects recorded in request order.
     public var effects: [TelerouteRecordedEffect] {
@@ -185,6 +200,9 @@ public final class TelerouteRecordingTransport: ClientTransport, Sendable {
             return try Self.okResponse(result: [Update]())
 
         default:
+            if let fallback = self.fallback {
+                return try fallback(operationID, data)
+            }
             throw TelerouteTestNetworkError.unsupportedMethod(operationID)
         }
     }
@@ -217,14 +235,33 @@ public final class TelerouteRecordingTransport: ClientTransport, Sendable {
         )
     }
 
-    /// Minimal `multipart/form-data` parser sufficient for the text parts the
-    /// Telegram client sends. Returns part bodies keyed by field name.
     private static func multipartFields(
         from data: Data,
         request: HTTPRequest
     ) throws -> [String: Data] {
-        guard let contentType = request.headerFields[.contentType],
-              let boundaryRange = contentType.range(of: "boundary=") else {
+        guard let contentType = request.headerFields[.contentType] else {
+            throw TelerouteTestNetworkError.malformedRequest("missing content type")
+        }
+        return try TelerouteTestMultipart.parts(from: data, contentType: contentType)
+            .mapValues(\.body)
+    }
+}
+
+/// One parsed `multipart/form-data` part.
+public struct TelerouteTestMultipartPart: Sendable {
+    public let body: Data
+    public let filename: String?
+}
+
+/// Minimal `multipart/form-data` parser for asserting on request bodies the
+/// Telegram client sends. Not a general-purpose parser.
+public enum TelerouteTestMultipart {
+    /// Parses part bodies keyed by field name.
+    public static func parts(
+        from data: Data,
+        contentType: String
+    ) throws -> [String: TelerouteTestMultipartPart] {
+        guard let boundaryRange = contentType.range(of: "boundary=") else {
             throw TelerouteTestNetworkError.malformedRequest("missing multipart boundary")
         }
         var boundary = String(contentType[boundaryRange.upperBound...])
@@ -235,7 +272,7 @@ public final class TelerouteRecordingTransport: ClientTransport, Sendable {
 
         let delimiter = Data("--\(boundary)".utf8)
         let headerSeparator = Data("\r\n\r\n".utf8)
-        var fields: [String: Data] = [:]
+        var fields: [String: TelerouteTestMultipartPart] = [:]
 
         var searchStart = data.startIndex
         while let delimiterRange = data.range(of: delimiter, in: searchStart..<data.endIndex) {
@@ -248,17 +285,37 @@ public final class TelerouteRecordingTransport: ClientTransport, Sendable {
 
             guard let headerEnd = part.range(of: headerSeparator) else { continue }
             let headerText = String(decoding: part[part.startIndex..<headerEnd.lowerBound], as: UTF8.self)
-            guard let nameRange = headerText.range(of: "name=\"") else { continue }
-            guard let nameEnd = headerText[nameRange.upperBound...].firstIndex(of: "\"") else { continue }
-            let name = String(headerText[nameRange.upperBound..<nameEnd])
+            guard let name = Self.dispositionParameter("name", in: headerText) else { continue }
+
+            let filename = Self.dispositionParameter("filename", in: headerText)
 
             var body = part[headerEnd.upperBound...]
             if body.suffix(2).elementsEqual(Data("\r\n".utf8)) {
                 body = body.dropLast(2)
             }
-            fields[name] = Data(body)
+            fields[name] = .init(body: Data(body), filename: filename)
         }
         return fields
+    }
+
+    /// Extracts one quoted Content-Disposition parameter, matching whole
+    /// parameter names only (so `name` never matches inside `filename`).
+    private static func dispositionParameter(
+        _ parameter: String,
+        in headerText: String
+    ) -> String? {
+        let needle = "\(parameter)=\""
+        var searchStart = headerText.startIndex
+        while let range = headerText.range(of: needle, range: searchStart..<headerText.endIndex) {
+            searchStart = range.upperBound
+            if range.lowerBound > headerText.startIndex {
+                let before = headerText[headerText.index(before: range.lowerBound)]
+                guard before == " " || before == ";" else { continue }
+            }
+            guard let end = headerText[range.upperBound...].firstIndex(of: "\"") else { return nil }
+            return String(headerText[range.upperBound..<end])
+        }
+        return nil
     }
 }
 
@@ -438,6 +495,152 @@ public enum TelerouteTestSupport {
             text: text
         )
         return Update(updateId: updateId, message: message)
+    }
+
+    /// Builds a synthetic plain-message update carrying a photo.
+    public static func makePhotoMessageUpdate(
+        caption: String? = nil,
+        chatType: ChatType = .private,
+        userId: Int64 = 1,
+        chatId: Int64 = 1,
+        updateId: Int64 = 4
+    ) -> Update {
+        let message = Message(
+            messageId: 4,
+            from: User(id: userId, isBot: false, firstName: "Test", username: "tester"),
+            date: 1,
+            chat: Chat(id: chatId, _type: chatType.rawValue, firstName: "Test"),
+            photo: [.init(fileId: "photo-file", fileUniqueId: "photo-unique", width: 1, height: 1)],
+            caption: caption
+        )
+        return Update(updateId: updateId, message: message)
+    }
+
+    /// Builds a synthetic edited-message update.
+    public static func makeEditedMessageUpdate(
+        text: String,
+        chatType: ChatType = .private,
+        userId: Int64 = 1,
+        chatId: Int64 = 1,
+        updateId: Int64 = 5
+    ) -> Update {
+        let message = Message(
+            messageId: 5,
+            from: User(id: userId, isBot: false, firstName: "Test", username: "tester"),
+            date: 1,
+            chat: Chat(id: chatId, _type: chatType.rawValue, firstName: "Test"),
+            text: text
+        )
+        return Update(updateId: updateId, editedMessage: message)
+    }
+
+    /// Builds a synthetic inline-query update.
+    public static func makeInlineQueryUpdate(
+        query: String,
+        userId: Int64 = 1,
+        updateId: Int64 = 6
+    ) -> Update {
+        Update(
+            updateId: updateId,
+            inlineQuery: .init(
+                id: "inline-query-id",
+                from: User(id: userId, isBot: false, firstName: "Test", username: "tester"),
+                query: query,
+                offset: ""
+            )
+        )
+    }
+
+    /// Builds a synthetic message-reaction update.
+    public static func makeReactionUpdate(
+        emoji: String,
+        chatId: Int64 = 1,
+        userId: Int64 = 1,
+        messageId: Int64 = 1,
+        updateId: Int64 = 7
+    ) -> Update {
+        Update(
+            updateId: updateId,
+            messageReaction: .init(
+                chat: Chat(id: chatId, _type: ChatType.private.rawValue),
+                messageId: messageId,
+                user: User(id: userId, isBot: false, firstName: "Test"),
+                date: 1,
+                oldReaction: [],
+                newReaction: [.emoji(.init(_type: "emoji", emoji: emoji))]
+            )
+        )
+    }
+
+    /// Builds a synthetic chat-member (or my-chat-member) update.
+    public static func makeChatMemberUpdate(
+        my: Bool = false,
+        chatId: Int64 = 1,
+        userId: Int64 = 2,
+        updateId: Int64 = 8
+    ) -> Update {
+        let member = Components.Schemas.ChatMemberUpdated(
+            chat: Chat(id: chatId, _type: ChatType.supergroup.rawValue),
+            from: User(id: userId, isBot: false, firstName: "Actor"),
+            date: 1,
+            oldChatMember: .left(.init(status: "left", user: User(id: 3, isBot: false, firstName: "M"))),
+            newChatMember: .member(.init(status: "member", user: User(id: 3, isBot: false, firstName: "M")))
+        )
+        return my
+            ? Update(updateId: updateId, myChatMember: member)
+            : Update(updateId: updateId, chatMember: member)
+    }
+
+    /// Builds a synthetic pre-checkout-query update.
+    public static func makePreCheckoutUpdate(
+        payload: String = "order-1",
+        userId: Int64 = 1,
+        updateId: Int64 = 9
+    ) -> Update {
+        Update(
+            updateId: updateId,
+            preCheckoutQuery: .init(
+                id: "pre-checkout-id",
+                from: User(id: userId, isBot: false, firstName: "Test"),
+                currency: "USD",
+                totalAmount: 100,
+                invoicePayload: payload
+            )
+        )
+    }
+
+    /// Builds a synthetic chat-join-request update.
+    public static func makeJoinRequestUpdate(
+        chatId: Int64 = 1,
+        userId: Int64 = 2,
+        updateId: Int64 = 10
+    ) -> Update {
+        Update(
+            updateId: updateId,
+            chatJoinRequest: .init(
+                chat: Chat(id: chatId, _type: ChatType.supergroup.rawValue),
+                from: User(id: userId, isBot: false, firstName: "Joiner"),
+                userChatId: userId,
+                date: 1
+            )
+        )
+    }
+
+    /// Builds a synthetic poll-answer update.
+    public static func makePollAnswerUpdate(
+        optionIds: [Int64] = [0],
+        userId: Int64 = 1,
+        updateId: Int64 = 11
+    ) -> Update {
+        Update(
+            updateId: updateId,
+            pollAnswer: .init(
+                pollId: "poll-id",
+                user: User(id: userId, isBot: false, firstName: "Voter"),
+                optionIds: optionIds,
+                optionPersistentIds: optionIds.map(String.init)
+            )
+        )
     }
 
     /// Builds a synthetic callback-query update for inline-button presses.

@@ -1,5 +1,12 @@
 import Foundation
 
+/// Converts an unhandled route error into a user-facing response.
+/// Return `nil` to leave the user without a visible reaction.
+public typealias TelerouteErrorRenderer = @Sendable (
+    any Error,
+    TelerouteContext
+) async -> TelerouteResponse?
+
 /// Advanced dependencies and processing policies shared by a
 /// ``TelerouteBot`` and its internal update runtime.
 public struct TelerouteConfiguration: Sendable {
@@ -17,6 +24,18 @@ public struct TelerouteConfiguration: Sendable {
     public var syncPublishedCommandsOnStart: Bool
     /// Long-polling behavior used by ``TelerouteBot/start()``.
     public var polling: TelegramPollingConfiguration
+    /// Parse mode applied by text helpers and string responses when no
+    /// explicit mode is passed.
+    public var defaultParseMode: ParseMode?
+    /// Automatically answers handled callback queries that no handler
+    /// answered, so inline buttons never keep spinning.
+    public var autoAnswerCallbackQueries: Bool
+    /// Converts unhandled route errors into user-facing responses before the
+    /// failure is reported to events, metrics, and ``onError``.
+    public var errorRenderer: TelerouteErrorRenderer?
+    /// How long a graceful shutdown waits for in-flight handlers to finish
+    /// before cancelling them.
+    public var shutdownGracePeriod: Duration
 
     public init(
         flowStorage: any TelerouteFlowStorage = TelerouteInMemoryFlowStorage(),
@@ -27,7 +46,11 @@ public struct TelerouteConfiguration: Sendable {
         metricsSink: any TelerouteMetricsSink = TelerouteNoOpMetricsSink(),
         onError: TelerouteErrorHandler? = nil,
         syncPublishedCommandsOnStart: Bool = false,
-        polling: TelegramPollingConfiguration = .init()
+        polling: TelegramPollingConfiguration = .init(),
+        defaultParseMode: ParseMode? = nil,
+        autoAnswerCallbackQueries: Bool = true,
+        errorRenderer: TelerouteErrorRenderer? = nil,
+        shutdownGracePeriod: Duration = .seconds(15)
     ) {
         self.flowStorage = flowStorage
         self.replayProtectionStorage = replayProtectionStorage
@@ -38,5 +61,9 @@ public struct TelerouteConfiguration: Sendable {
         self.onError = onError
         self.syncPublishedCommandsOnStart = syncPublishedCommandsOnStart
         self.polling = polling
+        self.defaultParseMode = defaultParseMode
+        self.autoAnswerCallbackQueries = autoAnswerCallbackQueries
+        self.errorRenderer = errorRenderer
+        self.shutdownGracePeriod = shutdownGracePeriod
     }
 }

@@ -235,7 +235,7 @@ private struct PublicAppContext: TelerouteInitializableRequestContext {
     }
 }
 
-private struct PublicPrefixMiddleware: TelerouteRouterMiddleware {
+private struct PublicPrefixMiddleware: TelerouteMiddleware {
     typealias Context = PublicAppContext
 
     let prefix: String
@@ -250,7 +250,7 @@ private struct PublicPrefixMiddleware: TelerouteRouterMiddleware {
     }
 }
 
-private struct PublicBlockingMiddleware: TelerouteRouterMiddleware {
+private struct PublicBlockingMiddleware: TelerouteMiddleware {
     typealias Context = TelerouteContext
 
     func handle(
@@ -319,11 +319,11 @@ private struct PublicOrderRoutes: TelerouteRouteCollection {
         to routes: TelerouteRouterGroup<TelerouteContext>
     ) -> Exports {
         let orders = routes.group("orders")
-        orders.onCommand(
+        orders.command(
             "list",
             description: "List orders"
         ) { _ in }
-        let reject = orders.onCallback(PublicRejectOrder.self) { _, _ in }
+        let reject = orders.callback(PublicRejectOrder.self) { _, _ in }
         return .init(reject: reject)
     }
 }

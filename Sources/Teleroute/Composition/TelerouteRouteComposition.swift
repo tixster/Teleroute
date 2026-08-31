@@ -1,18 +1,24 @@
 import Foundation
 
-/// A guard that passes only when every wrapped guard passes, evaluated in order.
+/// A guard combining wrapped guards in order: the first non-`allow` verdict
+/// wins.
 ///
 /// Used internally to combine inherited and route-local guards.
 struct TelerouteCompositeGuard: TelerouteGuard {
     let guards: [any TelerouteGuard]
 
-    func matches(_ context: TelerouteContext) async throws -> Bool {
+    func check(_ context: TelerouteContext) async throws -> TelerouteGuardResult {
         for element in self.guards {
-            if try await element.matches(context) == false {
-                return false
+            switch try await element.check(context) {
+            case .allow:
+                continue
+            case .skip:
+                return .skip
+            case let .deny(response):
+                return .deny(response)
             }
         }
-        return true
+        return .allow
     }
 }
 
@@ -24,11 +30,11 @@ extension TelerouteMiddlewareComposer {
     /// Group-inherited middleware runs before route middleware, and
     /// group-inherited guards are evaluated before route-local guards.
     static func resolve(
-        inheritedMiddlewares: [any TelerouteMiddleware],
+        inheritedMiddlewares: [any TelerouteMiddleware<TelerouteContext>],
         inheritedGuards: [any TelerouteGuard],
         guards: [any TelerouteGuard],
-        middlewares: [any TelerouteMiddleware]
-    ) -> [any TelerouteMiddleware] {
+        middlewares: [any TelerouteMiddleware<TelerouteContext>]
+    ) -> [any TelerouteMiddleware<TelerouteContext>] {
         return Self.resolve(
             guards: inheritedGuards + guards,
             middlewares: inheritedMiddlewares + middlewares

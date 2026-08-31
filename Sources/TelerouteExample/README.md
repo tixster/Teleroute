@@ -128,7 +128,7 @@ private func markInvoicePaid(
 ```
 
 Handlers that manipulate flow state or issue APIs outside the response model use
-`onCommand` and call context methods directly.
+a side-effect `command` closure (returning `Void`) and call context methods directly.
 
 ### Typed Routes With and Without Macros
 

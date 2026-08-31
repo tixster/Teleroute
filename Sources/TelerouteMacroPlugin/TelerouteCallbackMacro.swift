@@ -48,7 +48,7 @@ public struct TelerouteCallbackMacro: ExtensionMacro, MemberMacro {
             guard let property = propertyLookup[parameter] else {
                 throw TelerouteMacroError.callbackParameterMissing(parameter)
             }
-            guard property.type == "String" else {
+            guard property.type.hasSuffix("?") == false else {
                 throw TelerouteMacroError.callbackParameterMustBeString(
                     name: parameter,
                     type: property.type
@@ -64,8 +64,12 @@ public struct TelerouteCallbackMacro: ExtensionMacro, MemberMacro {
 
         members.append("public static let path: String = \(literal: path)")
 
-        let initLines = parameters.map { name in
-            "self.\(name) = try parameters.require(\"\(name)\")"
+        let initLines = parameters.map { name -> String in
+            let type = propertyLookup[name]?.type ?? "String"
+            if type == "String" {
+                return "self.\(name) = try parameters.require(\"\(name)\")"
+            }
+            return "self.\(name) = try parameters.require(\"\(name)\", as: \(type).self)"
         }.joined(separator: "\n")
         members.append(
             #"""
@@ -75,8 +79,12 @@ public struct TelerouteCallbackMacro: ExtensionMacro, MemberMacro {
             """#
         )
 
-        let entries = parameters.map { name in
-            #""\#(name)": self.\#(name)"#
+        let entries = parameters.map { name -> String in
+            let type = propertyLookup[name]?.type ?? "String"
+            if type == "String" {
+                return #""\#(name)": self.\#(name)"#
+            }
+            return #""\#(name)": String(describing: self.\#(name))"#
         }.joined(separator: ", ")
         members.append("public var parameters: [String: String] { [\(raw: entries)] }")
 
@@ -131,7 +139,11 @@ public struct TelerouteCallbackMacro: ExtensionMacro, MemberMacro {
         var result: [(String, PropertyInfo)] = []
         for member in structDecl.memberBlock.members {
             guard let variable = member.decl.as(VariableDeclSyntax.self) else { continue }
-            guard variable.bindingSpecifier.text == "let",
+            let isStatic = variable.modifiers.contains {
+                $0.name.tokenKind == .keyword(.static) || $0.name.tokenKind == .keyword(.class)
+            }
+            guard isStatic == false,
+                  variable.bindingSpecifier.text == "let",
                   variable.bindings.count == 1,
                   let binding = variable.bindings.first,
                   binding.initializer?.value == nil,

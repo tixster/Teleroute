@@ -1,4 +1,5 @@
 import Foundation
+import TelegramBotAPI
 
 /// Framework-owned input used to construct a custom request context.
 public struct TelerouteContextSource: Sendable {
@@ -14,7 +15,9 @@ public struct TelerouteContextSource: Sendable {
 /// ``Teleroute``.
 ///
 /// Store lightweight request-scoped values here and keep shared services as
-/// references. The framework context remains available through ``coreContext``.
+/// references. The framework context remains available through ``coreContext``,
+/// and every Telegram convenience helper (messaging, media, chat management,
+/// flows) is available directly on any conforming context.
 public protocol TelerouteRequestContext: Sendable {
     /// Framework context containing the update, route parameters, bot, and
     /// Telegram convenience methods.
@@ -35,6 +38,8 @@ public protocol TelerouteChildRequestContext<ParentContext>: TelerouteRequestCon
 
     init(context: ParentContext) async throws
 }
+
+// MARK: - Data accessors
 
 public extension TelerouteRequestContext {
     /// Raw Telegram update currently being processed.
@@ -57,79 +62,76 @@ public extension TelerouteRequestContext {
     var chatType: ChatType? { self.coreContext.chatType }
     /// Resolved Telegram user identifier.
     var userId: Int64? { self.coreContext.userId }
+    /// The update's kind, when it carries a known payload.
+    var updateKind: UpdateKind? { self.coreContext.updateKind }
+    /// Which update field produced ``message``.
+    var messageSource: TelerouteMessageSource? { self.coreContext.messageSource }
+    /// Default parse mode applied by text helpers.
+    var defaultParseMode: ParseMode? { self.coreContext.defaultParseMode }
     /// Active flow session, if one exists.
     var activeFlow: TelerouteFlowSession? { self.coreContext.activeFlow }
     /// Flow key derived from the current update.
     var flowKey: TelerouteFlowKey? { self.coreContext.flowKey }
 
-    /// Replies using the framework context.
-    func reply(
-        _ text: String,
-        parseMode: ParseMode? = nil,
-        replyMarkup: ReplyMarkup? = nil
-    ) async throws {
-        try await self.coreContext.reply(
-            text,
-            parseMode: parseMode,
-            replyMarkup: replyMarkup
-        )
+    /// Typed update payload accessors.
+    var inlineQuery: Components.Schemas.InlineQuery? { self.update.inlineQuery }
+    var chosenInlineResult: Components.Schemas.ChosenInlineResult? { self.update.chosenInlineResult }
+    var shippingQuery: Components.Schemas.ShippingQuery? { self.update.shippingQuery }
+    var preCheckoutQuery: Components.Schemas.PreCheckoutQuery? { self.update.preCheckoutQuery }
+    var chatMemberUpdated: Components.Schemas.ChatMemberUpdated? {
+        self.update.chatMember ?? self.update.myChatMember
+    }
+    var chatJoinRequest: Components.Schemas.ChatJoinRequest? { self.update.chatJoinRequest }
+    var messageReaction: Components.Schemas.MessageReactionUpdated? { self.update.messageReaction }
+    var poll: Components.Schemas.Poll? { self.update.poll }
+    var pollAnswer: Components.Schemas.PollAnswer? { self.update.pollAnswer }
+}
+
+// MARK: - Target resolution
+
+public extension TelerouteRequestContext {
+    /// Resolves the target chat for a send operation, preferring an explicit
+    /// override and falling back to the chat inferred from the current update.
+    func resolvedChat(_ override: ChatId? = nil) throws -> ChatId {
+        if let override { return override }
+        guard let resolved = self.chatId else {
+            throw TelerouteError.chatTargetMissing
+        }
+        return .id(resolved)
     }
 
-    /// Sends a text message using the framework context.
-    func send(
-        _ text: String,
-        to chatId: Int64? = nil,
-        parseMode: ParseMode? = nil,
-        replyMarkup: ReplyMarkup? = nil
-    ) async throws {
-        try await self.coreContext.send(
-            text,
-            to: chatId,
-            parseMode: parseMode,
-            replyMarkup: replyMarkup
-        )
+    /// Resolves a message id, preferring an explicit override and falling back
+    /// to the message carried by the current update.
+    func resolvedMessageId(_ override: Int64? = nil) throws -> Int64 {
+        guard let resolved = override ?? self.message?.messageId else {
+            throw TelerouteError.messageTargetMissing
+        }
+        return resolved
     }
+}
 
-    /// Edits the message associated with this update.
-    func edit(
-        _ text: String,
-        parseMode: ParseMode? = nil,
-        replyMarkup: InlineKeyboardMarkup? = nil
-    ) async throws {
-        try await self.coreContext.edit(
-            text,
-            parseMode: parseMode,
-            replyMarkup: replyMarkup
-        )
-    }
+// MARK: - Flow control
 
-    /// Answers the callback query associated with this update.
-    func answerCallbackQuery(
-        _ text: String? = nil,
-        showAlert: Bool? = nil,
-        url: String? = nil,
-        cacheTime: Int? = nil
-    ) async throws {
-        try await self.coreContext.answerCallbackQuery(
-            text,
-            showAlert: showAlert,
-            url: url,
-            cacheTime: cacheTime
-        )
-    }
-
+public extension TelerouteRequestContext {
     /// Starts or replaces a flow session.
     func start<Flow: TelerouteFlow>(
         _ flow: Flow.Type,
         at step: Flow.Step,
         values: [String: String] = [:]
     ) async throws {
-        try await self.coreContext.start(flow, at: step, values: values)
+        let storage = try self.coreContext.requireFlowStorage()
+        let key = try self.coreContext.requireFlowKey()
+        await storage.setSession(
+            .init(id: Flow.id, step: step.rawValue, values: .init(values)),
+            for: key
+        )
     }
 
     /// Cancels the active flow session.
     func cancelFlow() async throws {
-        try await self.coreContext.cancelFlow()
+        let storage = try self.coreContext.requireFlowStorage()
+        let key = try self.coreContext.requireFlowKey()
+        await storage.removeSession(for: key)
     }
 }
 

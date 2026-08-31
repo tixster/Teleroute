@@ -1,4 +1,5 @@
 import Foundation
+import TelegramBotAPI
 
 /// A typed callback button description rendered by a ``Teleroute`` or
 /// nested ``TelerouteRouterGroup``.
@@ -63,6 +64,42 @@ public struct TelerouteButton: Sendable {
             style: button.style,
             destination: .raw(button)
         )
+    }
+
+    /// A button opening a URL.
+    public static func url(_ text: String, _ url: String) -> Self {
+        .raw(.init(text: text, url: url))
+    }
+
+    /// A button launching a Telegram Web App.
+    public static func webApp(_ text: String, url: String) -> Self {
+        .raw(.init(text: text, webApp: .init(url: url)))
+    }
+
+    /// A button inserting an inline query in another (or the current) chat.
+    public static func switchInlineQuery(
+        _ text: String,
+        query: String = "",
+        currentChat: Bool = false
+    ) -> Self {
+        currentChat
+            ? .raw(.init(text: text, switchInlineQueryCurrentChat: query))
+            : .raw(.init(text: text, switchInlineQuery: query))
+    }
+
+    /// A button copying the given text to the user's clipboard.
+    public static func copyText(_ text: String, copy: String) -> Self {
+        .raw(.init(text: text, copyText: .init(text: copy)))
+    }
+
+    /// A pay button (must be the first button of an invoice keyboard).
+    public static func pay(_ text: String) -> Self {
+        .raw(.init(text: text, pay: true))
+    }
+
+    /// A Telegram Login widget button.
+    public static func loginUrl(_ text: String, _ loginUrl: Components.Schemas.LoginUrl) -> Self {
+        .raw(.init(text: text, loginUrl: loginUrl))
     }
 
     func render(in routes: TelerouteRoutes) throws -> InlineKeyboardButton {

@@ -27,6 +27,8 @@ final class TelerouteFlowCoordinator: Sendable {
     func process(
         _ parsedUpdate: TelerouteParsedUpdate,
         routeGraph: TelerouteRouteGraph,
+        defaultParseMode: ParseMode? = nil,
+        responderState: TelerouteResponderState = .init(),
         execute: @escaping ExecuteRoute
     ) async throws -> String? {
         guard routeGraph.hasMountedFlows, let flowKey = parsedUpdate.flowKey else {
@@ -37,6 +39,8 @@ final class TelerouteFlowCoordinator: Sendable {
                 parsedUpdate,
                 flowKey: flowKey,
                 routeGraph: routeGraph,
+                defaultParseMode: defaultParseMode,
+                responderState: responderState,
                 execute: execute
             )
         }
@@ -46,6 +50,8 @@ final class TelerouteFlowCoordinator: Sendable {
         _ parsedUpdate: TelerouteParsedUpdate,
         flowKey: TelerouteFlowKey,
         routeGraph: TelerouteRouteGraph,
+        defaultParseMode: ParseMode?,
+        responderState: TelerouteResponderState,
         execute: @escaping ExecuteRoute
     ) async throws -> String? {
         guard let session = await self.flowStorage.session(for: flowKey) else {
@@ -65,7 +71,9 @@ final class TelerouteFlowCoordinator: Sendable {
                     for: parsedUpdate,
                     parameters: parameters,
                     command: nil,
-                    session: session
+                    session: session,
+                    defaultParseMode: defaultParseMode,
+                    responderState: responderState
                 )
                 if try await execute(candidate.route, context, routeName) {
                     return routeName
@@ -88,7 +96,9 @@ final class TelerouteFlowCoordinator: Sendable {
                 let context = self.context(
                     for: parsedUpdate,
                     command: command,
-                    session: session
+                    session: session,
+                    defaultParseMode: defaultParseMode,
+                    responderState: responderState
                 )
                 if try await execute(route, context, routeName) {
                     return routeName
@@ -103,7 +113,12 @@ final class TelerouteFlowCoordinator: Sendable {
         guard parsedUpdate.message != nil else { return nil }
         for route in routes.messages {
             let routeName = "\(route.flowID):\(route.step)"
-            let context = self.context(for: parsedUpdate, session: session)
+            let context = self.context(
+                for: parsedUpdate,
+                session: session,
+                defaultParseMode: defaultParseMode,
+                responderState: responderState
+            )
             if try await execute(route, context, routeName) {
                 return routeName
             }
@@ -115,15 +130,19 @@ final class TelerouteFlowCoordinator: Sendable {
         for parsedUpdate: TelerouteParsedUpdate,
         parameters: TelerouteParameters = .init(),
         command: TelerouteCommandMatch? = nil,
-        session: TelerouteFlowSession
+        session: TelerouteFlowSession,
+        defaultParseMode: ParseMode?,
+        responderState: TelerouteResponderState
     ) -> TelerouteContext {
         .init(
             bot: self.bot,
             parsedUpdate: parsedUpdate,
             parameters: parameters,
             command: command,
+            defaultParseMode: defaultParseMode,
             flowStorage: self.flowStorage,
-            flowSession: session
+            flowSession: session,
+            responderState: responderState
         )
     }
 }

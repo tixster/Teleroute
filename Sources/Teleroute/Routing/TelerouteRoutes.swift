@@ -12,14 +12,14 @@ public final class TelerouteRoutes: Sendable {
     let storage: TelerouteStorage
     let commandPrefix: [String]
     let callbackPrefix: [String]
-    let inheritedMiddlewares: [any TelerouteMiddleware]
+    let inheritedMiddlewares: [any TelerouteMiddleware<TelerouteContext>]
     let inheritedGuards: [any TelerouteGuard]
 
     init(
         storage: TelerouteStorage,
         commandPrefix: [String] = [],
         callbackPrefix: [String] = [],
-        inheritedMiddlewares: [any TelerouteMiddleware] = [],
+        inheritedMiddlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         inheritedGuards: [any TelerouteGuard] = []
     ) {
         self.storage = storage
@@ -33,7 +33,7 @@ public final class TelerouteRoutes: Sendable {
     @discardableResult
     public func group(
         _ path: String,
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         guards: [any TelerouteGuard] = []
     ) -> TelerouteRoutes {
         let components = TeleroutePath.components(from: path)
@@ -49,7 +49,7 @@ public final class TelerouteRoutes: Sendable {
     /// Creates and configures a nested route scope inline.
     public func group(
         _ path: String,
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         guards: [any TelerouteGuard] = [],
         configure: (TelerouteRoutes) -> Void
     ) {
@@ -69,7 +69,7 @@ public final class TelerouteRoutes: Sendable {
         description: String? = nil,
         visibility: [TelerouteCommandVisibility] = [.default],
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil,
         use handler: @escaping TelerouteHandler
     ) {
@@ -109,11 +109,54 @@ public final class TelerouteRoutes: Sendable {
         )
     }
 
+
+    /// Registers a command route with a side-effect-only handler.
+    public func command(
+        _ path: String,
+        botUsername: String? = nil,
+        description: String? = nil,
+        visibility: [TelerouteCommandVisibility] = [.default],
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        queue: TelerouteQueueScope? = nil,
+        use handler: @escaping @Sendable (TelerouteContext) async throws -> Void
+    ) {
+        self.command(
+            path,
+            botUsername: botUsername,
+            description: description,
+            visibility: visibility,
+            guards: guards,
+            middlewares: middlewares,
+            queue: queue
+        ) { context in
+            try await handler(context)
+            return .none
+        }
+    }
+
+    /// Registers a callback route with a side-effect-only handler.
+    public func callback(
+        _ path: String,
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (TelerouteContext) async throws -> Void
+    ) {
+        self.callback(
+            path,
+            guards: guards,
+            middlewares: middlewares
+        ) { context in
+            try await handler(context)
+            return .none
+        }
+    }
+
     /// Registers a callback route using a path-style pattern.
     public func callback(
         _ path: String,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         use handler: @escaping TelerouteHandler
     ) {
         let hasGuard = self.inheritedGuards.isEmpty == false || guards.isEmpty == false

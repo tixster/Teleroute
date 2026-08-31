@@ -15,7 +15,7 @@ description: >-
 
 ## Overview
 
-Use this skill to modify, test, document, review, or consume the Teleroute library. Teleroute is a Swift 6.3 SwiftPM package that layers route-style command, callback, middleware, flow, command-menu, observability, and keyboard APIs on top of the `TelegramBotAPI` module — Telegram Bot API types and client generated from the OpenAPI spec in `openapi/` with swift-openapi-generator (regenerate with `Scripts/generate-api.sh`; never edit `Sources/TelegramBotAPI/Generated` by hand).
+Use this skill to modify, test, document, review, or consume the Teleroute library. Teleroute is a Swift 6.3 SwiftPM package that layers route-style command, callback, message, update-kind, middleware, flow, command-menu, observability, and keyboard APIs on top of `TelegramBotKit` — a full typed Telegram Bot API client (185 flat methods) generated from the OpenAPI spec in `openapi/` (regenerate with `Scripts/generate-api.sh`, verify with `Scripts/verify-generated.sh`; never edit `Sources/TelegramBotAPI/Generated` or `Sources/TelegramBotKit/Generated` by hand). Handlers return `TelerouteResponseGenerator` values (String, Reply builders, TelerouteResponse, `.unhandled`); guards return `.allow/.skip/.deny(response)`; `TelerouteBot` is a `Service` with polling/webhook/manual modes.
 
 ## First Steps
 
@@ -32,7 +32,7 @@ Use this skill to modify, test, document, review, or consume the Teleroute libra
 - Configure routes before constructing `TelerouteBot`. `bot.run()` optionally synchronizes commands, starts the owned `getUpdates` long-polling loop, waits for cancellation, and shuts down. `bot.process(_:)` feeds updates directly for embedding, webhook servers, and in-process tests.
 - Advanced dependencies and policies belong in `TelerouteBot.Configuration` / `TelerouteConfiguration`; avoid adding parallel bot initializers.
 - `TelerouteRouterGroup<Context>` is the public nested scope. The low-level `TelerouteRoutes` and `TelerouteRuntime` types are test SPI, not consumer API.
-- `command` and `callback` handlers return `TelerouteResponse`. Direct side-effect handlers use `onCommand` and `onCallback`; do not add same-name `Void` overloads because they make `.reply(...)` closure inference ambiguous.
+- Registration is single-style: `command`/`callback`/`message`/`text`/`on(_:)` accept handlers returning any `TelerouteResponseGenerator`, with explicit `TelerouteResponse` and `Void` overloads for inference. Annotate ambiguous side-effect closures as `(_: TelerouteContext) -> Void in`.
 - Add shared low-level or typed middleware with `router.middlewares.add(...)`; add shared guards with `router.guards.add(...)`. These collections are snapshotted at registration.
 - Custom contexts conform to `TelerouteRequestContext`; source-constructible contexts use `TelerouteInitializableRequestContext`, and nested refinements use `TelerouteChildRequestContext`.
 - `maximumConcurrentUpdates` bounds in-flight update handlers. Preserve suspension-based backpressure, cancellation-aware waiting, and synchronous shutdown accounting.
@@ -41,7 +41,7 @@ Use this skill to modify, test, document, review, or consume the Teleroute libra
 - Active flow routes run before regular callbacks and commands. Regular callbacks run before regular commands.
 - Keep one `TelerouteParsedUpdate` and one route-graph snapshot per routing pass. Command, callback, and flow indexes must preserve registration-order fallback semantics.
 - Flow cancellation behavior is configurable. Preserve the semantics of `TelerouteFlowCancellationPolicy` when unmatched commands arrive during an active flow.
-- Middleware that intentionally consumes an update without calling `next` must conform to the internal `TelerouteConsumingMiddleware` marker so fallback routes do not run.
+- Middleware consumes an update by returning a response without calling `next`; `.unhandled` falls through to the next candidate route.
 - Middleware pipelines are compiled at registration. Preserve support for middleware that invokes `next` repeatedly (for example retry) without adding a per-match actor.
 - Built-in middleware includes access logging, throttle/debounce, timeout, retry, and error-handling flows. Preserve cancellation and error propagation semantics when changing them.
 - Built-in guards include chat-type, allowlist, argument-count, and admin checks. Remember that `TelerouteAdminGuard` performs a Telegram API lookup and should not be treated like a pure local predicate in docs or tests.
@@ -50,9 +50,9 @@ Use this skill to modify, test, document, review, or consume the Teleroute libra
 - Treat `TelerouteButton`, `TelerouteCallbackRoute`, pagination helpers, typed routes, and macros as first-class public APIs. Typed callback registration returns a scope-bound route handle; prefer `route.button(callback, ...)`, while `callback.button(...)` is validated against the rendering scope. Route scopes render descriptions with `render(_:)` or `keyboard(_:)`. Keep pagination route-bound and typed, keep `callbackData(for:)` as the encoded-string escape hatch, and do not reintroduce public path/parameter button factories, a result-builder DSL, or batch button overloads.
 - `TelerouteCommand` and `TelerouteCallback` decode data only. Keep explicit handlers as the dependency-friendly default; `TelerouteHandlingCommand` and `TelerouteHandlingCallback` are opt-in conveniences for small self-contained routes and must never become requirements of the base protocols.
 - `TelerouteRouteCollection` may return a typed `Exports` value, and `addRoutes(_:)` forwards it. Use exports for selected cross-feature route handles instead of duplicating callback paths.
-- Callback macro placeholders must map one-to-one to required stored `String` properties so `parameters` remains nonthrowing and every value is renderable.
+- Callback macro placeholders must map one-to-one to required non-optional `LosslessStringConvertible` stored properties so `parameters` remains nonthrowing and every value is renderable.
 - Macro declarations live in the optional `TelerouteMacros` product and implementations in `TelerouteMacroPlugin`; runtime-only consumers must not need the compiler plugin target.
-- `TelerouteContext` includes media/message/chat-action helpers in addition to basic text replies. Preserve fallback target resolution for `chatId` and `messageId`.
+- All Telegram helpers (messaging, media, chat admin, flows) live on `extension TelerouteRequestContext`, so custom and flow contexts get them for free. Preserve fallback target resolution for chat and message ids.
 - Public API changes should have at least one non-`@testable` test when access control or consumer visibility matters.
 - Review changes against registration-order behavior: active flow routes first, then regular callbacks, then regular commands, with first-match wins once guards and middleware reach the final handler.
 - Keep README and `Sources/TelerouteExample` aligned when public behavior, examples, or recommended usage changes.

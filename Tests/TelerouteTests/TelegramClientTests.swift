@@ -4,6 +4,7 @@ import OpenAPIRuntime
 import Synchronization
 import Testing
 @_spi(Testing) @testable import Teleroute
+@testable import TelegramBotKit
 
 @Suite struct TelegramClientTests {
     @Test func undocumentedErrorResponseMapsToTelegramAPIError() async throws {
@@ -78,11 +79,12 @@ import Testing
         let connection = TelegramLongPollingConnection(
             client: try TelegramBotClient(token: "1:test", transport: transport),
             configuration: .init(deleteWebhookOnStart: false),
+            resolvedAllowedUpdates: nil,
             logger: .init(label: "tests.polling")
         )
         let task = Task {
             await connection.run { updates in
-                received.withLock { $0.append(contentsOf: updates.map(\.updateId)) }
+                received.withLock { $0.append(contentsOf: updates.map { $0.updateId }) }
             }
         }
 
@@ -126,6 +128,7 @@ import Testing
                 initialBackoff: .milliseconds(10),
                 maximumBackoff: .milliseconds(20)
             ),
+            resolvedAllowedUpdates: nil,
             logger: .init(label: "tests.polling.retry")
         )
         let task = Task {

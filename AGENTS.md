@@ -3,14 +3,25 @@
 ## Project Overview
 
 Teleroute is a Swift Package Manager project for a route-style Telegram bot
-framework. The Telegram Bot API types and client live in the `TelegramBotAPI`
-target and are generated from the OpenAPI spec in `openapi/` (see
-`openapi/README.md`; regenerate with `Scripts/generate-api.sh`, never edit
-`Sources/TelegramBotAPI/Generated` by hand).
+framework designed after Hummingbird 2. Generated layers (never edit by hand;
+regenerate with `Scripts/generate-api.sh`, verify with
+`Scripts/verify-generated.sh`, see `openapi/README.md`):
+
+- `Sources/TelegramBotAPI/Generated` — raw OpenAPI types + client
+  (swift-openapi-generator output);
+- `Sources/TelegramBotKit/Generated` — flat convenience wrappers for all 185
+  operations plus `UpdateKind` (output of `Scripts/generate-client.py`).
+
+`TelegramBotKit` also holds the hand-written client layer (vocabulary,
+rate limiting, flood-wait retry, send pacing). `Teleroute` holds routing,
+contexts, flows, and the Service lifecycle; `TelerouteHummingbird` holds the
+webhook integration.
 
 Main targets:
 
 - `Teleroute`: library source in `Sources/Teleroute`
+- `TelegramBotKit`/`TelegramBotAPI`: client layers (see above)
+- `TelerouteHummingbird`: Hummingbird 2 webhook integration
 - `TelerouteExample`: runnable example in `Sources/TelerouteExample`
 - `TelerouteTests`: Swift Testing test target in `Tests/TelerouteTests`
 
@@ -34,8 +45,9 @@ Use `swift test --filter <test-name>` for focused regression checks.
 - Prefer Swift Testing (`import Testing`, `@Test`, `#expect`, `#require`) for unit tests.
 - Keep public API changes covered by at least one non-`@testable` test when access control matters.
 - The router handles updates asynchronously; preserve ordering and isolation assumptions in flow, queueing, replay protection, and event code.
-- Middleware that intentionally consumes an update without calling `next` should conform to the internal consuming middleware marker so fallback routes do not run.
+- Middleware that intentionally consumes an update returns a response (e.g. `.none`) without calling `next`; returning `.unhandled` falls through to the next candidate route.
 - Do not add network-dependent tests. Existing tests use fake `ClientTransport` implementations and synthetic `Update` values.
+- Handlers return `TelerouteResponseGenerator` values; `.unhandled` falls through to the next candidate route. When a test closure is side-effect-only and overload resolution is ambiguous, annotate it `(_: TelerouteContext) -> Void in`.
 - Keep examples in `Sources/TelerouteExample` aligned with README claims when changing public API behavior.
 
 ## Git Hygiene

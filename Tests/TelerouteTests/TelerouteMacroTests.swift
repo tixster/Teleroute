@@ -127,8 +127,9 @@ struct MacroHandlingCommand: TelerouteHandlingCommand {
 
     let value: String
 
-    func handle(context: TelerouteContext) async throws {
+    func handle(context: TelerouteContext) async throws -> TelerouteResponse {
         await Self.recorder.record(self.value)
+        return .none
     }
 }
 
@@ -138,7 +139,8 @@ struct MacroHandlingCallback: TelerouteHandlingCallback {
 
     let value: String
 
-    func handle(context: TelerouteContext) async throws {
+    func handle(context: TelerouteContext) async throws -> TelerouteResponse {
         await Self.recorder.record(self.value)
+        return .none
     }
 }

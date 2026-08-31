@@ -38,6 +38,8 @@ public struct TelerouteEvent: Equatable, Sendable {
         case callback
         case flow
         case message
+        /// A non-message update kind routed through `on(_:)` / typed sugar.
+        case update(UpdateKind)
         case unknown
     }
 

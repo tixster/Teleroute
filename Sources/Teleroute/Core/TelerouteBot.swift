@@ -1,6 +1,8 @@
 import Foundation
 import Logging
 import OpenAPIRuntime
+import ServiceLifecycle
+import UnixSignals
 import Synchronization
 
 /// Errors raised by the routed bot lifecycle.
@@ -9,12 +11,24 @@ public enum TelerouteBotError: Error, Equatable, Sendable {
     case stopped
 }
 
+/// How a routed bot receives its updates.
+public enum TelerouteBotMode: Sendable, Hashable {
+    /// The bot owns a `getUpdates` long-polling loop (the default).
+    case polling
+    /// Updates arrive from an external webhook server via
+    /// ``TelerouteBot/process(_:)``; no polling loop is started.
+    case webhook
+    /// Updates are supplied manually via ``TelerouteBot/process(_:)``.
+    case manual
+}
+
 /// Running Telegram bot built from a bot-independent ``Teleroute`` route graph.
 public final class TelerouteBot: Sendable {
     public typealias Configuration = TelerouteConfiguration
 
-    private let runtime: TelerouteRuntime
+    let runtime: TelerouteRuntime
     private let configuration: Configuration
+    private let mode: TelerouteBotMode
     private let lifecycle = TelerouteBotLifecycle()
     private let pollingTask = Mutex<Task<Void, Never>?>(nil)
 
@@ -44,6 +58,7 @@ public final class TelerouteBot: Sendable {
         router: Teleroute<Context>,
         logger: Logger,
         configuration: Configuration = .init(),
+        mode: TelerouteBotMode = .polling,
         transport: (any ClientTransport)? = nil,
         rateLimit: TelegramRateLimit? = .default
     ) throws {
@@ -65,7 +80,8 @@ public final class TelerouteBot: Sendable {
             client: client,
             router: router,
             logger: logger,
-            configuration: configuration
+            configuration: configuration,
+            mode: mode
         )
     }
 
@@ -76,9 +92,11 @@ public final class TelerouteBot: Sendable {
         client: TelegramBotClient,
         router: Teleroute<Context>,
         logger: Logger,
-        configuration: Configuration = .init()
+        configuration: Configuration = .init(),
+        mode: TelerouteBotMode = .polling
     ) {
         self.configuration = configuration
+        self.mode = mode
         self.runtime = TelerouteRuntime(
             bot: client,
             logger: logger,
@@ -87,16 +105,21 @@ public final class TelerouteBot: Sendable {
         )
     }
 
-    /// Optionally synchronizes registered command menus and starts the
-    /// long-polling connection. Repeated calls are idempotent.
+    /// Optionally synchronizes registered command menus and, in
+    /// ``TelerouteBotMode/polling`` mode, starts the long-polling connection.
+    /// Repeated calls are idempotent.
     public func start() async throws {
         try await self.lifecycle.start { [self] in
             if self.configuration.syncPublishedCommandsOnStart {
                 try await self.runtime.syncPublishedCommands()
             }
+            guard self.mode == .polling else { return }
             let connection = TelegramLongPollingConnection(
                 client: self.runtime.bot,
                 configuration: self.configuration.polling,
+                resolvedAllowedUpdates: self.runtime.resolvedAllowedUpdates(
+                    self.configuration.polling.allowedUpdates
+                ),
                 logger: self.runtime.log
             )
             let task = Task { [runtime] in
@@ -108,14 +131,17 @@ public final class TelerouteBot: Sendable {
         }
     }
 
-    /// Runs the bot until its surrounding task is cancelled, then performs
-    /// graceful shutdown.
+    /// Runs the bot until its surrounding task is cancelled or the enclosing
+    /// `ServiceGroup` initiates a graceful shutdown, then drains in-flight
+    /// handlers and shuts down. This is the `Service` entry point.
     public func run() async throws {
         do {
             try await self.start()
-            while true {
-                try Task.checkCancellation()
-                try await Task.sleep(for: .seconds(86_400))
+            try await cancelWhenGracefulShutdown {
+                while true {
+                    try Task.checkCancellation()
+                    try await Task.sleep(for: .seconds(86_400))
+                }
             }
         } catch is CancellationError {
             await self.shutdown()
@@ -125,19 +151,44 @@ public final class TelerouteBot: Sendable {
         }
     }
 
-    /// Stops update processing, finishes event streams, and cancels the
-    /// long-polling connection when it had been started.
+    /// Runs the bot inside a `ServiceGroup` that converts SIGTERM/SIGINT into
+    /// a graceful shutdown.
+    public func runService(
+        gracefulShutdownSignals: [UnixSignal] = [.sigterm, .sigint]
+    ) async throws {
+        let group = ServiceGroup(
+            services: [self],
+            gracefulShutdownSignals: gracefulShutdownSignals,
+            logger: self.logger
+        )
+        try await group.run()
+    }
+
+    /// Stops intake, cancels the long-polling connection, waits up to
+    /// ``TelerouteConfiguration/shutdownGracePeriod`` for in-flight handlers
+    /// to finish, then cancels stragglers and finishes event streams.
     public func shutdown() async {
         await self.lifecycle.shutdown { [self] wasStarted in
-            self.runtime.shutdown()
-            guard wasStarted else { return }
-            let task = self.pollingTask.withLock { task in
-                defer { task = nil }
-                return task
+            self.runtime.stopAccepting()
+            if wasStarted {
+                let task = self.pollingTask.withLock { task in
+                    defer { task = nil }
+                    return task
+                }
+                task?.cancel()
+                await task?.value
             }
-            task?.cancel()
-            await task?.value
+            await self.runtime.drain(within: self.configuration.shutdownGracePeriod)
+            self.runtime.shutdown()
         }
+    }
+
+    /// Resolves the `allowed_updates` wire strings for this bot's route graph,
+    /// for use with `setWebhook` or custom polling setups.
+    public func resolvedAllowedUpdates(
+        _ mode: TelerouteAllowedUpdates = .automatic
+    ) -> [String]? {
+        self.runtime.resolvedAllowedUpdates(mode)
     }
 
     /// Creates an independent stream of routed bot lifecycle events.
@@ -358,3 +409,5 @@ private actor TelerouteBotLifecycle {
         self.state = succeeded ? .started : .idle
     }
 }
+
+extension TelerouteBot: Service {}

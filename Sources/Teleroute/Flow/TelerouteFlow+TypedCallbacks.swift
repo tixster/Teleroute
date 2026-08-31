@@ -5,7 +5,7 @@ public extension TelerouteFlowGroup {
         _ callbackType: Callback.Type,
         at step: StepValue,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         use handler: @escaping @Sendable (
             _ callback: Callback,
             _ context: TelerouteFlowContext<Flow>

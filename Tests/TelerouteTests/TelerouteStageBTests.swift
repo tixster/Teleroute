@@ -46,7 +46,7 @@ struct TelerouteStageBTests {
         router.command(
             "flaky",
             middlewares: [TelerouteRetryMiddleware(retries: 2, backoff: { _ in .milliseconds(0) })]
-        ) { _ in
+        ) { (_: TelerouteContext) -> Void in
             let count = attempts.withLock { $0 += 1; return $0 }
             if count < 3 {
                 struct TransientError: Error {}
@@ -131,7 +131,7 @@ struct TelerouteStageBTests {
         let router = TelerouteRuntime(bot: bot, logger: .init(label: "router.guard.allowlist"))
         let recorder = TelerouteTestRecorder<Int64>()
 
-        router.command("vip", guards: [TelerouteUserAllowlistGuard([42, 99])]) { context in
+        router.command("vip", guards: [TelerouteUserAllowlistGuard([42, 99])]) { (context: TelerouteContext) -> Void in
             if let userId = context.userId {
                 await recorder.record(userId)
             }
@@ -164,7 +164,7 @@ struct TelerouteStageBTests {
                     await recorder.record("handled:\(error)")
                 }
             ]
-        ) { _ in
+        ) { (_: TelerouteContext) -> Void in
             throw BoomError()
         }
 
@@ -181,20 +181,21 @@ private struct RecordingMiddleware: TelerouteMiddleware {
     let label: String
     func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
         await self.recorder.record(["\(self.label):before"])
-        try await next(context)
+        let response = try await next(context)
         await self.recorder.record(["\(self.label):after"])
+        return response
     }
 }
 
 private struct CallNextTwiceMiddleware: TelerouteMiddleware {
     func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
-        try await next(context)
-        try await next(context)
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
+        _ = try await next(context)
+        return try await next(context)
     }
 }

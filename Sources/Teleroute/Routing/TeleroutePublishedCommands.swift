@@ -252,7 +252,7 @@ public extension TelerouteRuntime {
         visibility: TelerouteCommandVisibility = .default
     ) async throws {
         try await self.bot.setMyCommands(
-            commands,
+            commands: commands,
             scope: visibility.scope.telegramScope(),
             languageCode: visibility.languageCode
         )
@@ -310,7 +310,7 @@ public extension TelerouteRuntime {
     func syncPublishedCommands() async throws {
         for commandSet in try self.publishedCommandSets() {
             try await self.bot.setMyCommands(
-                commandSet.commands,
+                commands: commandSet.commands,
                 scope: commandSet.visibility.scope.telegramScope(),
                 languageCode: commandSet.visibility.languageCode
             )
@@ -332,7 +332,7 @@ public extension TelerouteRuntime {
     }
 }
 
-public extension TelerouteContext {
+public extension TelerouteRequestContext {
     /// Publishes an explicit list of commands for the supplied visibility scope.
     ///
     /// This is useful inside command handlers when the visible command list must
@@ -342,7 +342,7 @@ public extension TelerouteContext {
         visibility: TelerouteCommandVisibility = .default
     ) async throws {
         try await self.bot.setMyCommands(
-            commands,
+            commands: commands,
             scope: visibility.scope.telegramScope(),
             languageCode: visibility.languageCode
         )
@@ -368,7 +368,7 @@ public extension TelerouteContext {
     ) async throws {
         for commandSet in try TeleroutePublishedCommandBuilder.typedSets(for: commands) {
             try await self.bot.setMyCommands(
-                commandSet.commands,
+                commands: commandSet.commands,
                 scope: commandSet.visibility.scope.telegramScope(),
                 languageCode: commandSet.visibility.languageCode
             )

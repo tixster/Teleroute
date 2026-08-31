@@ -18,8 +18,9 @@ final class TelerouteUpdateExecutor: Sendable {
         var waiters: [Waiter] = []
         var waiterHead = 0
         var cancelledWaiters: Set<UUID> = []
-        var idleWaiters: [CheckedContinuation<Void, Never>] = []
+        var idleWaiters: [UUID: CheckedContinuation<Void, Never>] = [:]
         var isShutdown = false
+        var isAccepting = true
     }
 
     private let maximumConcurrentTasks: Int
@@ -47,6 +48,7 @@ final class TelerouteUpdateExecutor: Sendable {
 
         let shouldStart = self.state.withLock { state in
             guard state.isShutdown == false,
+                  state.isAccepting,
                   case .some(.reserved) = state.slots[id] else {
                 return false
             }
@@ -61,6 +63,23 @@ final class TelerouteUpdateExecutor: Sendable {
         }
         gate.start()
         return true
+    }
+
+    /// Stops accepting new updates while letting in-flight handlers finish.
+    /// Pending submitters are released with a rejection.
+    func stopAccepting() {
+        let waiters = self.state.withLock { state -> [CheckedContinuation<UUID?, Never>] in
+            guard state.isAccepting else { return [] }
+            state.isAccepting = false
+            let waiters = state.waiters[state.waiterHead...].compactMap(\.continuation)
+            state.waiters.removeAll(keepingCapacity: false)
+            state.waiterHead = 0
+            state.cancelledWaiters.removeAll(keepingCapacity: false)
+            return waiters
+        }
+        for waiter in waiters {
+            waiter.resume(returning: nil)
+        }
     }
 
     func shutdown() {
@@ -85,7 +104,7 @@ final class TelerouteUpdateExecutor: Sendable {
             state.waiters.removeAll(keepingCapacity: false)
             state.waiterHead = 0
             state.cancelledWaiters.removeAll(keepingCapacity: false)
-            let idleWaiters = state.idleWaiters
+            let idleWaiters = Array(state.idleWaiters.values)
             state.idleWaiters.removeAll(keepingCapacity: false)
             return (tasks, gates, waiters, idleWaiters)
         }
@@ -105,16 +124,26 @@ final class TelerouteUpdateExecutor: Sendable {
     }
 
     /// Suspends until every accepted update handler has completed.
+    /// Cancellation-aware: a cancelled waiter resumes immediately.
     func waitUntilIdle() async {
-        await withCheckedContinuation { continuation in
-            let isIdle = self.state.withLock { state in
-                guard state.slots.isEmpty == false else { return true }
-                state.idleWaiters.append(continuation)
-                return false
+        let id = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let isIdle = self.state.withLock { state in
+                    guard Task.isCancelled == false else { return true }
+                    guard state.slots.isEmpty == false else { return true }
+                    state.idleWaiters[id] = continuation
+                    return false
+                }
+                if isIdle {
+                    continuation.resume()
+                }
             }
-            if isIdle {
-                continuation.resume()
+        } onCancel: {
+            let continuation = self.state.withLock { state in
+                state.idleWaiters.removeValue(forKey: id)
             }
+            continuation?.resume()
         }
     }
 
@@ -153,7 +182,7 @@ final class TelerouteUpdateExecutor: Sendable {
             if state.cancelledWaiters.remove(waiterID) != nil {
                 return .some(nil)
             }
-            guard state.isShutdown == false else { return .some(nil) }
+            guard state.isShutdown == false, state.isAccepting else { return .some(nil) }
             if state.slots.count < self.maximumConcurrentTasks {
                 let id = UUID()
                 state.slots[id] = .reserved
@@ -226,7 +255,7 @@ final class TelerouteUpdateExecutor: Sendable {
         in state: inout State
     ) -> [CheckedContinuation<Void, Never>] {
         guard state.slots.isEmpty else { return [] }
-        let waiters = state.idleWaiters
+        let waiters = Array(state.idleWaiters.values)
         state.idleWaiters.removeAll(keepingCapacity: true)
         return waiters
     }

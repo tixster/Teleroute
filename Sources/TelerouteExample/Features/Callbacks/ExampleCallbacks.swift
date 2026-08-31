@@ -23,9 +23,13 @@ struct ApproveOrderCallback: TelerouteHandlingCallback {
         ["orderID": self.orderID]
     }
 
-    func handle(context: TelerouteContext) async throws {
-        try await context.answerCallbackQuery("Order \(self.orderID) approved")
-        try await context.edit("Order \(self.orderID) approved")
+    typealias Context = ExampleRequestContext
+
+    func handle(context: ExampleRequestContext) async throws -> TelerouteResponse {
+        .sequence([
+            .answerCallback("Order \(self.orderID) approved"),
+            .edit("Order \(self.orderID) approved"),
+        ])
     }
 }
 
@@ -47,9 +51,13 @@ struct ArchiveTicketCallback: TelerouteHandlingCallback {
         ["ticketID": self.ticketID]
     }
 
-    func handle(context: TelerouteContext) async throws {
-        try await context.answerCallbackQuery("Ticket \(self.ticketID) archived")
-        try await context.edit("Ticket \(self.ticketID) archived")
+    typealias Context = ExampleRequestContext
+
+    func handle(context: ExampleRequestContext) async throws -> TelerouteResponse {
+        .sequence([
+            .answerCallback("Ticket \(self.ticketID) archived"),
+            .edit("Ticket \(self.ticketID) archived"),
+        ])
     }
 }
 

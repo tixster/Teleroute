@@ -5,7 +5,7 @@ public extension TelerouteRuntime {
     @discardableResult
     func group(
         _ path: String,
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         guards: [any TelerouteGuard] = []
     ) -> TelerouteRoutes {
         self.routeScope.group(
@@ -18,7 +18,7 @@ public extension TelerouteRuntime {
     /// Creates and configures a nested route scope from the router root.
     func group(
         _ path: String,
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         guards: [any TelerouteGuard] = [],
         configure: (TelerouteRoutes) -> Void
     ) {
@@ -37,7 +37,7 @@ public extension TelerouteRuntime {
         description: String? = nil,
         visibility: [TelerouteCommandVisibility] = [.default],
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil,
         use handler: @escaping TelerouteHandler
     ) {
@@ -57,8 +57,46 @@ public extension TelerouteRuntime {
     func callback(
         _ path: String,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         use handler: @escaping TelerouteHandler
+    ) {
+        self.routeScope.callback(
+            path,
+            guards: guards,
+            middlewares: middlewares,
+            use: handler
+        )
+    }
+
+    /// Registers a command with a side-effect-only handler at the router root.
+    func command(
+        _ path: String,
+        botUsername: String? = nil,
+        description: String? = nil,
+        visibility: [TelerouteCommandVisibility] = [.default],
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        queue: TelerouteQueueScope? = nil,
+        use handler: @escaping @Sendable (TelerouteContext) async throws -> Void
+    ) {
+        self.routeScope.command(
+            path,
+            botUsername: botUsername,
+            description: description,
+            visibility: visibility,
+            guards: guards,
+            middlewares: middlewares,
+            queue: queue,
+            use: handler
+        )
+    }
+
+    /// Registers a callback with a side-effect-only handler at the router root.
+    func callback(
+        _ path: String,
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (TelerouteContext) async throws -> Void
     ) {
         self.routeScope.callback(
             path,

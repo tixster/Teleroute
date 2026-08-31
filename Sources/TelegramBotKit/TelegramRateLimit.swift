@@ -22,22 +22,22 @@ public struct TelegramRateLimit: Sendable, Hashable {
 
 /// Token-bucket client middleware throttling every operation except
 /// `getUpdates`, so long polling is never starved by outbound sends.
-struct TelegramRateLimitMiddleware: ClientMiddleware {
+public struct TelegramRateLimitMiddleware: ClientMiddleware {
     private let bucket: TelegramTokenBucket
 
-    init(limit: TelegramRateLimit) {
+    public init(limit: TelegramRateLimit) {
         self.bucket = TelegramTokenBucket(
             ratePerSecond: limit.requestsPerSecond,
             capacity: Double(limit.burst)
         )
     }
 
-    func intercept(
+    public func intercept(
         _ request: HTTPRequest,
         body: HTTPBody?,
         baseURL: URL,
         operationID: String,
-        next: @concurrent @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
+        next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
     ) async throws -> (HTTPResponse, HTTPBody?) {
         if operationID != "getUpdates" {
             try await self.bucket.acquire()

@@ -3,6 +3,7 @@ import Synchronization
 
 @_exported import Foundation
 @_exported import Logging
+@_exported import TelegramBotKit
 
 /// Internal dispatcher runtime. Public applications are built with
 /// ``Teleroute`` and ``TelerouteBot``.
@@ -19,6 +20,9 @@ public final class TelerouteRuntime: Sendable {
     private let replayProtectionTTL: Duration
     private let flowCoordinator: TelerouteFlowCoordinator
     private let onError: TelerouteErrorHandler?
+    private let errorRenderer: TelerouteErrorRenderer?
+    private let defaultParseMode: ParseMode?
+    private let autoAnswerCallbackQueries: Bool
     private let metricsSink: any TelerouteMetricsSink
     private let eventHub = TelerouteEventHub()
     private let updateExecutor: TelerouteUpdateExecutor
@@ -58,6 +62,9 @@ public final class TelerouteRuntime: Sendable {
             cancellationPolicy: configuration.flowCancellationPolicy
         )
         self.onError = configuration.onError
+        self.errorRenderer = configuration.errorRenderer
+        self.defaultParseMode = configuration.defaultParseMode
+        self.autoAnswerCallbackQueries = configuration.autoAnswerCallbackQueries
         self.metricsSink = configuration.metricsSink
         self.updateExecutor = .init(
             maximumConcurrentTasks: configuration.maximumConcurrentUpdates
@@ -71,12 +78,55 @@ public final class TelerouteRuntime: Sendable {
         self.shutdown()
     }
 
+    /// Stops accepting new updates while in-flight handlers keep running.
+    public func stopAccepting() {
+        self.updateExecutor.stopAccepting()
+    }
+
+    /// Waits for in-flight handlers to finish, up to the supplied grace period.
+    public func drain(within grace: Duration) async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.updateExecutor.waitUntilIdle() }
+            group.addTask { try? await Task.sleep(for: grace) }
+            await group.next()
+            group.cancelAll()
+        }
+    }
+
     /// Stops accepting new updates, cancels in-flight processing, and finishes
     /// all event streams. Calling this method more than once has no effect.
     public func shutdown() {
         self.updateExecutor.shutdown()
         self.replayProtectionCleanupTask?.cancel()
         self.eventHub.finish()
+    }
+
+    /// Resolves the `allowed_updates` wire strings for polling or webhooks.
+    /// Returns `nil` to keep Telegram's previous/default setting.
+    public func resolvedAllowedUpdates(
+        _ mode: TelerouteAllowedUpdates
+    ) -> [String]? {
+        switch mode {
+        case .all:
+            return UpdateKind.allCases.map(\.rawValue)
+        case let .explicit(kinds):
+            return kinds.map(\.rawValue).sorted()
+        case .automatic:
+            let graph = self.storage.routeGraph
+            guard graph.unmatchedRoutes.isEmpty else {
+                return UpdateKind.allCases.map(\.rawValue)
+            }
+            var kinds = graph.registeredKinds
+            kinds.formUnion(graph.registeredMessageSources.map(\.updateKind))
+            if graph.hasCommandRoutes || graph.hasMountedFlows {
+                kinds.formUnion(TelerouteMessageSource.allCases.map(\.updateKind))
+            }
+            if graph.hasCallbackRoutes || graph.hasMountedFlows {
+                kinds.insert(.callbackQuery)
+            }
+            guard kinds.isEmpty == false else { return nil }
+            return kinds.map(\.rawValue).sorted()
+        }
     }
 
     /// Creates an independent lifecycle-event stream for one consumer.
@@ -104,6 +154,8 @@ public final class TelerouteRuntime: Sendable {
         let startedAt = ContinuousClock().now
         let parsedUpdate = TelerouteParsedUpdate(update)
         let routeKind = parsedUpdate.routeKind
+        let responderState = TelerouteResponderState()
+        var handled = false
         do {
             self.emitEvent(.received, parsedUpdate: parsedUpdate, startedAt: startedAt)
             await self.metricsSink.recordReceived(
@@ -123,32 +175,79 @@ public final class TelerouteRuntime: Sendable {
                 return
             }
             let routeGraph = self.storage.routeGraph
-            if try await self.processFlow(parsedUpdate, routeGraph: routeGraph, startedAt: startedAt) {
+            if try await self.processFlow(
+                parsedUpdate, routeGraph: routeGraph, startedAt: startedAt, responderState: responderState
+            ) {
+                handled = true
                 self.log.debug("Handled update with flow route", metadata: self.updateMetadata(for: parsedUpdate))
-                return
-            }
-            if try await self.processCallback(parsedUpdate, routeGraph: routeGraph, startedAt: startedAt) {
+            } else if try await self.processCallback(
+                parsedUpdate, routeGraph: routeGraph, startedAt: startedAt, responderState: responderState
+            ) {
+                handled = true
                 self.log.debug("Handled update with callback route", metadata: self.updateMetadata(for: parsedUpdate))
-                return
-            }
-            if try await self.processCommand(parsedUpdate, routeGraph: routeGraph, startedAt: startedAt) {
+            } else if try await self.processCommand(
+                parsedUpdate, routeGraph: routeGraph, startedAt: startedAt, responderState: responderState
+            ) {
+                handled = true
                 self.log.debug("Handled update with command route", metadata: self.updateMetadata(for: parsedUpdate))
-                return
+            } else if try await self.processMessageRoutes(
+                parsedUpdate, routeGraph: routeGraph, startedAt: startedAt, responderState: responderState
+            ) {
+                handled = true
+                self.log.debug("Handled update with message route", metadata: self.updateMetadata(for: parsedUpdate))
+            } else if try await self.processKindRoutes(
+                parsedUpdate, routeGraph: routeGraph, startedAt: startedAt, responderState: responderState
+            ) {
+                handled = true
+                self.log.debug("Handled update with update-kind route", metadata: self.updateMetadata(for: parsedUpdate))
+            } else if try await self.processUnmatchedRoutes(
+                parsedUpdate, routeGraph: routeGraph, startedAt: startedAt, responderState: responderState
+            ) {
+                handled = true
+                self.log.debug("Handled update with unmatched hook", metadata: self.updateMetadata(for: parsedUpdate))
+            } else {
+                self.emitEvent(
+                    .unmatched,
+                    parsedUpdate: parsedUpdate,
+                    startedAt: startedAt,
+                    duration: startedAt.duration(to: ContinuousClock().now)
+                )
+                await self.metricsSink.recordUnmatched(
+                    routeKind: routeKind,
+                    chatId: parsedUpdate.chatId,
+                    userId: parsedUpdate.userId
+                )
+                self.log.debug("No route matched update", metadata: self.updateMetadata(for: parsedUpdate))
             }
-            self.emitEvent(
-                .unmatched,
-                parsedUpdate: parsedUpdate,
-                startedAt: startedAt,
-                duration: startedAt.duration(to: ContinuousClock().now)
-            )
-            await self.metricsSink.recordUnmatched(
-                routeKind: routeKind,
-                chatId: parsedUpdate.chatId,
-                userId: parsedUpdate.userId
-            )
-            self.log.debug("No route matched update", metadata: self.updateMetadata(for: parsedUpdate))
         } catch {
-            await self.handleError(error, parsedUpdate: parsedUpdate, startedAt: startedAt)
+            handled = true
+            await self.handleError(
+                error, parsedUpdate: parsedUpdate, startedAt: startedAt, responderState: responderState
+            )
+        }
+        if handled {
+            await self.autoAnswerCallbackIfNeeded(parsedUpdate, responderState: responderState)
+        }
+    }
+
+    /// Answers a handled callback query with an empty ack so the button never
+    /// keeps spinning, unless the handler already answered (or opted out).
+    private func autoAnswerCallbackIfNeeded(
+        _ parsedUpdate: TelerouteParsedUpdate,
+        responderState: TelerouteResponderState
+    ) async {
+        guard self.autoAnswerCallbackQueries,
+              let callbackQuery = parsedUpdate.callbackQuery,
+              responderState.answeredCallback == false else {
+            return
+        }
+        do {
+            try await self.bot.answerCallbackQuery(callbackQueryId: callbackQuery.id)
+        } catch {
+            self.log.debug(
+                "Failed to auto-answer callback query",
+                metadata: ["error": .string(String(reflecting: error))]
+            )
         }
     }
 
@@ -243,6 +342,7 @@ public final class TelerouteRuntime: Sendable {
         case .callback: "callback"
         case .flow: "flow"
         case .message: "message"
+        case let .update(kind): kind.rawValue
         case .unknown: "unknown"
         }
     }
@@ -274,11 +374,14 @@ public final class TelerouteRuntime: Sendable {
     private func processFlow(
         _ parsedUpdate: TelerouteParsedUpdate,
         routeGraph: TelerouteRouteGraph,
-        startedAt: ContinuousClock.Instant
+        startedAt: ContinuousClock.Instant,
+        responderState: TelerouteResponderState
     ) async throws -> Bool {
         let routeName = try await self.flowCoordinator.process(
             parsedUpdate,
-            routeGraph: routeGraph
+            routeGraph: routeGraph,
+            defaultParseMode: self.defaultParseMode,
+            responderState: responderState
         ) { route, context, routeName in
             try await Self.run(
                 executor: route.executor,
@@ -301,7 +404,8 @@ public final class TelerouteRuntime: Sendable {
     private func processCommand(
         _ parsedUpdate: TelerouteParsedUpdate,
         routeGraph: TelerouteRouteGraph,
-        startedAt: ContinuousClock.Instant
+        startedAt: ContinuousClock.Instant,
+        responderState: TelerouteResponderState
     ) async throws -> Bool {
         guard let command = parsedUpdate.command else {
             return false
@@ -316,8 +420,10 @@ public final class TelerouteRuntime: Sendable {
                 parsedUpdate: parsedUpdate,
                 parameters: .init(),
                 command: command,
+                defaultParseMode: self.defaultParseMode,
                 flowStorage: self.flowStorage,
-                flowSession: nil
+                flowSession: nil,
+                responderState: responderState
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -343,7 +449,8 @@ public final class TelerouteRuntime: Sendable {
     private func processCallback(
         _ parsedUpdate: TelerouteParsedUpdate,
         routeGraph: TelerouteRouteGraph,
-        startedAt: ContinuousClock.Instant
+        startedAt: ContinuousClock.Instant,
+        responderState: TelerouteResponderState
     ) async throws -> Bool {
         guard parsedUpdate.callbackData != nil,
               let components = parsedUpdate.callbackComponents else {
@@ -359,8 +466,10 @@ public final class TelerouteRuntime: Sendable {
                 parsedUpdate: parsedUpdate,
                 parameters: parameters,
                 command: nil,
+                defaultParseMode: self.defaultParseMode,
                 flowStorage: self.flowStorage,
-                flowSession: nil
+                flowSession: nil,
+                responderState: responderState
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -382,13 +491,143 @@ public final class TelerouteRuntime: Sendable {
         return false
     }
 
+    @discardableResult
+    private func processMessageRoutes(
+        _ parsedUpdate: TelerouteParsedUpdate,
+        routeGraph: TelerouteRouteGraph,
+        startedAt: ContinuousClock.Instant,
+        responderState: TelerouteResponderState
+    ) async throws -> Bool {
+        guard let message = parsedUpdate.message,
+              let source = parsedUpdate.messageSource,
+              routeGraph.messageRoutes.isEmpty == false else {
+            return false
+        }
+        for route in routeGraph.messageRoutes {
+            guard route.sources.contains(source),
+                  route.filter.matches(message) else {
+                continue
+            }
+            let context = TelerouteContext(
+                bot: self.bot,
+                parsedUpdate: parsedUpdate,
+                parameters: .init(),
+                command: nil,
+                defaultParseMode: self.defaultParseMode,
+                flowStorage: self.flowStorage,
+                flowSession: nil,
+                responderState: responderState
+            )
+            let handled = try await Self.run(
+                executor: route.executor,
+                context: context,
+                routeKind: .message,
+                routeName: route.name
+            )
+            if handled == false {
+                continue
+            }
+            await self.emitHandled(
+                parsedUpdate: parsedUpdate,
+                routeKind: .message,
+                routeName: route.name,
+                startedAt: startedAt
+            )
+            return true
+        }
+        return false
+    }
+
+    @discardableResult
+    private func processKindRoutes(
+        _ parsedUpdate: TelerouteParsedUpdate,
+        routeGraph: TelerouteRouteGraph,
+        startedAt: ContinuousClock.Instant,
+        responderState: TelerouteResponderState
+    ) async throws -> Bool {
+        guard let kind = parsedUpdate.kind,
+              routeGraph.kindRoutes.isEmpty == false else {
+            return false
+        }
+        for route in routeGraph.kindRoutes where route.kinds.contains(kind) {
+            let context = TelerouteContext(
+                bot: self.bot,
+                parsedUpdate: parsedUpdate,
+                parameters: .init(),
+                command: parsedUpdate.command,
+                defaultParseMode: self.defaultParseMode,
+                flowStorage: self.flowStorage,
+                flowSession: nil,
+                responderState: responderState
+            )
+            let handled = try await Self.run(
+                executor: route.executor,
+                context: context,
+                routeKind: .update(kind),
+                routeName: route.name
+            )
+            if handled == false {
+                continue
+            }
+            await self.emitHandled(
+                parsedUpdate: parsedUpdate,
+                routeKind: .update(kind),
+                routeName: route.name,
+                startedAt: startedAt
+            )
+            return true
+        }
+        return false
+    }
+
+    @discardableResult
+    private func processUnmatchedRoutes(
+        _ parsedUpdate: TelerouteParsedUpdate,
+        routeGraph: TelerouteRouteGraph,
+        startedAt: ContinuousClock.Instant,
+        responderState: TelerouteResponderState
+    ) async throws -> Bool {
+        guard routeGraph.unmatchedRoutes.isEmpty == false else {
+            return false
+        }
+        for route in routeGraph.unmatchedRoutes {
+            let context = TelerouteContext(
+                bot: self.bot,
+                parsedUpdate: parsedUpdate,
+                parameters: .init(),
+                command: parsedUpdate.command,
+                defaultParseMode: self.defaultParseMode,
+                flowStorage: self.flowStorage,
+                flowSession: nil,
+                responderState: responderState
+            )
+            let handled = try await Self.run(
+                executor: route.executor,
+                context: context,
+                routeKind: parsedUpdate.routeKind,
+                routeName: "unmatched"
+            )
+            if handled {
+                await self.emitHandled(
+                    parsedUpdate: parsedUpdate,
+                    routeKind: parsedUpdate.routeKind,
+                    routeName: "unmatched",
+                    startedAt: startedAt
+                )
+                return true
+            }
+        }
+        return false
+    }
+
     /// Central error path: emits a typed `.failed` event, logs with rich
     /// metadata, records metrics, and forwards to the user-supplied `onError`
     /// handler when set.
     private func handleError(
         _ error: any Error,
         parsedUpdate: TelerouteParsedUpdate,
-        startedAt: ContinuousClock.Instant = ContinuousClock().now
+        startedAt: ContinuousClock.Instant = ContinuousClock().now,
+        responderState: TelerouteResponderState = .init()
     ) async {
         let routeFailure = error as? TelerouteRouteFailure
         let reportedError = routeFailure?.underlyingError ?? error
@@ -399,9 +638,43 @@ public final class TelerouteRuntime: Sendable {
         let context = routeFailure?.context ?? TelerouteContext(
             bot: self.bot,
             parsedUpdate: parsedUpdate,
+            defaultParseMode: self.defaultParseMode,
             flowStorage: self.flowStorage,
-            flowSession: nil
+            flowSession: nil,
+            responderState: responderState
         )
+
+        // An abort is a controlled outcome: render its response and report
+        // the route as handled instead of failed.
+        if let abort = reportedError as? TelerouteAbort {
+            do {
+                try await abort.response.execute(in: context)
+            } catch {
+                self.log.error(
+                    "Failed to render abort response",
+                    metadata: ["error": .string(String(reflecting: error))]
+                )
+            }
+            await self.emitHandled(
+                parsedUpdate: parsedUpdate,
+                routeKind: routeFailure?.routeKind ?? parsedUpdate.routeKind,
+                routeName: routeFailure?.routeName ?? "abort",
+                startedAt: startedAt
+            )
+            return
+        }
+
+        if let render = self.errorRenderer,
+           let response = await render(reportedError, context) {
+            do {
+                try await response.execute(in: context)
+            } catch {
+                self.log.error(
+                    "Failed to render error response",
+                    metadata: ["error": .string(String(reflecting: error))]
+                )
+            }
+        }
         let duration = startedAt.duration(to: ContinuousClock().now)
         let routeKind = routeFailure?.routeKind ?? parsedUpdate.routeKind
         let routeName = routeFailure?.routeName

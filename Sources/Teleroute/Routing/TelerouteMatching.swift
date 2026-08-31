@@ -68,6 +68,24 @@ final class TelerouteStorage: Sendable {
         }
     }
 
+    func appendMessageRoute(_ route: TelerouteMessageRoute) {
+        self.state.withLock {
+            $0.routeGraph.appendMessage(route)
+        }
+    }
+
+    func appendKindRoute(_ route: TelerouteUpdateKindRoute) {
+        self.state.withLock {
+            $0.routeGraph.appendKind(route)
+        }
+    }
+
+    func appendUnmatchedRoute(_ route: TelerouteUnmatchedRoute) {
+        self.state.withLock {
+            $0.routeGraph.appendUnmatched(route)
+        }
+    }
+
     func containsCallbackRoute(_ path: String) -> Bool {
         self.state.withLock { $0.registeredCallbackPaths.contains(path) }
     }
@@ -130,13 +148,13 @@ public struct TelerouteRouteSignature: Hashable, Sendable {
 struct TelerouteCommandRoute: Sendable {
     let name: String
     let botUsername: String?
-    let middlewares: [any TelerouteMiddleware]
+    let middlewares: [any TelerouteMiddleware<TelerouteContext>]
     let executor: TelerouteRouteExecutor
 
     init(
         name: String,
         botUsername: String?,
-        middlewares: [any TelerouteMiddleware],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
         handler: @escaping TelerouteHandler
     ) {
         self.name = name
@@ -148,12 +166,12 @@ struct TelerouteCommandRoute: Sendable {
 
 struct TelerouteCallbackHandlerRoute: Sendable {
     let pattern: TelerouteCallbackPattern
-    let middlewares: [any TelerouteMiddleware]
+    let middlewares: [any TelerouteMiddleware<TelerouteContext>]
     let executor: TelerouteRouteExecutor
 
     init(
         pattern: TelerouteCallbackPattern,
-        middlewares: [any TelerouteMiddleware],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
         handler: @escaping TelerouteHandler
     ) {
         self.pattern = pattern
@@ -172,14 +190,14 @@ struct TelerouteFlowRoute: Sendable {
     let flowID: String
     let step: String
     let matcher: TelerouteFlowRouteMatcher
-    let middlewares: [any TelerouteMiddleware]
+    let middlewares: [any TelerouteMiddleware<TelerouteContext>]
     let executor: TelerouteRouteExecutor
 
     init(
         flowID: String,
         step: String,
         matcher: TelerouteFlowRouteMatcher,
-        middlewares: [any TelerouteMiddleware],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
         handler: @escaping TelerouteHandler
     ) {
         self.flowID = flowID
@@ -269,18 +287,77 @@ struct TelerouteFlowStepRoutes: Sendable {
     }
 }
 
+struct TelerouteMessageRoute: Sendable {
+    let name: String
+    let sources: Set<TelerouteMessageSource>
+    let filter: TelerouteMessageFilter
+    let executor: TelerouteRouteExecutor
+
+    init(
+        name: String,
+        sources: Set<TelerouteMessageSource>,
+        filter: TelerouteMessageFilter,
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
+        handler: @escaping TelerouteHandler
+    ) {
+        self.name = name
+        self.sources = sources
+        self.filter = filter
+        self.executor = .init(middlewares: middlewares, handler: handler)
+    }
+}
+
+struct TelerouteUpdateKindRoute: Sendable {
+    let name: String
+    let kinds: Set<UpdateKind>
+    let executor: TelerouteRouteExecutor
+
+    init(
+        name: String,
+        kinds: Set<UpdateKind>,
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
+        handler: @escaping TelerouteHandler
+    ) {
+        self.name = name
+        self.kinds = kinds
+        self.executor = .init(middlewares: middlewares, handler: handler)
+    }
+}
+
+struct TelerouteUnmatchedRoute: Sendable {
+    let executor: TelerouteRouteExecutor
+
+    init(
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
+        handler: @escaping TelerouteHandler
+    ) {
+        self.executor = .init(middlewares: middlewares, handler: handler)
+    }
+}
+
 struct TelerouteRouteGraph: Sendable {
     var commandsByName: [String: [TelerouteCommandRoute]] = [:]
     var callbacks = TelerouteCallbackRouteIndex<TelerouteCallbackHandlerRoute>()
     var flowSteps: [TelerouteFlowStepKey: TelerouteFlowStepRoutes] = [:]
     var hasMountedFlows = false
+    var messageRoutes: [TelerouteMessageRoute] = []
+    var kindRoutes: [TelerouteUpdateKindRoute] = []
+    var unmatchedRoutes: [TelerouteUnmatchedRoute] = []
+    /// Update kinds explicitly routable via `on(_:)`/typed sugar.
+    var registeredKinds: Set<UpdateKind> = []
+    /// Message sources reachable through message routes.
+    var registeredMessageSources: Set<TelerouteMessageSource> = []
+    var hasCommandRoutes = false
+    var hasCallbackRoutes = false
 
     mutating func appendCommand(_ route: TelerouteCommandRoute) {
         self.commandsByName[route.name, default: []].append(route)
+        self.hasCommandRoutes = true
     }
 
     mutating func appendCallback(_ route: TelerouteCallbackHandlerRoute) {
         self.callbacks.append(pattern: route.pattern, route: route)
+        self.hasCallbackRoutes = true
     }
 
     mutating func appendFlow(_ route: TelerouteFlowRoute) {
@@ -289,6 +366,20 @@ struct TelerouteRouteGraph: Sendable {
         var routes = self.flowSteps[key, default: .init()]
         routes.append(route)
         self.flowSteps[key] = routes
+    }
+
+    mutating func appendMessage(_ route: TelerouteMessageRoute) {
+        self.messageRoutes.append(route)
+        self.registeredMessageSources.formUnion(route.sources)
+    }
+
+    mutating func appendKind(_ route: TelerouteUpdateKindRoute) {
+        self.kindRoutes.append(route)
+        self.registeredKinds.formUnion(route.kinds)
+    }
+
+    mutating func appendUnmatched(_ route: TelerouteUnmatchedRoute) {
+        self.unmatchedRoutes.append(route)
     }
 }
 

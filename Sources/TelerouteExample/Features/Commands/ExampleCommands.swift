@@ -17,8 +17,10 @@ struct ProfileCommand: TelerouteHandlingCommand {
         self.username = try command.require("username")
     }
 
-    func handle(context: TelerouteContext) async throws {
-        try await context.reply("Profile for \(self.username)")
+    typealias Context = ExampleRequestContext
+
+    func handle(context: ExampleRequestContext) async throws -> TelerouteResponse {
+        .reply("Profile for \(self.username)")
     }
 }
 
@@ -34,8 +36,10 @@ struct SyncCatalogCommand: TelerouteHandlingCommand {
 
     init(command: TelerouteCommandMatch) throws {}
 
-    func handle(context: TelerouteContext) async throws {
-        try await context.reply("Catalog sync queued for this chat/user.")
+    typealias Context = ExampleRequestContext
+
+    func handle(context: ExampleRequestContext) async throws -> TelerouteResponse {
+        .reply("Catalog sync queued for this chat/user.")
     }
 }
 
@@ -56,9 +60,9 @@ struct AdminBanCommand: TelerouteHandlingCommand {
         self.reason = command.get("reason", at: 1)
     }
 
-    func handle(context: TelerouteContext) async throws {
-        try await context.reply(
-            "Admin ban: \(self.userID), reason: \(self.reason ?? "not provided")"
-        )
+    typealias Context = ExampleUserContext
+
+    func handle(context: ExampleUserContext) async throws -> TelerouteResponse {
+        .reply("Admin ban: \(self.userID), reason: \(self.reason ?? "not provided")")
     }
 }

@@ -20,8 +20,8 @@ public struct TelerouteAccessLogMiddleware: TelerouteMiddleware {
 
     public func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
         self.logger.info(
             "before route",
             metadata: [
@@ -29,8 +29,9 @@ public struct TelerouteAccessLogMiddleware: TelerouteMiddleware {
                 "user_id": .string(context.userId.map(String.init) ?? "none"),
             ]
         )
-        try await next(context)
+        let response = try await next(context)
         self.logger.info("after route")
+        return response
     }
 }
 
@@ -48,9 +49,9 @@ public struct TelerouteTimeoutMiddleware: TelerouteMiddleware {
 
     public func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
-        let result: Void = try await withThrowingTaskGroup(of: Void.self) { group in
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
+        try await withThrowingTaskGroup(of: TelerouteResponse.self) { group in
             group.addTask {
                 try await next(context)
             }
@@ -61,10 +62,12 @@ public struct TelerouteTimeoutMiddleware: TelerouteMiddleware {
             // First child to finish wins. If the handler completes first, the
             // sleep task is cancelled on return. If the sleep fires first, the
             // handler task is cancelled by the group teardown.
-            try await group.next()
+            guard let response = try await group.next() else {
+                throw TelerouteTimeoutError(duration: self.duration)
+            }
             group.cancelAll()
+            return response
         }
-        return result
     }
 }
 
@@ -99,13 +102,12 @@ public struct TelerouteRetryMiddleware: TelerouteMiddleware {
 
     public func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
         var lastError: (any Error)?
         for attempt in 0...self.retries {
             do {
-                try await next(context)
-                return
+                return try await next(context)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -122,29 +124,41 @@ public struct TelerouteRetryMiddleware: TelerouteMiddleware {
     }
 }
 
-/// Catches errors thrown downstream and optionally converts them into a reply.
+/// Catches errors thrown downstream and optionally converts them into a
+/// response.
 ///
-/// Pass `nil` for `reply` to swallow errors silently (useful when a group of
-/// routes should never propagate failures to
+/// The handler may return `nil` to swallow the error silently (useful when a
+/// group of routes should never propagate failures to
 /// ``TelerouteConfiguration/onError``).
 public struct TelerouteErrorHandlingMiddleware: TelerouteMiddleware {
-    private let handler: @Sendable (any Error, TelerouteContext) async -> Void
+    private let handler: @Sendable (any Error, TelerouteContext) async -> TelerouteResponse?
 
-    /// Creates an error-handling middleware.
+    /// Creates an error-handling middleware that converts errors into
+    /// responses.
+    public init(
+        renderer: @escaping @Sendable (any Error, TelerouteContext) async -> TelerouteResponse?
+    ) {
+        self.handler = renderer
+    }
+
+    /// Creates an error-handling middleware with a side-effect-only handler.
     public init(handler: @escaping @Sendable (any Error, TelerouteContext) async -> Void) {
-        self.handler = handler
+        self.handler = { error, context in
+            await handler(error, context)
+            return nil
+        }
     }
 
     public func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
         do {
-            try await next(context)
+            return try await next(context)
         } catch is CancellationError {
             throw CancellationError()
         } catch {
-            await self.handler(error, context)
+            return await self.handler(error, context) ?? .none
         }
     }
 }

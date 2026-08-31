@@ -1,56 +1,27 @@
 import Foundation
 import Synchronization
 
-/// Middleware for statically typed request contexts.
-///
-/// Unlike low-level ``TelerouteMiddleware``, this middleware can replace a
-/// custom context and return a ``TelerouteResponse``. It is added through a
-/// router or group's ``TelerouteRouterGroup/middlewares`` collection.
-public protocol TelerouteRouterMiddleware: Sendable {
-    associatedtype Context: TelerouteRequestContext
-
-    func handle(
-        _ context: Context,
-        next: @escaping @Sendable (Context) async throws -> TelerouteResponse
-    ) async throws -> TelerouteResponse
-}
-
-private struct AnyTelerouteRouterMiddleware<Context: TelerouteRequestContext>: Sendable {
-    let handle: @Sendable (
-        _ context: Context,
-        _ next: @escaping @Sendable (Context) async throws -> TelerouteResponse
-    ) async throws -> TelerouteResponse
-
-    init<Middleware: TelerouteRouterMiddleware>(_ middleware: Middleware)
-    where Middleware.Context == Context {
-        self.handle = middleware.handle
-    }
-}
-
 private final class TelerouteCoreMiddlewareStorage: Sendable {
-    private let valuesStorage = Mutex<[any TelerouteMiddleware]>([])
+    private let valuesStorage = Mutex<[any TelerouteMiddleware<TelerouteContext>]>([])
 
-    var values: [any TelerouteMiddleware] {
+    var values: [any TelerouteMiddleware<TelerouteContext>] {
         self.valuesStorage.withLock { $0 }
     }
 
-    func append(_ middleware: any TelerouteMiddleware) {
+    func append(_ middleware: any TelerouteMiddleware<TelerouteContext>) {
         self.valuesStorage.withLock { $0.append(middleware) }
     }
 }
 
 private final class TelerouteTypedMiddlewareStorage<Context: TelerouteRequestContext>: Sendable {
-    private let valuesStorage = Mutex<[AnyTelerouteRouterMiddleware<Context>]>([])
+    private let valuesStorage = Mutex<[any TelerouteMiddleware<Context>]>([])
 
-    var values: [AnyTelerouteRouterMiddleware<Context>] {
+    var values: [any TelerouteMiddleware<Context>] {
         self.valuesStorage.withLock { $0 }
     }
 
-    func append<Middleware: TelerouteRouterMiddleware>(_ middleware: Middleware)
-    where Middleware.Context == Context {
-        self.valuesStorage.withLock {
-            $0.append(.init(middleware))
-        }
+    func append(_ middleware: any TelerouteMiddleware<Context>) {
+        self.valuesStorage.withLock { $0.append(middleware) }
     }
 }
 
@@ -69,7 +40,8 @@ private final class TelerouteGuardStorage: Sendable {
 /// Mutable middleware collection attached to one router scope.
 ///
 /// Middleware is snapshotted and compiled when a route or child group is
-/// registered. Add middleware before registering the routes that should use it.
+/// registered: **add middleware before registering the routes that should use
+/// it** — later additions do not apply retroactively.
 public final class TelerouteRouterMiddlewareCollection<Context: TelerouteRequestContext>: Sendable {
     private let coreStorage: TelerouteCoreMiddlewareStorage
     private let typedStorage: TelerouteTypedMiddlewareStorage<Context>
@@ -82,16 +54,16 @@ public final class TelerouteRouterMiddlewareCollection<Context: TelerouteRequest
         self.typedStorage = typedStorage
     }
 
-    /// Adds existing low-level middleware that operates on
-    /// ``TelerouteContext``.
-    public func add(_ middleware: any TelerouteMiddleware) {
-        self.coreStorage.append(middleware)
-    }
-
-    /// Adds response-returning middleware for this scope's custom context.
-    public func add<Middleware: TelerouteRouterMiddleware>(_ middleware: Middleware)
+    /// Adds middleware for this scope's context.
+    public func add<Middleware: TelerouteMiddleware>(_ middleware: Middleware)
     where Middleware.Context == Context {
         self.typedStorage.append(middleware)
+    }
+
+    /// Adds low-level middleware operating on ``TelerouteContext``. It runs
+    /// in the route's core chain (also wrapping flows mounted in this scope).
+    public func add(core middleware: any TelerouteMiddleware<TelerouteContext>) {
+        self.coreStorage.append(middleware)
     }
 }
 
@@ -119,20 +91,17 @@ typealias TelerouteContextExecutor<Context: TelerouteRequestContext> = @Sendable
 ) async throws -> TelerouteResponse
 
 private struct TelerouteFlowContextMiddlewareAdapter<Context: TelerouteRequestContext>:
-    TelerouteMiddleware,
-    TelerouteConsumingMiddleware
+    TelerouteMiddleware
 {
     let executor: TelerouteContextExecutor<Context>
 
     func handle(
         _ context: TelerouteContext,
-        next: @escaping @Sendable (TelerouteContext) async throws -> Void
-    ) async throws {
-        let response = try await self.executor(context) { typedContext in
+        next: @escaping @Sendable (TelerouteContext) async throws -> TelerouteResponse
+    ) async throws -> TelerouteResponse {
+        try await self.executor(context) { typedContext in
             try await next(typedContext.coreContext)
-            return .none
         }
-        try await response.execute(in: context)
     }
 }
 
@@ -174,7 +143,7 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
     @discardableResult
     public func group(
         _ path: String,
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         guards: [any TelerouteGuard] = []
     ) -> TelerouteRouterGroup<Context> {
         .init(
@@ -190,7 +159,7 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
     /// Creates and configures a nested namespace inline.
     public func group(
         _ path: String,
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         guards: [any TelerouteGuard] = [],
         configure: (TelerouteRouterGroup<Context>) -> Void
     ) {
@@ -209,7 +178,7 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
     public func group<ChildContext: TelerouteChildRequestContext>(
         _ path: String = "",
         context _: ChildContext.Type,
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         guards: [any TelerouteGuard] = []
     ) -> TelerouteRouterGroup<ChildContext>
     where ChildContext.ParentContext == Context {
@@ -234,7 +203,7 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
     public func group<ChildContext: TelerouteChildRequestContext>(
         _ path: String = "",
         context: ChildContext.Type,
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         guards: [any TelerouteGuard] = [],
         configure: (TelerouteRouterGroup<ChildContext>) -> Void
     ) where ChildContext.ParentContext == Context {
@@ -248,14 +217,67 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
         )
     }
 
-    /// Registers a command whose handler performs Telegram operations directly.
-    public func onCommand(
+    // MARK: - Commands
+
+    /// Registers a command. The handler returns any
+    /// ``TelerouteResponseGenerator`` — a `String` reply, a chainable action
+    /// such as ``Reply``, a full ``TelerouteResponse``, or `.unhandled` to
+    /// fall through to the next candidate route.
+    public func command<Response: TelerouteResponseGenerator>(
         _ path: String,
         botUsername: String? = nil,
         description: String? = nil,
         visibility: [TelerouteCommandVisibility] = [.default],
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        queue: TelerouteQueueScope? = nil,
+        use handler: @escaping @Sendable (Context) async throws -> Response
+    ) {
+        self.registerCommand(
+            path,
+            botUsername: botUsername,
+            description: description,
+            visibility: visibility,
+            guards: guards,
+            middlewares: middlewares,
+            queue: queue
+        ) { context in
+            try await handler(context).makeResponse()
+        }
+    }
+
+    /// Registers a command whose handler returns a ``TelerouteResponse``.
+    /// (Disambiguating overload so `.reply(...)`-style member syntax infers.)
+    public func command(
+        _ path: String,
+        botUsername: String? = nil,
+        description: String? = nil,
+        visibility: [TelerouteCommandVisibility] = [.default],
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        queue: TelerouteQueueScope? = nil,
+        use handler: @escaping @Sendable (Context) async throws -> TelerouteResponse
+    ) {
+        self.registerCommand(
+            path,
+            botUsername: botUsername,
+            description: description,
+            visibility: visibility,
+            guards: guards,
+            middlewares: middlewares,
+            queue: queue,
+            handler: handler
+        )
+    }
+
+    /// Registers a command with a side-effect-only handler.
+    public func command(
+        _ path: String,
+        botUsername: String? = nil,
+        description: String? = nil,
+        visibility: [TelerouteCommandVisibility] = [.default],
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil,
         use handler: @escaping @Sendable (Context) async throws -> Void
     ) {
@@ -273,20 +295,40 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
         }
     }
 
-    /// Registers a command whose handler returns a declarative Telegram action.
-    public func command(
-        _ path: String,
-        botUsername: String? = nil,
+    /// Registers a typed command.
+    public func command<Command: TelerouteCommand, Response: TelerouteResponseGenerator>(
+        _ commandType: Command.Type,
         description: String? = nil,
-        visibility: [TelerouteCommandVisibility] = [.default],
+        visibility: [TelerouteCommandVisibility]? = nil,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil,
-        use handler: @escaping @Sendable (Context) async throws -> TelerouteResponse
+        use handler: @escaping @Sendable (Command, Context) async throws -> Response
     ) {
-        self.registerCommand(
-            path,
-            botUsername: botUsername,
+        self.registerTypedCommand(
+            commandType,
+            description: description,
+            visibility: visibility,
+            guards: guards,
+            middlewares: middlewares,
+            queue: queue
+        ) { command, context in
+            try await handler(command, context).makeResponse()
+        }
+    }
+
+    /// Registers a typed command whose handler returns a ``TelerouteResponse``.
+    public func command<Command: TelerouteCommand>(
+        _ commandType: Command.Type,
+        description: String? = nil,
+        visibility: [TelerouteCommandVisibility]? = nil,
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        queue: TelerouteQueueScope? = nil,
+        use handler: @escaping @Sendable (Command, Context) async throws -> TelerouteResponse
+    ) {
+        self.registerTypedCommand(
+            commandType,
             description: description,
             visibility: visibility,
             guards: guards,
@@ -296,45 +338,13 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
         )
     }
 
-    /// Registers a callback whose handler performs Telegram operations directly.
-    public func onCallback(
-        _ path: String,
-        guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
-        use handler: @escaping @Sendable (Context) async throws -> Void
-    ) {
-        self.registerCallback(
-            path,
-            guards: guards,
-            middlewares: middlewares
-        ) { context in
-            try await handler(context)
-            return .none
-        }
-    }
-
-    /// Registers a callback whose handler returns a declarative Telegram action.
-    public func callback(
-        _ path: String,
-        guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
-        use handler: @escaping @Sendable (Context) async throws -> TelerouteResponse
-    ) {
-        self.registerCallback(
-            path,
-            guards: guards,
-            middlewares: middlewares,
-            handler: handler
-        )
-    }
-
-    /// Registers a typed command with a direct side-effect handler.
-    public func onCommand<Command: TelerouteCommand>(
+    /// Registers a typed command with a side-effect-only handler.
+    public func command<Command: TelerouteCommand>(
         _ commandType: Command.Type,
         description: String? = nil,
         visibility: [TelerouteCommandVisibility]? = nil,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil,
         use handler: @escaping @Sendable (Command, Context) async throws -> Void
     ) {
@@ -351,34 +361,95 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
         }
     }
 
-    /// Registers a typed command with a response-returning handler.
-    public func command<Command: TelerouteCommand>(
-        _ commandType: Command.Type,
-        description: String? = nil,
-        visibility: [TelerouteCommandVisibility]? = nil,
+    // MARK: - Callbacks
+
+    /// Registers a callback route using a path-style pattern.
+    public func callback<Response: TelerouteResponseGenerator>(
+        _ path: String,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
-        queue: TelerouteQueueScope? = nil,
-        use handler: @escaping @Sendable (Command, Context) async throws -> TelerouteResponse
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (Context) async throws -> Response
     ) {
-        self.registerTypedCommand(
-            commandType,
-            description: description,
-            visibility: visibility,
+        self.registerCallback(
+            path,
+            guards: guards,
+            middlewares: middlewares
+        ) { context in
+            try await handler(context).makeResponse()
+        }
+    }
+
+    /// Registers a callback route whose handler returns a ``TelerouteResponse``.
+    public func callback(
+        _ path: String,
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (Context) async throws -> TelerouteResponse
+    ) {
+        self.registerCallback(
+            path,
             guards: guards,
             middlewares: middlewares,
-            queue: queue,
             handler: handler
         )
     }
 
-    /// Registers a typed callback with a direct side-effect handler and returns
-    /// its scope-bound route handle.
+    /// Registers a callback route with a side-effect-only handler.
+    public func callback(
+        _ path: String,
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (Context) async throws -> Void
+    ) {
+        self.registerCallback(
+            path,
+            guards: guards,
+            middlewares: middlewares
+        ) { context in
+            try await handler(context)
+            return .none
+        }
+    }
+
+    /// Registers a typed callback and returns its scope-bound route handle.
     @discardableResult
-    public func onCallback<Callback: TelerouteCallback>(
+    public func callback<Callback: TelerouteCallback, Response: TelerouteResponseGenerator>(
         _ callbackType: Callback.Type,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (Callback, Context) async throws -> Response
+    ) -> TelerouteCallbackRoute<Callback> {
+        self.registerTypedCallback(
+            callbackType,
+            guards: guards,
+            middlewares: middlewares
+        ) { callback, context in
+            try await handler(callback, context).makeResponse()
+        }
+    }
+
+    /// Registers a typed callback whose handler returns a ``TelerouteResponse``.
+    @discardableResult
+    public func callback<Callback: TelerouteCallback>(
+        _ callbackType: Callback.Type,
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (Callback, Context) async throws -> TelerouteResponse
+    ) -> TelerouteCallbackRoute<Callback> {
+        self.registerTypedCallback(
+            callbackType,
+            guards: guards,
+            middlewares: middlewares,
+            handler: handler
+        )
+    }
+
+    /// Registers a typed callback with a side-effect-only handler.
+    @discardableResult
+    public func callback<Callback: TelerouteCallback>(
+        _ callbackType: Callback.Type,
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         use handler: @escaping @Sendable (Callback, Context) async throws -> Void
     ) -> TelerouteCallbackRoute<Callback> {
         self.registerTypedCallback(
@@ -389,22 +460,6 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
             try await handler(callback, context)
             return .none
         }
-    }
-
-    /// Registers a typed callback with a response-returning handler.
-    @discardableResult
-    public func callback<Callback: TelerouteCallback>(
-        _ callbackType: Callback.Type,
-        guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
-        use handler: @escaping @Sendable (Callback, Context) async throws -> TelerouteResponse
-    ) -> TelerouteCallbackRoute<Callback> {
-        self.registerTypedCallback(
-            callbackType,
-            guards: guards,
-            middlewares: middlewares,
-            handler: handler
-        )
     }
 
     /// Mounts a stateful flow in this command/callback namespace.
@@ -453,7 +508,7 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
         description: String?,
         visibility: [TelerouteCommandVisibility],
         guards: [any TelerouteGuard],
-        middlewares: [any TelerouteMiddleware],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
         queue: TelerouteQueueScope?,
         handler: @escaping TelerouteContextHandler<Context>
     ) {
@@ -467,15 +522,14 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
             middlewares: self.coreMiddlewareStorage.values + middlewares,
             queue: queue
         ) { coreContext in
-            let response = try await contextExecutor(coreContext, handler)
-            try await response.execute(in: coreContext)
+            try await contextExecutor(coreContext, handler)
         }
     }
 
     private func registerCallback(
         _ path: String,
         guards: [any TelerouteGuard],
-        middlewares: [any TelerouteMiddleware],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
         handler: @escaping TelerouteContextHandler<Context>
     ) {
         let contextExecutor = self.makeContextExecutor()
@@ -484,8 +538,7 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
             guards: self.guardStorage.values + guards,
             middlewares: self.coreMiddlewareStorage.values + middlewares
         ) { coreContext in
-            let response = try await contextExecutor(coreContext, handler)
-            try await response.execute(in: coreContext)
+            try await contextExecutor(coreContext, handler)
         }
     }
 
@@ -494,7 +547,7 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
         description: String?,
         visibility: [TelerouteCommandVisibility]?,
         guards: [any TelerouteGuard],
-        middlewares: [any TelerouteMiddleware],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
         queue: TelerouteQueueScope?,
         handler: @escaping @Sendable (Command, Context) async throws -> TelerouteResponse
     ) {
@@ -507,17 +560,16 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
             middlewares: self.coreMiddlewareStorage.values + middlewares,
             queue: queue
         ) { command, coreContext in
-            let response = try await contextExecutor(coreContext) { context in
+            try await contextExecutor(coreContext) { context in
                 try await handler(command, context)
             }
-            try await response.execute(in: coreContext)
         }
     }
 
     private func registerTypedCallback<Callback: TelerouteCallback>(
         _ callbackType: Callback.Type,
         guards: [any TelerouteGuard],
-        middlewares: [any TelerouteMiddleware],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
         handler: @escaping @Sendable (Callback, Context) async throws -> TelerouteResponse
     ) -> TelerouteCallbackRoute<Callback> {
         let contextExecutor = self.makeContextExecutor()
@@ -526,10 +578,55 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
             guards: self.guardStorage.values + guards,
             middlewares: self.coreMiddlewareStorage.values + middlewares
         ) { callback, coreContext in
-            let response = try await contextExecutor(coreContext) { context in
+            try await contextExecutor(coreContext) { context in
                 try await handler(callback, context)
             }
-            try await response.execute(in: coreContext)
+        }
+    }
+
+    func registerMessage(
+        filter: TelerouteMessageFilter,
+        sources: Set<TelerouteMessageSource>,
+        guards: [any TelerouteGuard],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
+        handler: @escaping TelerouteContextHandler<Context>
+    ) {
+        let contextExecutor = self.makeContextExecutor()
+        self.routes.message(
+            from: sources,
+            filter: filter,
+            guards: self.guardStorage.values + guards,
+            middlewares: self.coreMiddlewareStorage.values + middlewares
+        ) { coreContext in
+            try await contextExecutor(coreContext, handler)
+        }
+    }
+
+    func registerKinds(
+        _ kinds: Set<UpdateKind>,
+        guards: [any TelerouteGuard],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
+        handler: @escaping TelerouteContextHandler<Context>
+    ) {
+        let contextExecutor = self.makeContextExecutor()
+        self.routes.on(
+            kinds,
+            guards: self.guardStorage.values + guards,
+            middlewares: self.coreMiddlewareStorage.values + middlewares
+        ) { coreContext in
+            try await contextExecutor(coreContext, handler)
+        }
+    }
+
+    func registerUnmatched(
+        middlewares: [any TelerouteMiddleware<TelerouteContext>],
+        handler: @escaping TelerouteContextHandler<Context>
+    ) {
+        let contextExecutor = self.makeContextExecutor()
+        self.routes.unmatched(
+            middlewares: self.coreMiddlewareStorage.values + middlewares
+        ) { coreContext in
+            try await contextExecutor(coreContext, handler)
         }
     }
 
@@ -542,7 +639,7 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
                 for middleware in middlewares.reversed() {
                     let downstream = next
                     next = { nextContext in
-                        try await middleware.handle(nextContext, downstream)
+                        try await middleware.handle(nextContext, next: downstream)
                     }
                 }
                 return try await next(context)
@@ -558,10 +655,10 @@ public extension TelerouteRouterGroup {
         description: String? = nil,
         visibility: [TelerouteCommandVisibility]? = nil,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
         queue: TelerouteQueueScope? = nil
-    ) {
-        self.onCommand(
+    ) where Command.Context == Context {
+        self.registerTypedCommand(
             commandType,
             description: description,
             visibility: visibility,
@@ -569,7 +666,7 @@ public extension TelerouteRouterGroup {
             middlewares: middlewares,
             queue: queue
         ) { command, context in
-            try await command.handle(context: context.coreContext)
+            try await command.handle(context: context).makeResponse()
         }
     }
 
@@ -578,14 +675,14 @@ public extension TelerouteRouterGroup {
     func callback<Callback: TelerouteHandlingCallback>(
         _ callbackType: Callback.Type,
         guards: [any TelerouteGuard] = [],
-        middlewares: [any TelerouteMiddleware] = []
-    ) -> TelerouteCallbackRoute<Callback> {
-        self.onCallback(
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = []
+    ) -> TelerouteCallbackRoute<Callback> where Callback.Context == Context {
+        self.registerTypedCallback(
             callbackType,
             guards: guards,
             middlewares: middlewares
         ) { callback, context in
-            try await callback.handle(context: context.coreContext)
+            try await callback.handle(context: context).makeResponse()
         }
     }
 }

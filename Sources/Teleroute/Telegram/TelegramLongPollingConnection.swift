@@ -1,14 +1,26 @@
 import Foundation
 import Logging
 
+/// Which update kinds the bot asks Telegram to deliver.
+public enum TelerouteAllowedUpdates: Sendable {
+    /// Derives the set from the registered routes: message routes, commands,
+    /// callbacks, flows, and `on(_:)`/typed update handlers. Registering an
+    /// `unmatched` hook widens this to every kind.
+    case automatic
+    /// Requests every update kind.
+    case all
+    /// Requests exactly the supplied kinds.
+    case explicit([UpdateKind])
+}
+
 /// Long-polling behavior of a routed bot.
 public struct TelegramPollingConfiguration: Sendable {
     /// Maximum updates per `getUpdates` call (1–100, Telegram default 100).
     public var limit: Int64?
     /// Long-polling wait in seconds.
     public var timeout: Int64
-    /// Update types to receive; `nil` keeps Telegram's previous setting.
-    public var allowedUpdates: [String]?
+    /// Update kinds to receive.
+    public var allowedUpdates: TelerouteAllowedUpdates
     /// Removes a configured webhook before polling starts, since Telegram
     /// rejects `getUpdates` while a webhook is active.
     public var deleteWebhookOnStart: Bool
@@ -20,7 +32,7 @@ public struct TelegramPollingConfiguration: Sendable {
     public init(
         limit: Int64? = nil,
         timeout: Int64 = 10,
-        allowedUpdates: [String]? = nil,
+        allowedUpdates: TelerouteAllowedUpdates = .automatic,
         deleteWebhookOnStart: Bool = true,
         initialBackoff: Duration = .seconds(1),
         maximumBackoff: Duration = .seconds(30)
@@ -39,6 +51,8 @@ public struct TelegramPollingConfiguration: Sendable {
 struct TelegramLongPollingConnection: Sendable {
     let client: TelegramBotClient
     let configuration: TelegramPollingConfiguration
+    /// Wire strings resolved from ``TelegramPollingConfiguration/allowedUpdates``.
+    let resolvedAllowedUpdates: [String]?
     let logger: Logger
 
     /// Polls until the surrounding task is cancelled. Errors never abort the
@@ -59,7 +73,7 @@ struct TelegramLongPollingConnection: Sendable {
                     offset: offset,
                     limit: self.configuration.limit,
                     timeout: self.configuration.timeout,
-                    allowedUpdates: self.configuration.allowedUpdates
+                    allowedUpdates: self.resolvedAllowedUpdates
                 )
                 backoff = self.configuration.initialBackoff
                 if let lastId = updates.last?.updateId {

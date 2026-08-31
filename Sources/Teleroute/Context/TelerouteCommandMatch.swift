@@ -13,6 +13,22 @@ public struct TelerouteCommandMatch: Sendable {
     /// Trailing command arguments split by whitespace.
     public let arguments: [String]
 
+    /// Creates command metadata, useful for constructing typed commands in
+    /// tests or manual dispatch.
+    public init(
+        name: String,
+        rawValue: String,
+        mentionedBotUsername: String? = nil,
+        argumentsText: String? = nil,
+        arguments: [String] = []
+    ) {
+        self.name = name
+        self.rawValue = rawValue
+        self.mentionedBotUsername = mentionedBotUsername
+        self.argumentsText = argumentsText
+        self.arguments = arguments
+    }
+
     /// Returns the argument at the supplied index, if it exists.
     ///
     /// The `name` is used only to keep the API symmetrical with `TelerouteParameters`
@@ -32,6 +48,29 @@ public struct TelerouteCommandMatch: Sendable {
     public func require(_ name: String, at index: Int = 0) throws -> String {
         guard let value = self.get(name, at: index) else {
             throw TelerouteError.missingParameter(name)
+        }
+        return value
+    }
+
+    /// Returns the argument decoded into a `LosslessStringConvertible` type.
+    public func get<Value: LosslessStringConvertible>(
+        _ name: String,
+        at index: Int = 0,
+        as type: Value.Type
+    ) -> Value? {
+        self.get(name, at: index).flatMap(Value.init)
+    }
+
+    /// Returns the argument decoded into a `LosslessStringConvertible` type
+    /// or throws when it is missing or malformed.
+    public func require<Value: LosslessStringConvertible>(
+        _ name: String,
+        at index: Int = 0,
+        as type: Value.Type
+    ) throws -> Value {
+        let raw = try self.require(name, at: index)
+        guard let value = Value(raw) else {
+            throw TelerouteError.invalidParameter(name: name, value: raw)
         }
         return value
     }

@@ -17,7 +17,7 @@ public enum TelerouteMacroError: Error, CustomStringConvertible {
         case let .callbackParameterMissing(name):
             "Callback path parameter '{\(name)}' requires a stored 'let \(name): String' property"
         case let .callbackParameterMustBeString(name, type):
-            "Callback path parameter '{\(name)}' must use a required String property, not '\(type)'"
+            "Callback path parameter '{\(name)}' must use a non-optional LosslessStringConvertible property, not '\(type)'"
         case let .callbackPropertyNotInPath(name):
             "Callback property '\(name)' is not present as a placeholder in the callback path"
         }
