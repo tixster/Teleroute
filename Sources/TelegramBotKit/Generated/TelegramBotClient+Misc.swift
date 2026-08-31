@@ -10,7 +10,11 @@ public extension TelegramBotClient {
     /// object.
     @discardableResult
     func getUserProfilePhotos(userId: Swift.Int64, offset: Swift.Int64? = nil, limit: Swift.Int64? = nil) async throws -> Components.Schemas.UserProfilePhotos {
-        let output = try await self.api.getUserProfilePhotos(.init(query: .init(userId: userId, offset: offset, limit: limit)))
+        let output = try await self.api.getUserProfilePhotos(.init(body: .json(.init(
+            userId: userId,
+            offset: offset,
+            limit: limit
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -24,7 +28,11 @@ public extension TelegramBotClient {
     /// Use this method to get a list of profile audios for a user. Returns a UserProfileAudios object.
     @discardableResult
     func getUserProfileAudios(userId: Swift.Int64, offset: Swift.Int64? = nil, limit: Swift.Int64? = nil) async throws -> Components.Schemas.UserProfileAudios {
-        let output = try await self.api.getUserProfileAudios(.init(query: .init(userId: userId, offset: offset, limit: limit)))
+        let output = try await self.api.getUserProfileAudios(.init(body: .json(.init(
+            userId: userId,
+            offset: offset,
+            limit: limit
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -62,7 +70,9 @@ public extension TelegramBotClient {
     /// expires, a new one can be requested by calling getFile again. Note: This function ma...
     @discardableResult
     func getFile(fileId: Swift.String) async throws -> Components.Schemas.File {
-        let output = try await self.api.getFile(.init(query: .init(fileId: fileId)))
+        let output = try await self.api.getFile(.init(body: .json(.init(
+            fileId: fileId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -102,7 +112,9 @@ public extension TelegramBotClient {
     /// Returns a BusinessConnection object on success.
     @discardableResult
     func getBusinessConnection(businessConnectionId: Swift.String) async throws -> Components.Schemas.BusinessConnection {
-        let output = try await self.api.getBusinessConnection(.init(query: .init(businessConnectionId: businessConnectionId)))
+        let output = try await self.api.getBusinessConnection(.init(body: .json(.init(
+            businessConnectionId: businessConnectionId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -116,7 +128,9 @@ public extension TelegramBotClient {
     /// Use this method to get the token of a managed bot. Returns the token as String on success.
     @discardableResult
     func getManagedBotToken(userId: Swift.Int64) async throws -> Swift.String {
-        let output = try await self.api.getManagedBotToken(.init(query: .init(userId: userId)))
+        let output = try await self.api.getManagedBotToken(.init(body: .json(.init(
+            userId: userId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -148,7 +162,9 @@ public extension TelegramBotClient {
     /// on success.
     @discardableResult
     func getManagedBotAccessSettings(userId: Swift.Int64) async throws -> Components.Schemas.BotAccessSettings {
-        let output = try await self.api.getManagedBotAccessSettings(.init(query: .init(userId: userId)))
+        let output = try await self.api.getManagedBotAccessSettings(.init(body: .json(.init(
+            userId: userId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -201,7 +217,10 @@ public extension TelegramBotClient {
     /// returned.
     @discardableResult
     func getMyCommands(scope: Components.Schemas.BotCommandScope? = nil, languageCode: Swift.String? = nil) async throws -> [Components.Schemas.BotCommand] {
-        let output = try await self.api.getMyCommands(.init(query: .init(scope: scope, languageCode: languageCode)))
+        let output = try await self.api.getMyCommands(.init(body: .json(.init(
+            scope: scope,
+            languageCode: languageCode
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -233,7 +252,9 @@ public extension TelegramBotClient {
     /// success.
     @discardableResult
     func getMyName(languageCode: Swift.String? = nil) async throws -> Components.Schemas.BotName {
-        let output = try await self.api.getMyName(.init(query: .init(languageCode: languageCode)))
+        let output = try await self.api.getMyName(.init(body: .json(.init(
+            languageCode: languageCode
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -266,7 +287,9 @@ public extension TelegramBotClient {
     /// BotDescription on success.
     @discardableResult
     func getMyDescription(languageCode: Swift.String? = nil) async throws -> Components.Schemas.BotDescription {
-        let output = try await self.api.getMyDescription(.init(query: .init(languageCode: languageCode)))
+        let output = try await self.api.getMyDescription(.init(body: .json(.init(
+            languageCode: languageCode
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -299,7 +322,9 @@ public extension TelegramBotClient {
     /// BotShortDescription on success.
     @discardableResult
     func getMyShortDescription(languageCode: Swift.String? = nil) async throws -> Components.Schemas.BotShortDescription {
-        let output = try await self.api.getMyShortDescription(.init(query: .init(languageCode: languageCode)))
+        let output = try await self.api.getMyShortDescription(.init(body: .json(.init(
+            languageCode: languageCode
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -363,7 +388,9 @@ public extension TelegramBotClient {
     /// ChatAdministratorRights on success.
     @discardableResult
     func getMyDefaultAdministratorRights(forChannels: Swift.Bool? = nil) async throws -> Components.Schemas.ChatAdministratorRights {
-        let output = try await self.api.getMyDefaultAdministratorRights(.init(query: .init(forChannels: forChannels)))
+        let output = try await self.api.getMyDefaultAdministratorRights(.init(body: .json(.init(
+            forChannels: forChannels
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -622,7 +649,12 @@ public extension TelegramBotClient {
     @discardableResult
     func getGameHighScores(userId: Swift.Int64, chatId: Swift.Int64? = nil, messageId: Swift.Int64? = nil, inlineMessageId: Swift.String? = nil) async throws -> [Components.Schemas.GameHighScore] {
         try await self.pace(chatId: chatId.map(ChatId.id))
-        let output = try await self.api.getGameHighScores(.init(query: .init(userId: userId, chatId: chatId, messageId: messageId, inlineMessageId: inlineMessageId)))
+        let output = try await self.api.getGameHighScores(.init(body: .json(.init(
+            userId: userId,
+            chatId: chatId,
+            messageId: messageId,
+            inlineMessageId: inlineMessageId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result

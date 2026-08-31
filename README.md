@@ -1,6 +1,7 @@
 # Teleroute
 
 [![Linux CI](https://github.com/tixster/Teleroute/actions/workflows/linux-ci.yml/badge.svg?branch=main)](https://github.com/tixster/Teleroute/actions/workflows/linux-ci.yml)
+[![Documentation](https://img.shields.io/badge/Documentation-DocC-blue)](https://tixster.github.io/Teleroute/documentation/teleroute/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/tixster/Teleroute/blob/main/LICENSE)
 [![Swift 6.3](https://img.shields.io/badge/Swift-6.3-F05138?logo=swift&logoColor=white)](https://swift.org)
 

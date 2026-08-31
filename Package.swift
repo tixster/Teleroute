@@ -63,6 +63,7 @@ let package = Package(
         .package(url: "https://github.com/swift-server/swift-service-lifecycle", from: "2.6.0"),
         .package(url: "https://github.com/hummingbird-project/hummingbird", from: "2.0.0"),
         .package(url: "https://github.com/apple/swift-metrics", from: "2.5.0"),
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.0"),
     ],
     targets: [
         // Generated Telegram Bot API types and client (committed output of

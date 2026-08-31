@@ -194,7 +194,9 @@ public extension TelegramBotClient {
     /// can_view_gifts_and_stars business bot right. Returns StarAmount on success.
     @discardableResult
     func getBusinessAccountStarBalance(businessConnectionId: Swift.String) async throws -> Components.Schemas.StarAmount {
-        let output = try await self.api.getBusinessAccountStarBalance(.init(query: .init(businessConnectionId: businessConnectionId)))
+        let output = try await self.api.getBusinessAccountStarBalance(.init(body: .json(.init(
+            businessConnectionId: businessConnectionId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -227,7 +229,19 @@ public extension TelegramBotClient {
     /// can_view_gifts_and_stars business bot right. Returns OwnedGifts on success.
     @discardableResult
     func getBusinessAccountGifts(businessConnectionId: Swift.String, excludeUnsaved: Swift.Bool? = nil, excludeSaved: Swift.Bool? = nil, excludeUnlimited: Swift.Bool? = nil, excludeLimitedUpgradable: Swift.Bool? = nil, excludeLimitedNonUpgradable: Swift.Bool? = nil, excludeUnique: Swift.Bool? = nil, excludeFromBlockchain: Swift.Bool? = nil, sortByPrice: Swift.Bool? = nil, offset: Swift.String? = nil, limit: Swift.Int64? = nil) async throws -> Components.Schemas.OwnedGifts {
-        let output = try await self.api.getBusinessAccountGifts(.init(query: .init(businessConnectionId: businessConnectionId, excludeUnsaved: excludeUnsaved, excludeSaved: excludeSaved, excludeUnlimited: excludeUnlimited, excludeLimitedUpgradable: excludeLimitedUpgradable, excludeLimitedNonUpgradable: excludeLimitedNonUpgradable, excludeUnique: excludeUnique, excludeFromBlockchain: excludeFromBlockchain, sortByPrice: sortByPrice, offset: offset, limit: limit)))
+        let output = try await self.api.getBusinessAccountGifts(.init(body: .json(.init(
+            businessConnectionId: businessConnectionId,
+            excludeUnsaved: excludeUnsaved,
+            excludeSaved: excludeSaved,
+            excludeUnlimited: excludeUnlimited,
+            excludeLimitedUpgradable: excludeLimitedUpgradable,
+            excludeLimitedNonUpgradable: excludeLimitedNonUpgradable,
+            excludeUnique: excludeUnique,
+            excludeFromBlockchain: excludeFromBlockchain,
+            sortByPrice: sortByPrice,
+            offset: offset,
+            limit: limit
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -241,7 +255,17 @@ public extension TelegramBotClient {
     /// Returns the gifts owned and hosted by a user. Returns OwnedGifts on success.
     @discardableResult
     func getUserGifts(userId: Swift.Int64, excludeUnlimited: Swift.Bool? = nil, excludeLimitedUpgradable: Swift.Bool? = nil, excludeLimitedNonUpgradable: Swift.Bool? = nil, excludeFromBlockchain: Swift.Bool? = nil, excludeUnique: Swift.Bool? = nil, sortByPrice: Swift.Bool? = nil, offset: Swift.String? = nil, limit: Swift.Int64? = nil) async throws -> Components.Schemas.OwnedGifts {
-        let output = try await self.api.getUserGifts(.init(query: .init(userId: userId, excludeUnlimited: excludeUnlimited, excludeLimitedUpgradable: excludeLimitedUpgradable, excludeLimitedNonUpgradable: excludeLimitedNonUpgradable, excludeFromBlockchain: excludeFromBlockchain, excludeUnique: excludeUnique, sortByPrice: sortByPrice, offset: offset, limit: limit)))
+        let output = try await self.api.getUserGifts(.init(body: .json(.init(
+            userId: userId,
+            excludeUnlimited: excludeUnlimited,
+            excludeLimitedUpgradable: excludeLimitedUpgradable,
+            excludeLimitedNonUpgradable: excludeLimitedNonUpgradable,
+            excludeFromBlockchain: excludeFromBlockchain,
+            excludeUnique: excludeUnique,
+            sortByPrice: sortByPrice,
+            offset: offset,
+            limit: limit
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -256,7 +280,19 @@ public extension TelegramBotClient {
     @discardableResult
     func getChatGifts(chatId: Components.Schemas.ChatId, excludeUnsaved: Swift.Bool? = nil, excludeSaved: Swift.Bool? = nil, excludeUnlimited: Swift.Bool? = nil, excludeLimitedUpgradable: Swift.Bool? = nil, excludeLimitedNonUpgradable: Swift.Bool? = nil, excludeFromBlockchain: Swift.Bool? = nil, excludeUnique: Swift.Bool? = nil, sortByPrice: Swift.Bool? = nil, offset: Swift.String? = nil, limit: Swift.Int64? = nil) async throws -> Components.Schemas.OwnedGifts {
         try await self.pace(chatId: chatId)
-        let output = try await self.api.getChatGifts(.init(query: .init(chatId: chatId, excludeUnsaved: excludeUnsaved, excludeSaved: excludeSaved, excludeUnlimited: excludeUnlimited, excludeLimitedUpgradable: excludeLimitedUpgradable, excludeLimitedNonUpgradable: excludeLimitedNonUpgradable, excludeFromBlockchain: excludeFromBlockchain, excludeUnique: excludeUnique, sortByPrice: sortByPrice, offset: offset, limit: limit)))
+        let output = try await self.api.getChatGifts(.init(body: .json(.init(
+            chatId: chatId,
+            excludeUnsaved: excludeUnsaved,
+            excludeSaved: excludeSaved,
+            excludeUnlimited: excludeUnlimited,
+            excludeLimitedUpgradable: excludeLimitedUpgradable,
+            excludeLimitedNonUpgradable: excludeLimitedNonUpgradable,
+            excludeFromBlockchain: excludeFromBlockchain,
+            excludeUnique: excludeUnique,
+            sortByPrice: sortByPrice,
+            offset: offset,
+            limit: limit
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -473,7 +509,10 @@ public extension TelegramBotClient {
     /// StarTransactions object.
     @discardableResult
     func getStarTransactions(offset: Swift.Int64? = nil, limit: Swift.Int64? = nil) async throws -> Components.Schemas.StarTransactions {
-        let output = try await self.api.getStarTransactions(.init(query: .init(offset: offset, limit: limit)))
+        let output = try await self.api.getStarTransactions(.init(body: .json(.init(
+            offset: offset,
+            limit: limit
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result

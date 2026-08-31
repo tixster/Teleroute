@@ -43,8 +43,8 @@ public struct Client: APIProtocol {
     /// Use this method to receive incoming updates using long polling (wiki). Returns an Array of Update objects.
     /// Notes 1. This method will not work if an outgoing webhook is set up. 2. In order to avoid getting duplicate updates, recalculate offset after each server response.
     ///
-    /// - Remark: HTTP `GET /getUpdates`.
-    /// - Remark: Generated from `#/paths//getUpdates/get(getUpdates)`.
+    /// - Remark: HTTP `POST /getUpdates`.
+    /// - Remark: Generated from `#/paths//getUpdates/post(getUpdates)`.
     public func getUpdates(_ input: Operations.GetUpdates.Input) async throws -> Operations.GetUpdates.Output {
         try await client.send(
             input: input,
@@ -56,42 +56,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "offset",
-                    value: input.query.offset
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "timeout",
-                    value: input.query.timeout
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "allowed_updates",
-                    value: input.query.allowedUpdates
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -396,8 +377,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get current webhook status. Requires no parameters. On success, returns a WebhookInfo object. If the bot is using getUpdates, will return an object with the url field empty.
     ///
-    /// - Remark: HTTP `GET /getWebhookInfo`.
-    /// - Remark: Generated from `#/paths//getWebhookInfo/get(getWebhookInfo)`.
+    /// - Remark: HTTP `POST /getWebhookInfo`.
+    /// - Remark: Generated from `#/paths//getWebhookInfo/post(getWebhookInfo)`.
     public func getWebhookInfo(_ input: Operations.GetWebhookInfo.Input) async throws -> Operations.GetWebhookInfo.Output {
         try await client.send(
             input: input,
@@ -409,7 +390,7 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
                 converter.setAcceptHeader(
@@ -458,8 +439,8 @@ public struct Client: APIProtocol {
     ///
     /// A simple method for testing your bot's authentication token. Requires no parameters. Returns basic information about the bot in form of a User object.
     ///
-    /// - Remark: HTTP `GET /getMe`.
-    /// - Remark: Generated from `#/paths//getMe/get(getMe)`.
+    /// - Remark: HTTP `POST /getMe`.
+    /// - Remark: Generated from `#/paths//getMe/post(getMe)`.
     public func getMe(_ input: Operations.GetMe.Input) async throws -> Operations.GetMe.Output {
         try await client.send(
             input: input,
@@ -471,7 +452,7 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
                 converter.setAcceptHeader(
@@ -5782,8 +5763,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get a list of profile pictures for a user. Returns a UserProfilePhotos object.
     ///
-    /// - Remark: HTTP `GET /getUserProfilePhotos`.
-    /// - Remark: Generated from `#/paths//getUserProfilePhotos/get(getUserProfilePhotos)`.
+    /// - Remark: HTTP `POST /getUserProfilePhotos`.
+    /// - Remark: Generated from `#/paths//getUserProfilePhotos/post(getUserProfilePhotos)`.
     public func getUserProfilePhotos(_ input: Operations.GetUserProfilePhotos.Input) async throws -> Operations.GetUserProfilePhotos.Output {
         try await client.send(
             input: input,
@@ -5795,35 +5776,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "user_id",
-                    value: input.query.userId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "offset",
-                    value: input.query.offset
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -5865,8 +5834,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get a list of profile audios for a user. Returns a UserProfileAudios object.
     ///
-    /// - Remark: HTTP `GET /getUserProfileAudios`.
-    /// - Remark: Generated from `#/paths//getUserProfileAudios/get(getUserProfileAudios)`.
+    /// - Remark: HTTP `POST /getUserProfileAudios`.
+    /// - Remark: Generated from `#/paths//getUserProfileAudios/post(getUserProfileAudios)`.
     public func getUserProfileAudios(_ input: Operations.GetUserProfileAudios.Input) async throws -> Operations.GetUserProfileAudios.Output {
         try await client.send(
             input: input,
@@ -5878,35 +5847,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "user_id",
-                    value: input.query.userId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "offset",
-                    value: input.query.offset
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -6020,8 +5977,8 @@ public struct Client: APIProtocol {
     /// Use this method to get basic information about a file and prepare it for downloading. For the moment, bots can download files of up to 20MB in size. On success, a File object is returned. The file can then be downloaded via the link https://api.telegram.org/file/bot<token>/<file_path>, where <file_path> is taken from the response. It is guaranteed that the link will be valid for at least 1 hour. When the link expires, a new one can be requested by calling getFile again.
     /// Note: This function may not preserve the original file name and MIME type. You should save the file's MIME type and name (if available) when the File object is received.
     ///
-    /// - Remark: HTTP `GET /getFile`.
-    /// - Remark: Generated from `#/paths//getFile/get(getFile)`.
+    /// - Remark: HTTP `POST /getFile`.
+    /// - Remark: Generated from `#/paths//getFile/post(getFile)`.
     public func getFile(_ input: Operations.GetFile.Input) async throws -> Operations.GetFile.Output {
         try await client.send(
             input: input,
@@ -6033,21 +5990,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "file_id",
-                    value: input.query.fileId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -8049,8 +8008,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get up-to-date information about the chat. Returns a ChatFullInfo object on success.
     ///
-    /// - Remark: HTTP `GET /getChat`.
-    /// - Remark: Generated from `#/paths//getChat/get(getChat)`.
+    /// - Remark: HTTP `POST /getChat`.
+    /// - Remark: Generated from `#/paths//getChat/post(getChat)`.
     public func getChat(_ input: Operations.GetChat.Input) async throws -> Operations.GetChat.Output {
         try await client.send(
             input: input,
@@ -8062,21 +8021,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "chat_id",
-                    value: input.query.chatId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -8118,8 +8079,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get a list of administrators in a chat. Returns an Array of ChatMember objects.
     ///
-    /// - Remark: HTTP `GET /getChatAdministrators`.
-    /// - Remark: Generated from `#/paths//getChatAdministrators/get(getChatAdministrators)`.
+    /// - Remark: HTTP `POST /getChatAdministrators`.
+    /// - Remark: Generated from `#/paths//getChatAdministrators/post(getChatAdministrators)`.
     public func getChatAdministrators(_ input: Operations.GetChatAdministrators.Input) async throws -> Operations.GetChatAdministrators.Output {
         try await client.send(
             input: input,
@@ -8131,28 +8092,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "chat_id",
-                    value: input.query.chatId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "return_bots",
-                    value: input.query.returnBots
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -8194,8 +8150,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the number of members in a chat. Returns Integer on success.
     ///
-    /// - Remark: HTTP `GET /getChatMemberCount`.
-    /// - Remark: Generated from `#/paths//getChatMemberCount/get(getChatMemberCount)`.
+    /// - Remark: HTTP `POST /getChatMemberCount`.
+    /// - Remark: Generated from `#/paths//getChatMemberCount/post(getChatMemberCount)`.
     public func getChatMemberCount(_ input: Operations.GetChatMemberCount.Input) async throws -> Operations.GetChatMemberCount.Output {
         try await client.send(
             input: input,
@@ -8207,21 +8163,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "chat_id",
-                    value: input.query.chatId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -8263,8 +8221,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get information about a member of a chat. The method is only guaranteed to work for other users if the bot is an administrator in the chat. Returns a ChatMember object on success.
     ///
-    /// - Remark: HTTP `GET /getChatMember`.
-    /// - Remark: Generated from `#/paths//getChatMember/get(getChatMember)`.
+    /// - Remark: HTTP `POST /getChatMember`.
+    /// - Remark: Generated from `#/paths//getChatMember/post(getChatMember)`.
     public func getChatMember(_ input: Operations.GetChatMember.Input) async throws -> Operations.GetChatMember.Output {
         try await client.send(
             input: input,
@@ -8276,28 +8234,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "chat_id",
-                    value: input.query.chatId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "user_id",
-                    value: input.query.userId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -8339,8 +8292,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the last messages from the personal chat (i.e., the chat currently added to their profile) of a given user. On success, an Array of Message objects is returned.
     ///
-    /// - Remark: HTTP `GET /getUserPersonalChatMessages`.
-    /// - Remark: Generated from `#/paths//getUserPersonalChatMessages/get(getUserPersonalChatMessages)`.
+    /// - Remark: HTTP `POST /getUserPersonalChatMessages`.
+    /// - Remark: Generated from `#/paths//getUserPersonalChatMessages/post(getUserPersonalChatMessages)`.
     public func getUserPersonalChatMessages(_ input: Operations.GetUserPersonalChatMessages.Input) async throws -> Operations.GetUserPersonalChatMessages.Output {
         try await client.send(
             input: input,
@@ -8352,28 +8305,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "user_id",
-                    value: input.query.userId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -8557,8 +8505,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get custom emoji stickers, which can be used as a forum topic icon by any user. Requires no parameters. Returns an Array of Sticker objects.
     ///
-    /// - Remark: HTTP `GET /getForumTopicIconStickers`.
-    /// - Remark: Generated from `#/paths//getForumTopicIconStickers/get(getForumTopicIconStickers)`.
+    /// - Remark: HTTP `POST /getForumTopicIconStickers`.
+    /// - Remark: Generated from `#/paths//getForumTopicIconStickers/post(getForumTopicIconStickers)`.
     public func getForumTopicIconStickers(_ input: Operations.GetForumTopicIconStickers.Input) async throws -> Operations.GetForumTopicIconStickers.Output {
         try await client.send(
             input: input,
@@ -8570,7 +8518,7 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
                 converter.setAcceptHeader(
@@ -9668,8 +9616,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the list of boosts added to a chat by a user. Requires administrator rights in the chat. Returns a UserChatBoosts object.
     ///
-    /// - Remark: HTTP `GET /getUserChatBoosts`.
-    /// - Remark: Generated from `#/paths//getUserChatBoosts/get(getUserChatBoosts)`.
+    /// - Remark: HTTP `POST /getUserChatBoosts`.
+    /// - Remark: Generated from `#/paths//getUserChatBoosts/post(getUserChatBoosts)`.
     public func getUserChatBoosts(_ input: Operations.GetUserChatBoosts.Input) async throws -> Operations.GetUserChatBoosts.Output {
         try await client.send(
             input: input,
@@ -9681,28 +9629,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "chat_id",
-                    value: input.query.chatId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "user_id",
-                    value: input.query.userId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -9744,8 +9687,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get information about the connection of the bot with a business account. Returns a BusinessConnection object on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessConnection`.
-    /// - Remark: Generated from `#/paths//getBusinessConnection/get(getBusinessConnection)`.
+    /// - Remark: HTTP `POST /getBusinessConnection`.
+    /// - Remark: Generated from `#/paths//getBusinessConnection/post(getBusinessConnection)`.
     public func getBusinessConnection(_ input: Operations.GetBusinessConnection.Input) async throws -> Operations.GetBusinessConnection.Output {
         try await client.send(
             input: input,
@@ -9757,21 +9700,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "business_connection_id",
-                    value: input.query.businessConnectionId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -9813,8 +9758,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the token of a managed bot. Returns the token as String on success.
     ///
-    /// - Remark: HTTP `GET /getManagedBotToken`.
-    /// - Remark: Generated from `#/paths//getManagedBotToken/get(getManagedBotToken)`.
+    /// - Remark: HTTP `POST /getManagedBotToken`.
+    /// - Remark: Generated from `#/paths//getManagedBotToken/post(getManagedBotToken)`.
     public func getManagedBotToken(_ input: Operations.GetManagedBotToken.Input) async throws -> Operations.GetManagedBotToken.Output {
         try await client.send(
             input: input,
@@ -9826,21 +9771,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "user_id",
-                    value: input.query.userId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -9953,8 +9900,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the access settings of a managed bot. Returns a BotAccessSettings object on success.
     ///
-    /// - Remark: HTTP `GET /getManagedBotAccessSettings`.
-    /// - Remark: Generated from `#/paths//getManagedBotAccessSettings/get(getManagedBotAccessSettings)`.
+    /// - Remark: HTTP `POST /getManagedBotAccessSettings`.
+    /// - Remark: Generated from `#/paths//getManagedBotAccessSettings/post(getManagedBotAccessSettings)`.
     public func getManagedBotAccessSettings(_ input: Operations.GetManagedBotAccessSettings.Input) async throws -> Operations.GetManagedBotAccessSettings.Output {
         try await client.send(
             input: input,
@@ -9966,21 +9913,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "user_id",
-                    value: input.query.userId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -10235,8 +10184,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the current list of the bot's commands for the given scope and user language. Returns an Array of BotCommand objects. If commands aren't set, an empty list is returned.
     ///
-    /// - Remark: HTTP `GET /getMyCommands`.
-    /// - Remark: Generated from `#/paths//getMyCommands/get(getMyCommands)`.
+    /// - Remark: HTTP `POST /getMyCommands`.
+    /// - Remark: Generated from `#/paths//getMyCommands/post(getMyCommands)`.
     public func getMyCommands(_ input: Operations.GetMyCommands.Input) async throws -> Operations.GetMyCommands.Output {
         try await client.send(
             input: input,
@@ -10248,28 +10197,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "scope",
-                    value: input.query.scope
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "language_code",
-                    value: input.query.languageCode
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -10382,8 +10326,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the current bot name for the given user language. Returns BotName on success.
     ///
-    /// - Remark: HTTP `GET /getMyName`.
-    /// - Remark: Generated from `#/paths//getMyName/get(getMyName)`.
+    /// - Remark: HTTP `POST /getMyName`.
+    /// - Remark: Generated from `#/paths//getMyName/post(getMyName)`.
     public func getMyName(_ input: Operations.GetMyName.Input) async throws -> Operations.GetMyName.Output {
         try await client.send(
             input: input,
@@ -10395,21 +10339,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "language_code",
-                    value: input.query.languageCode
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -10522,8 +10468,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the current bot description for the given user language. Returns BotDescription on success.
     ///
-    /// - Remark: HTTP `GET /getMyDescription`.
-    /// - Remark: Generated from `#/paths//getMyDescription/get(getMyDescription)`.
+    /// - Remark: HTTP `POST /getMyDescription`.
+    /// - Remark: Generated from `#/paths//getMyDescription/post(getMyDescription)`.
     public func getMyDescription(_ input: Operations.GetMyDescription.Input) async throws -> Operations.GetMyDescription.Output {
         try await client.send(
             input: input,
@@ -10535,21 +10481,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "language_code",
-                    value: input.query.languageCode
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -10662,8 +10610,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the current bot short description for the given user language. Returns BotShortDescription on success.
     ///
-    /// - Remark: HTTP `GET /getMyShortDescription`.
-    /// - Remark: Generated from `#/paths//getMyShortDescription/get(getMyShortDescription)`.
+    /// - Remark: HTTP `POST /getMyShortDescription`.
+    /// - Remark: Generated from `#/paths//getMyShortDescription/post(getMyShortDescription)`.
     public func getMyShortDescription(_ input: Operations.GetMyShortDescription.Input) async throws -> Operations.GetMyShortDescription.Output {
         try await client.send(
             input: input,
@@ -10675,21 +10623,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "language_code",
-                    value: input.query.languageCode
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -10974,8 +10924,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the current value of the bot's menu button in a private chat, or the default menu button. Returns MenuButton on success.
     ///
-    /// - Remark: HTTP `GET /getChatMenuButton`.
-    /// - Remark: Generated from `#/paths//getChatMenuButton/get(getChatMenuButton)`.
+    /// - Remark: HTTP `POST /getChatMenuButton`.
+    /// - Remark: Generated from `#/paths//getChatMenuButton/post(getChatMenuButton)`.
     public func getChatMenuButton(_ input: Operations.GetChatMenuButton.Input) async throws -> Operations.GetChatMenuButton.Output {
         try await client.send(
             input: input,
@@ -10987,21 +10937,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "chat_id",
-                    value: input.query.chatId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -11114,8 +11066,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get the current default administrator rights of the bot. Returns ChatAdministratorRights on success.
     ///
-    /// - Remark: HTTP `GET /getMyDefaultAdministratorRights`.
-    /// - Remark: Generated from `#/paths//getMyDefaultAdministratorRights/get(getMyDefaultAdministratorRights)`.
+    /// - Remark: HTTP `POST /getMyDefaultAdministratorRights`.
+    /// - Remark: Generated from `#/paths//getMyDefaultAdministratorRights/post(getMyDefaultAdministratorRights)`.
     public func getMyDefaultAdministratorRights(_ input: Operations.GetMyDefaultAdministratorRights.Input) async throws -> Operations.GetMyDefaultAdministratorRights.Output {
         try await client.send(
             input: input,
@@ -11127,21 +11079,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "for_channels",
-                    value: input.query.forChannels
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -11183,8 +11137,8 @@ public struct Client: APIProtocol {
     ///
     /// Returns the list of gifts that can be sent by the bot to users and channel chats. Requires no parameters. Returns a Gifts object.
     ///
-    /// - Remark: HTTP `GET /getAvailableGifts`.
-    /// - Remark: Generated from `#/paths//getAvailableGifts/get(getAvailableGifts)`.
+    /// - Remark: HTTP `POST /getAvailableGifts`.
+    /// - Remark: Generated from `#/paths//getAvailableGifts/post(getAvailableGifts)`.
     public func getAvailableGifts(_ input: Operations.GetAvailableGifts.Input) async throws -> Operations.GetAvailableGifts.Output {
         try await client.send(
             input: input,
@@ -11196,7 +11150,7 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
                 converter.setAcceptHeader(
@@ -12309,8 +12263,8 @@ public struct Client: APIProtocol {
     ///
     /// Returns the amount of Telegram Stars owned by a managed business account. Requires the can_view_gifts_and_stars business bot right. Returns StarAmount on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessAccountStarBalance`.
-    /// - Remark: Generated from `#/paths//getBusinessAccountStarBalance/get(getBusinessAccountStarBalance)`.
+    /// - Remark: HTTP `POST /getBusinessAccountStarBalance`.
+    /// - Remark: Generated from `#/paths//getBusinessAccountStarBalance/post(getBusinessAccountStarBalance)`.
     public func getBusinessAccountStarBalance(_ input: Operations.GetBusinessAccountStarBalance.Input) async throws -> Operations.GetBusinessAccountStarBalance.Output {
         try await client.send(
             input: input,
@@ -12322,21 +12276,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "business_connection_id",
-                    value: input.query.businessConnectionId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -12449,8 +12405,8 @@ public struct Client: APIProtocol {
     ///
     /// Returns the gifts received and owned by a managed business account. Requires the can_view_gifts_and_stars business bot right. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessAccountGifts`.
-    /// - Remark: Generated from `#/paths//getBusinessAccountGifts/get(getBusinessAccountGifts)`.
+    /// - Remark: HTTP `POST /getBusinessAccountGifts`.
+    /// - Remark: Generated from `#/paths//getBusinessAccountGifts/post(getBusinessAccountGifts)`.
     public func getBusinessAccountGifts(_ input: Operations.GetBusinessAccountGifts.Input) async throws -> Operations.GetBusinessAccountGifts.Output {
         try await client.send(
             input: input,
@@ -12462,91 +12418,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "business_connection_id",
-                    value: input.query.businessConnectionId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_unsaved",
-                    value: input.query.excludeUnsaved
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_saved",
-                    value: input.query.excludeSaved
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_unlimited",
-                    value: input.query.excludeUnlimited
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_limited_upgradable",
-                    value: input.query.excludeLimitedUpgradable
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_limited_non_upgradable",
-                    value: input.query.excludeLimitedNonUpgradable
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_unique",
-                    value: input.query.excludeUnique
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_from_blockchain",
-                    value: input.query.excludeFromBlockchain
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "sort_by_price",
-                    value: input.query.sortByPrice
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "offset",
-                    value: input.query.offset
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -12588,8 +12476,8 @@ public struct Client: APIProtocol {
     ///
     /// Returns the gifts owned and hosted by a user. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getUserGifts`.
-    /// - Remark: Generated from `#/paths//getUserGifts/get(getUserGifts)`.
+    /// - Remark: HTTP `POST /getUserGifts`.
+    /// - Remark: Generated from `#/paths//getUserGifts/post(getUserGifts)`.
     public func getUserGifts(_ input: Operations.GetUserGifts.Input) async throws -> Operations.GetUserGifts.Output {
         try await client.send(
             input: input,
@@ -12601,77 +12489,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "user_id",
-                    value: input.query.userId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_unlimited",
-                    value: input.query.excludeUnlimited
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_limited_upgradable",
-                    value: input.query.excludeLimitedUpgradable
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_limited_non_upgradable",
-                    value: input.query.excludeLimitedNonUpgradable
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_from_blockchain",
-                    value: input.query.excludeFromBlockchain
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_unique",
-                    value: input.query.excludeUnique
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "sort_by_price",
-                    value: input.query.sortByPrice
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "offset",
-                    value: input.query.offset
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -12713,8 +12547,8 @@ public struct Client: APIProtocol {
     ///
     /// Returns the gifts owned by a chat. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getChatGifts`.
-    /// - Remark: Generated from `#/paths//getChatGifts/get(getChatGifts)`.
+    /// - Remark: HTTP `POST /getChatGifts`.
+    /// - Remark: Generated from `#/paths//getChatGifts/post(getChatGifts)`.
     public func getChatGifts(_ input: Operations.GetChatGifts.Input) async throws -> Operations.GetChatGifts.Output {
         try await client.send(
             input: input,
@@ -12726,91 +12560,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "chat_id",
-                    value: input.query.chatId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_unsaved",
-                    value: input.query.excludeUnsaved
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_saved",
-                    value: input.query.excludeSaved
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_unlimited",
-                    value: input.query.excludeUnlimited
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_limited_upgradable",
-                    value: input.query.excludeLimitedUpgradable
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_limited_non_upgradable",
-                    value: input.query.excludeLimitedNonUpgradable
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_from_blockchain",
-                    value: input.query.excludeFromBlockchain
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "exclude_unique",
-                    value: input.query.excludeUnique
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "sort_by_price",
-                    value: input.query.sortByPrice
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "offset",
-                    value: input.query.offset
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -16217,8 +15983,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get a sticker set. On success, a StickerSet object is returned.
     ///
-    /// - Remark: HTTP `GET /getStickerSet`.
-    /// - Remark: Generated from `#/paths//getStickerSet/get(getStickerSet)`.
+    /// - Remark: HTTP `POST /getStickerSet`.
+    /// - Remark: Generated from `#/paths//getStickerSet/post(getStickerSet)`.
     public func getStickerSet(_ input: Operations.GetStickerSet.Input) async throws -> Operations.GetStickerSet.Output {
         try await client.send(
             input: input,
@@ -16230,21 +15996,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "name",
-                    value: input.query.name
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -16286,8 +16054,8 @@ public struct Client: APIProtocol {
     ///
     /// Use this method to get information about custom emoji stickers by their identifiers. Returns an Array of Sticker objects.
     ///
-    /// - Remark: HTTP `GET /getCustomEmojiStickers`.
-    /// - Remark: Generated from `#/paths//getCustomEmojiStickers/get(getCustomEmojiStickers)`.
+    /// - Remark: HTTP `POST /getCustomEmojiStickers`.
+    /// - Remark: Generated from `#/paths//getCustomEmojiStickers/post(getCustomEmojiStickers)`.
     public func getCustomEmojiStickers(_ input: Operations.GetCustomEmojiStickers.Input) async throws -> Operations.GetCustomEmojiStickers.Output {
         try await client.send(
             input: input,
@@ -16299,21 +16067,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "custom_emoji_ids",
-                    value: input.query.customEmojiIds
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -18625,8 +18395,8 @@ public struct Client: APIProtocol {
     ///
     /// A method to get the current Telegram Stars balance of the bot. Requires no parameters. On success, returns a StarAmount object.
     ///
-    /// - Remark: HTTP `GET /getMyStarBalance`.
-    /// - Remark: Generated from `#/paths//getMyStarBalance/get(getMyStarBalance)`.
+    /// - Remark: HTTP `POST /getMyStarBalance`.
+    /// - Remark: Generated from `#/paths//getMyStarBalance/post(getMyStarBalance)`.
     public func getMyStarBalance(_ input: Operations.GetMyStarBalance.Input) async throws -> Operations.GetMyStarBalance.Output {
         try await client.send(
             input: input,
@@ -18638,7 +18408,7 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
                 converter.setAcceptHeader(
@@ -18687,8 +18457,8 @@ public struct Client: APIProtocol {
     ///
     /// Returns the bot's Telegram Star transactions in chronological order. On success, returns a StarTransactions object.
     ///
-    /// - Remark: HTTP `GET /getStarTransactions`.
-    /// - Remark: Generated from `#/paths//getStarTransactions/get(getStarTransactions)`.
+    /// - Remark: HTTP `POST /getStarTransactions`.
+    /// - Remark: Generated from `#/paths//getStarTransactions/post(getStarTransactions)`.
     public func getStarTransactions(_ input: Operations.GetStarTransactions.Input) async throws -> Operations.GetStarTransactions.Output {
         try await client.send(
             input: input,
@@ -18700,28 +18470,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "offset",
-                    value: input.query.offset
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "limit",
-                    value: input.query.limit
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {
@@ -19120,8 +18885,8 @@ public struct Client: APIProtocol {
     /// Use this method to get data for high score tables. Will return the score of the specified user and several of their neighbors in a game. Returns an Array of GameHighScore objects.
     /// This method will currently return scores for the target user, plus two of their closest neighbors on each side. Will also return the top three users if the user and their neighbors are not among them. Please note that this behavior is subject to change.
     ///
-    /// - Remark: HTTP `GET /getGameHighScores`.
-    /// - Remark: Generated from `#/paths//getGameHighScores/get(getGameHighScores)`.
+    /// - Remark: HTTP `POST /getGameHighScores`.
+    /// - Remark: Generated from `#/paths//getGameHighScores/post(getGameHighScores)`.
     public func getGameHighScores(_ input: Operations.GetGameHighScores.Input) async throws -> Operations.GetGameHighScores.Output {
         try await client.send(
             input: input,
@@ -19133,42 +18898,23 @@ public struct Client: APIProtocol {
                 )
                 var request: HTTPTypes.HTTPRequest = .init(
                     soar_path: path,
-                    method: .get
+                    method: .post
                 )
                 suppressMutabilityWarning(&request)
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "user_id",
-                    value: input.query.userId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "chat_id",
-                    value: input.query.chatId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "message_id",
-                    value: input.query.messageId
-                )
-                try converter.setQueryItemAsURI(
-                    in: &request,
-                    style: .form,
-                    explode: true,
-                    name: "inline_message_id",
-                    value: input.query.inlineMessageId
-                )
                 converter.setAcceptHeader(
                     in: &request.headerFields,
                     contentTypes: input.headers.accept
                 )
-                return (request, nil)
+                let body: OpenAPIRuntime.HTTPBody?
+                switch input.body {
+                case let .json(value):
+                    body = try converter.setRequiredRequestBodyAsJSON(
+                        value,
+                        headerFields: &request.headerFields,
+                        contentType: "application/json; charset=utf-8"
+                    )
+                }
+                return (request, body)
             },
             deserializer: { response, responseBody in
                 switch response.status.code {

@@ -42,8 +42,8 @@ public extension RouterMethods {
     ///
     /// The handler verifies `X-Telegram-Bot-Api-Secret-Token` (when a secret
     /// is configured), decodes the `Update`, and feeds it to the bot's update
-    /// pipeline. Run the bot in ``TelerouteBotMode/webhook`` mode so it does
-    /// not also poll.
+    /// pipeline. Run the bot in webhook mode (`TelerouteBotMode.webhook`) so
+    /// it does not also poll.
     ///
     /// ```swift
     /// let router = Router()

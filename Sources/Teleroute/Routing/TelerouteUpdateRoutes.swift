@@ -130,6 +130,9 @@ public extension TelerouteRouterGroup {
     ///   - filter: Content filter, e.g. `.text`, `.photo`, `.custom { ... }`.
     ///   - sources: Which update fields to accept messages from
     ///     (default: fresh direct messages only).
+    ///   - guards: Guards evaluated before the handler runs.
+    ///   - middlewares: Middleware wrapping this route's handler.
+    ///   - handler: Route handler returning any ``TelerouteResponseGenerator``.
     func message<Response: TelerouteResponseGenerator>(
         _ filter: TelerouteMessageFilter = .any,
         from sources: Set<TelerouteMessageSource> = [.message],

@@ -12725,51 +12725,7 @@
   },
   "paths": {
     "/getUpdates": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Identifier of the first update to be returned. Must be greater by one than the highest among the identifiers of previously received updates. By default, updates starting with the earliest unconfirmed update are returned. An update is considered confirmed as soon as [getUpdates](https://core.telegram.org/bots/api#getupdates) is called with an *offset* higher than its *update_id*. The negative offset can be specified to retrieve updates starting from *-offset* update from the end of the updates queue. All previous updates will be forgotten.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "offset"
-          },
-          {
-            "description": "Limits the number of updates to be retrieved. Values between 1-100 are accepted. Defaults to 100.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "limit"
-          },
-          {
-            "description": "Timeout in seconds for long polling. Defaults to 0, i.e. usual short polling. Should be positive, short polling should be used for testing purposes only.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "timeout"
-          },
-          {
-            "description": "A JSON-serialized list of the update types you want your bot to receive. For example, specify `[\"message\", \"edited_channel_post\", \"callback_query\"]` to only receive updates of these types. See [Update](https://core.telegram.org/bots/api#update) for a complete list of available update types. Specify an empty list to receive all update types except *chat_member*, *message_reaction*, and *message_reaction_count* (default). If not specified, the previous setting will be used.Please note that this parameter doesn't affect updates created before the call to getUpdates, so unwanted updates may be received for a short period of time.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "name": "allowed_updates"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -12799,7 +12755,41 @@
         },
         "summary": "getUpdates",
         "description": "Use this method to receive incoming updates using long polling (wiki). Returns an Array of Update objects.\nNotes 1. This method will not work if an outgoing webhook is set up. 2. In order to avoid getting duplicate updates, recalculate offset after each server response.",
-        "operationId": "getUpdates"
+        "operationId": "getUpdates",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "offset": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Identifier of the first update to be returned. Must be greater by one than the highest among the identifiers of previously received updates. By default, updates starting with the earliest unconfirmed update are returned. An update is considered confirmed as soon as [getUpdates](https://core.telegram.org/bots/api#getupdates) is called with an *offset* higher than its *update_id*. The negative offset can be specified to retrieve updates starting from *-offset* update from the end of the updates queue. All previous updates will be forgotten."
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Limits the number of updates to be retrieved. Values between 1-100 are accepted. Defaults to 100."
+                  },
+                  "timeout": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Timeout in seconds for long polling. Defaults to 0, i.e. usual short polling. Should be positive, short polling should be used for testing purposes only."
+                  },
+                  "allowed_updates": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "A JSON-serialized list of the update types you want your bot to receive. For example, specify `[\"message\", \"edited_channel_post\", \"callback_query\"]` to only receive updates of these types. See [Update](https://core.telegram.org/bots/api#update) for a complete list of available update types. Specify an empty list to receive all update types except *chat_member*, *message_reaction*, and *message_reaction_count* (default). If not specified, the previous setting will be used.Please note that this parameter doesn't affect updates created before the call to getUpdates, so unwanted updates may be received for a short period of time."
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/setWebhook": {
@@ -12927,8 +12917,7 @@
       }
     },
     "/getWebhookInfo": {
-      "get": {
-        "parameters": [],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -12959,8 +12948,7 @@
       }
     },
     "/getMe": {
-      "get": {
-        "parameters": [],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -15823,39 +15811,7 @@
       }
     },
     "/getUserProfilePhotos": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier of the target user",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "user_id"
-          },
-          {
-            "description": "Sequential number of the first photo to be returned. By default, all photos are returned.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "offset"
-          },
-          {
-            "description": "Limits the number of photos to be retrieved. Values between 1-100 are accepted. Defaults to 100.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "limit"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -15882,43 +15838,41 @@
         },
         "summary": "getUserProfilePhotos",
         "description": "Use this method to get a list of profile pictures for a user. Returns a UserProfilePhotos object.",
-        "operationId": "getUserProfilePhotos"
+        "operationId": "getUserProfilePhotos",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Unique identifier of the target user"
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Sequential number of the first photo to be returned. By default, all photos are returned."
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Limits the number of photos to be retrieved. Values between 1-100 are accepted. Defaults to 100."
+                  }
+                },
+                "required": [
+                  "user_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/getUserProfileAudios": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier of the target user",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "user_id"
-          },
-          {
-            "description": "Sequential number of the first audio to be returned. By default, all audios are returned.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "offset"
-          },
-          {
-            "description": "Limits the number of audios to be retrieved. Values between 1-100 are accepted. Defaults to 100.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "limit"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -15945,7 +15899,37 @@
         },
         "summary": "getUserProfileAudios",
         "description": "Use this method to get a list of profile audios for a user. Returns a UserProfileAudios object.",
-        "operationId": "getUserProfileAudios"
+        "operationId": "getUserProfileAudios",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Unique identifier of the target user"
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Sequential number of the first audio to be returned. By default, all audios are returned."
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Limits the number of audios to be retrieved. Values between 1-100 are accepted. Defaults to 100."
+                  }
+                },
+                "required": [
+                  "user_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/setUserEmojiStatus": {
@@ -16009,18 +15993,7 @@
       }
     },
     "/getFile": {
-      "get": {
-        "parameters": [
-          {
-            "description": "File identifier to get information about",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "file_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -16047,7 +16020,26 @@
         },
         "summary": "getFile",
         "description": "Use this method to get basic information about a file and prepare it for downloading. For the moment, bots can download files of up to 20MB in size. On success, a File object is returned. The file can then be downloaded via the link https://api.telegram.org/file/bot<token>/<file_path>, where <file_path> is taken from the response. It is guaranteed that the link will be valid for at least 1 hour. When the link expires, a new one can be requested by calling getFile again.\nNote: This function may not preserve the original file name and MIME type. You should save the file's MIME type and name (if available) when the File object is received.",
-        "operationId": "getFile"
+        "operationId": "getFile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file_id": {
+                    "type": "string",
+                    "description": "File identifier to get information about"
+                  }
+                },
+                "required": [
+                  "file_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/banChatMember": {
@@ -17668,18 +17660,7 @@
       }
     },
     "/getChat": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/ChatId"
-            },
-            "name": "chat_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -17706,31 +17687,29 @@
         },
         "summary": "getChat",
         "description": "Use this method to get up-to-date information about the chat. Returns a ChatFullInfo object on success.",
-        "operationId": "getChat"
+        "operationId": "getChat",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chat_id": {
+                    "$ref": "#/components/schemas/ChatId"
+                  }
+                },
+                "required": [
+                  "chat_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/getChatAdministrators": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/ChatId"
-            },
-            "name": "chat_id"
-          },
-          {
-            "description": "Pass *True* to additionally receive all bots that are administrators of the chat. By default, bots other than the current bot are omitted.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "return_bots"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -17760,22 +17739,33 @@
         },
         "summary": "getChatAdministrators",
         "description": "Use this method to get a list of administrators in a chat. Returns an Array of ChatMember objects.",
-        "operationId": "getChatAdministrators"
+        "operationId": "getChatAdministrators",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chat_id": {
+                    "$ref": "#/components/schemas/ChatId"
+                  },
+                  "return_bots": {
+                    "type": "boolean",
+                    "description": "Pass *True* to additionally receive all bots that are administrators of the chat. By default, bots other than the current bot are omitted."
+                  }
+                },
+                "required": [
+                  "chat_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/getChatMemberCount": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/ChatId"
-            },
-            "name": "chat_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -17803,32 +17793,29 @@
         },
         "summary": "getChatMemberCount",
         "description": "Use this method to get the number of members in a chat. Returns Integer on success.",
-        "operationId": "getChatMemberCount"
+        "operationId": "getChatMemberCount",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chat_id": {
+                    "$ref": "#/components/schemas/ChatId"
+                  }
+                },
+                "required": [
+                  "chat_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/getChatMember": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/ChatId"
-            },
-            "name": "chat_id"
-          },
-          {
-            "description": "Unique identifier of the target user",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "user_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -17855,33 +17842,35 @@
         },
         "summary": "getChatMember",
         "description": "Use this method to get information about a member of a chat. The method is only guaranteed to work for other users if the bot is an administrator in the chat. Returns a ChatMember object on success.",
-        "operationId": "getChatMember"
+        "operationId": "getChatMember",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chat_id": {
+                    "$ref": "#/components/schemas/ChatId"
+                  },
+                  "user_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Unique identifier of the target user"
+                  }
+                },
+                "required": [
+                  "chat_id",
+                  "user_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/getUserPersonalChatMessages": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier for the target user",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "user_id"
-          },
-          {
-            "description": "The maximum number of messages to return; 1-20",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "limit"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -17911,7 +17900,33 @@
         },
         "summary": "getUserPersonalChatMessages",
         "description": "Use this method to get the last messages from the personal chat (i.e., the chat currently added to their profile) of a given user. On success, an Array of Message objects is returned.",
-        "operationId": "getUserPersonalChatMessages"
+        "operationId": "getUserPersonalChatMessages",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Unique identifier for the target user"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "The maximum number of messages to return; 1-20"
+                  }
+                },
+                "required": [
+                  "user_id",
+                  "limit"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/setChatStickerSet": {
@@ -18018,8 +18033,7 @@
       }
     },
     "/getForumTopicIconStickers": {
-      "get": {
-        "parameters": [],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -18824,28 +18838,7 @@
       }
     },
     "/getUserChatBoosts": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier for the chat or username of the channel in the format `@username`",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/ChatId"
-            },
-            "name": "chat_id"
-          },
-          {
-            "description": "Unique identifier of the target user",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "user_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -18872,22 +18865,35 @@
         },
         "summary": "getUserChatBoosts",
         "description": "Use this method to get the list of boosts added to a chat by a user. Requires administrator rights in the chat. Returns a UserChatBoosts object.",
-        "operationId": "getUserChatBoosts"
+        "operationId": "getUserChatBoosts",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chat_id": {
+                    "$ref": "#/components/schemas/ChatId"
+                  },
+                  "user_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Unique identifier of the target user"
+                  }
+                },
+                "required": [
+                  "chat_id",
+                  "user_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/getBusinessConnection": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier of the business connection",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "business_connection_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -18914,23 +18920,30 @@
         },
         "summary": "getBusinessConnection",
         "description": "Use this method to get information about the connection of the bot with a business account. Returns a BusinessConnection object on success.",
-        "operationId": "getBusinessConnection"
+        "operationId": "getBusinessConnection",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "business_connection_id": {
+                    "type": "string",
+                    "description": "Unique identifier of the business connection"
+                  }
+                },
+                "required": [
+                  "business_connection_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/getManagedBotToken": {
-      "get": {
-        "parameters": [
-          {
-            "description": "User identifier of the managed bot whose token will be returned",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "user_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -18957,7 +18970,27 @@
         },
         "summary": "getManagedBotToken",
         "description": "Use this method to get the token of a managed bot. Returns the token as String on success.",
-        "operationId": "getManagedBotToken"
+        "operationId": "getManagedBotToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "User identifier of the managed bot whose token will be returned"
+                  }
+                },
+                "required": [
+                  "user_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/replaceManagedBotToken": {
@@ -19012,19 +19045,7 @@
       }
     },
     "/getManagedBotAccessSettings": {
-      "get": {
-        "parameters": [
-          {
-            "description": "User identifier of the managed bot whose access settings will be returned",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "user_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -19051,7 +19072,27 @@
         },
         "summary": "getManagedBotAccessSettings",
         "description": "Use this method to get the access settings of a managed bot. Returns a BotAccessSettings object on success.",
-        "operationId": "getManagedBotAccessSettings"
+        "operationId": "getManagedBotAccessSettings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "User identifier of the managed bot whose access settings will be returned"
+                  }
+                },
+                "required": [
+                  "user_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/setManagedBotAccessSettings": {
@@ -19229,27 +19270,7 @@
       }
     },
     "/getMyCommands": {
-      "get": {
-        "parameters": [
-          {
-            "description": "A JSON-serialized object, describing scope of users. Defaults to [BotCommandScopeDefault](https://core.telegram.org/bots/api#botcommandscopedefault).",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/BotCommandScope"
-            },
-            "name": "scope"
-          },
-          {
-            "description": "A two-letter ISO 639-1 language code or an empty string",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "language_code"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -19279,7 +19300,27 @@
         },
         "summary": "getMyCommands",
         "description": "Use this method to get the current list of the bot's commands for the given scope and user language. Returns an Array of BotCommand objects. If commands aren't set, an empty list is returned.",
-        "operationId": "getMyCommands"
+        "operationId": "getMyCommands",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "$ref": "#/components/schemas/BotCommandScope",
+                    "description": "A JSON-serialized object, describing scope of users. Defaults to [BotCommandScopeDefault](https://core.telegram.org/bots/api#botcommandscopedefault)."
+                  },
+                  "language_code": {
+                    "type": "string",
+                    "description": "A two-letter ISO 639-1 language code or an empty string"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/setMyName": {
@@ -19334,18 +19375,7 @@
       }
     },
     "/getMyName": {
-      "get": {
-        "parameters": [
-          {
-            "description": "A two-letter ISO 639-1 language code or an empty string",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "language_code"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -19372,7 +19402,23 @@
         },
         "summary": "getMyName",
         "description": "Use this method to get the current bot name for the given user language. Returns BotName on success.",
-        "operationId": "getMyName"
+        "operationId": "getMyName",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "language_code": {
+                    "type": "string",
+                    "description": "A two-letter ISO 639-1 language code or an empty string"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/setMyDescription": {
@@ -19427,18 +19473,7 @@
       }
     },
     "/getMyDescription": {
-      "get": {
-        "parameters": [
-          {
-            "description": "A two-letter ISO 639-1 language code or an empty string",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "language_code"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -19465,7 +19500,23 @@
         },
         "summary": "getMyDescription",
         "description": "Use this method to get the current bot description for the given user language. Returns BotDescription on success.",
-        "operationId": "getMyDescription"
+        "operationId": "getMyDescription",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "language_code": {
+                    "type": "string",
+                    "description": "A two-letter ISO 639-1 language code or an empty string"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/setMyShortDescription": {
@@ -19520,18 +19571,7 @@
       }
     },
     "/getMyShortDescription": {
-      "get": {
-        "parameters": [
-          {
-            "description": "A two-letter ISO 639-1 language code or an empty string",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "language_code"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -19558,7 +19598,23 @@
         },
         "summary": "getMyShortDescription",
         "description": "Use this method to get the current bot short description for the given user language. Returns BotShortDescription on success.",
-        "operationId": "getMyShortDescription"
+        "operationId": "getMyShortDescription",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "language_code": {
+                    "type": "string",
+                    "description": "A two-letter ISO 639-1 language code or an empty string"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/setMyProfilePhoto": {
@@ -19698,19 +19754,7 @@
       }
     },
     "/getChatMenuButton": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier for the target private chat. If not specified, the bot's default menu button will be returned.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "chat_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -19737,7 +19781,24 @@
         },
         "summary": "getChatMenuButton",
         "description": "Use this method to get the current value of the bot's menu button in a private chat, or the default menu button. Returns MenuButton on success.",
-        "operationId": "getChatMenuButton"
+        "operationId": "getChatMenuButton",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chat_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Unique identifier for the target private chat. If not specified, the bot's default menu button will be returned."
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/setMyDefaultAdministratorRights": {
@@ -19791,18 +19852,7 @@
       }
     },
     "/getMyDefaultAdministratorRights": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Pass *True* to get default administrator rights of the bot in channels. Otherwise, default administrator rights of the bot for groups and supergroups will be returned.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "for_channels"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -19829,12 +19879,27 @@
         },
         "summary": "getMyDefaultAdministratorRights",
         "description": "Use this method to get the current default administrator rights of the bot. Returns ChatAdministratorRights on success.",
-        "operationId": "getMyDefaultAdministratorRights"
+        "operationId": "getMyDefaultAdministratorRights",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "for_channels": {
+                    "type": "boolean",
+                    "description": "Pass *True* to get default administrator rights of the bot in channels. Otherwise, default administrator rights of the bot for groups and supergroups will be returned."
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/getAvailableGifts": {
-      "get": {
-        "parameters": [],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -20692,18 +20757,7 @@
       }
     },
     "/getBusinessAccountStarBalance": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier of the business connection",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "business_connection_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -20730,7 +20784,26 @@
         },
         "summary": "getBusinessAccountStarBalance",
         "description": "Returns the amount of Telegram Stars owned by a managed business account. Requires the can_view_gifts_and_stars business bot right. Returns StarAmount on success.",
-        "operationId": "getBusinessAccountStarBalance"
+        "operationId": "getBusinessAccountStarBalance",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "business_connection_id": {
+                    "type": "string",
+                    "description": "Unique identifier of the business connection"
+                  }
+                },
+                "required": [
+                  "business_connection_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/transferBusinessAccountStars": {
@@ -20790,109 +20863,7 @@
       }
     },
     "/getBusinessAccountGifts": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier of the business connection",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "business_connection_id"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that aren't saved to the account's profile page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_unsaved"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that are saved to the account's profile page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_saved"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that can be purchased an unlimited number of times",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_unlimited"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_limited_upgradable"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_limited_non_upgradable"
-          },
-          {
-            "description": "Pass *True* to exclude unique gifts",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_unique"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_from_blockchain"
-          },
-          {
-            "description": "Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "sort_by_price"
-          },
-          {
-            "description": "Offset of the first entry to return as received from the previous request; use empty string to get the first chunk of results",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "offset"
-          },
-          {
-            "description": "The maximum number of gifts to be returned; 1-100. Defaults to 100.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "limit"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -20919,96 +20890,71 @@
         },
         "summary": "getBusinessAccountGifts",
         "description": "Returns the gifts received and owned by a managed business account. Requires the can_view_gifts_and_stars business bot right. Returns OwnedGifts on success.",
-        "operationId": "getBusinessAccountGifts"
+        "operationId": "getBusinessAccountGifts",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "business_connection_id": {
+                    "type": "string",
+                    "description": "Unique identifier of the business connection"
+                  },
+                  "exclude_unsaved": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that aren't saved to the account's profile page"
+                  },
+                  "exclude_saved": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that are saved to the account's profile page"
+                  },
+                  "exclude_unlimited": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that can be purchased an unlimited number of times"
+                  },
+                  "exclude_limited_upgradable": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique"
+                  },
+                  "exclude_limited_non_upgradable": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique"
+                  },
+                  "exclude_unique": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude unique gifts"
+                  },
+                  "exclude_from_blockchain": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram"
+                  },
+                  "sort_by_price": {
+                    "type": "boolean",
+                    "description": "Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination."
+                  },
+                  "offset": {
+                    "type": "string",
+                    "description": "Offset of the first entry to return as received from the previous request; use empty string to get the first chunk of results"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "The maximum number of gifts to be returned; 1-100. Defaults to 100."
+                  }
+                },
+                "required": [
+                  "business_connection_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/getUserGifts": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier of the user",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "user_id"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that can be purchased an unlimited number of times",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_unlimited"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_limited_upgradable"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_limited_non_upgradable"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_from_blockchain"
-          },
-          {
-            "description": "Pass *True* to exclude unique gifts",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_unique"
-          },
-          {
-            "description": "Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "sort_by_price"
-          },
-          {
-            "description": "Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "offset"
-          },
-          {
-            "description": "The maximum number of gifts to be returned; 1-100. Defaults to 100.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "limit"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -21035,113 +20981,64 @@
         },
         "summary": "getUserGifts",
         "description": "Returns the gifts owned and hosted by a user. Returns OwnedGifts on success.",
-        "operationId": "getUserGifts"
+        "operationId": "getUserGifts",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Unique identifier of the user"
+                  },
+                  "exclude_unlimited": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that can be purchased an unlimited number of times"
+                  },
+                  "exclude_limited_upgradable": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique"
+                  },
+                  "exclude_limited_non_upgradable": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique"
+                  },
+                  "exclude_from_blockchain": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram"
+                  },
+                  "exclude_unique": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude unique gifts"
+                  },
+                  "sort_by_price": {
+                    "type": "boolean",
+                    "description": "Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination."
+                  },
+                  "offset": {
+                    "type": "string",
+                    "description": "Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "The maximum number of gifts to be returned; 1-100. Defaults to 100."
+                  }
+                },
+                "required": [
+                  "user_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/getChatGifts": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Unique identifier for the target chat or username of the target channel in the format `@username`",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/ChatId"
-            },
-            "name": "chat_id"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that aren't saved to the chat's profile page. Always *True*, unless the bot has the *can_post_messages* administrator right in the channel.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_unsaved"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that are saved to the chat's profile page. Always *False*, unless the bot has the *can_post_messages* administrator right in the channel.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_saved"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that can be purchased an unlimited number of times",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_unlimited"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_limited_upgradable"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_limited_non_upgradable"
-          },
-          {
-            "description": "Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_from_blockchain"
-          },
-          {
-            "description": "Pass *True* to exclude unique gifts",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "exclude_unique"
-          },
-          {
-            "description": "Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            },
-            "name": "sort_by_price"
-          },
-          {
-            "description": "Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "offset"
-          },
-          {
-            "description": "The maximum number of gifts to be returned; 1-100. Defaults to 100.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "limit"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -21168,7 +21065,66 @@
         },
         "summary": "getChatGifts",
         "description": "Returns the gifts owned by a chat. Returns OwnedGifts on success.",
-        "operationId": "getChatGifts"
+        "operationId": "getChatGifts",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chat_id": {
+                    "$ref": "#/components/schemas/ChatId"
+                  },
+                  "exclude_unsaved": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that aren't saved to the chat's profile page. Always *True*, unless the bot has the *can_post_messages* administrator right in the channel."
+                  },
+                  "exclude_saved": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that are saved to the chat's profile page. Always *False*, unless the bot has the *can_post_messages* administrator right in the channel."
+                  },
+                  "exclude_unlimited": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that can be purchased an unlimited number of times"
+                  },
+                  "exclude_limited_upgradable": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique"
+                  },
+                  "exclude_limited_non_upgradable": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique"
+                  },
+                  "exclude_from_blockchain": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram"
+                  },
+                  "exclude_unique": {
+                    "type": "boolean",
+                    "description": "Pass *True* to exclude unique gifts"
+                  },
+                  "sort_by_price": {
+                    "type": "boolean",
+                    "description": "Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination."
+                  },
+                  "offset": {
+                    "type": "string",
+                    "description": "Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "The maximum number of gifts to be returned; 1-100. Defaults to 100."
+                  }
+                },
+                "required": [
+                  "chat_id"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/convertGiftToStars": {
@@ -23332,18 +23288,7 @@
       }
     },
     "/getStickerSet": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Name of the sticker set",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "name"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -23370,25 +23315,30 @@
         },
         "summary": "getStickerSet",
         "description": "Use this method to get a sticker set. On success, a StickerSet object is returned.",
-        "operationId": "getStickerSet"
+        "operationId": "getStickerSet",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Name of the sticker set"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/getCustomEmojiStickers": {
-      "get": {
-        "parameters": [
-          {
-            "description": "A JSON-serialized list of custom emoji identifiers. At most 200 custom emoji identifiers can be specified.",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "name": "custom_emoji_ids"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -23418,7 +23368,29 @@
         },
         "summary": "getCustomEmojiStickers",
         "description": "Use this method to get information about custom emoji stickers by their identifiers. Returns an Array of Sticker objects.",
-        "operationId": "getCustomEmojiStickers"
+        "operationId": "getCustomEmojiStickers",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "custom_emoji_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "A JSON-serialized list of custom emoji identifiers. At most 200 custom emoji identifiers can be specified."
+                  }
+                },
+                "required": [
+                  "custom_emoji_ids"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/uploadStickerFile": {
@@ -24921,8 +24893,7 @@
       }
     },
     "/getMyStarBalance": {
-      "get": {
-        "parameters": [],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -24953,29 +24924,7 @@
       }
     },
     "/getStarTransactions": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Number of transactions to skip in the response",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "offset"
-          },
-          {
-            "description": "The maximum number of transactions to be retrieved. Values between 1-100 are accepted. Defaults to 100.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "limit"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -25002,7 +24951,29 @@
         },
         "summary": "getStarTransactions",
         "description": "Returns the bot's Telegram Star transactions in chronological order. On success, returns a StarTransactions object.",
-        "operationId": "getStarTransactions"
+        "operationId": "getStarTransactions",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "offset": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Number of transactions to skip in the response"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "The maximum number of transactions to be retrieved. Values between 1-100 are accepted. Defaults to 100."
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/refundStarPayment": {
@@ -25353,48 +25324,7 @@
       }
     },
     "/getGameHighScores": {
-      "get": {
-        "parameters": [
-          {
-            "description": "Target user id",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "user_id"
-          },
-          {
-            "description": "Required if *inline_message_id* is not specified. Unique identifier for the target chat.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "chat_id"
-          },
-          {
-            "description": "Required if *inline_message_id* is not specified. Identifier of the sent message.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": "message_id"
-          },
-          {
-            "description": "Required if *chat_id* and *message_id* are not specified. Identifier of the inline message.",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "name": "inline_message_id"
-          }
-        ],
+      "post": {
         "responses": {
           "200": {
             "content": {
@@ -25424,7 +25354,41 @@
         },
         "summary": "getGameHighScores",
         "description": "Use this method to get data for high score tables. Will return the score of the specified user and several of their neighbors in a game. Returns an Array of GameHighScore objects.\nThis method will currently return scores for the target user, plus two of their closest neighbors on each side. Will also return the top three users if the user and their neighbors are not among them. Please note that this behavior is subject to change.",
-        "operationId": "getGameHighScores"
+        "operationId": "getGameHighScores",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Target user id"
+                  },
+                  "chat_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Required if *inline_message_id* is not specified. Unique identifier for the target chat."
+                  },
+                  "message_id": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "Required if *inline_message_id* is not specified. Identifier of the sent message."
+                  },
+                  "inline_message_id": {
+                    "type": "string",
+                    "description": "Required if *chat_id* and *message_id* are not specified. Identifier of the inline message."
+                  }
+                },
+                "required": [
+                  "user_id"
+                ]
+              }
+            }
+          }
+        }
       }
     }
   },

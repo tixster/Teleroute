@@ -16,8 +16,8 @@ public protocol APIProtocol: Sendable {
     /// Use this method to receive incoming updates using long polling (wiki). Returns an Array of Update objects.
     /// Notes 1. This method will not work if an outgoing webhook is set up. 2. In order to avoid getting duplicate updates, recalculate offset after each server response.
     ///
-    /// - Remark: HTTP `GET /getUpdates`.
-    /// - Remark: Generated from `#/paths//getUpdates/get(getUpdates)`.
+    /// - Remark: HTTP `POST /getUpdates`.
+    /// - Remark: Generated from `#/paths//getUpdates/post(getUpdates)`.
     func getUpdates(_ input: Operations.GetUpdates.Input) async throws -> Operations.GetUpdates.Output
     /// setWebhook
     ///
@@ -39,15 +39,15 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get current webhook status. Requires no parameters. On success, returns a WebhookInfo object. If the bot is using getUpdates, will return an object with the url field empty.
     ///
-    /// - Remark: HTTP `GET /getWebhookInfo`.
-    /// - Remark: Generated from `#/paths//getWebhookInfo/get(getWebhookInfo)`.
+    /// - Remark: HTTP `POST /getWebhookInfo`.
+    /// - Remark: Generated from `#/paths//getWebhookInfo/post(getWebhookInfo)`.
     func getWebhookInfo(_ input: Operations.GetWebhookInfo.Input) async throws -> Operations.GetWebhookInfo.Output
     /// getMe
     ///
     /// A simple method for testing your bot's authentication token. Requires no parameters. Returns basic information about the bot in form of a User object.
     ///
-    /// - Remark: HTTP `GET /getMe`.
-    /// - Remark: Generated from `#/paths//getMe/get(getMe)`.
+    /// - Remark: HTTP `POST /getMe`.
+    /// - Remark: Generated from `#/paths//getMe/post(getMe)`.
     func getMe(_ input: Operations.GetMe.Input) async throws -> Operations.GetMe.Output
     /// logOut
     ///
@@ -238,15 +238,15 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get a list of profile pictures for a user. Returns a UserProfilePhotos object.
     ///
-    /// - Remark: HTTP `GET /getUserProfilePhotos`.
-    /// - Remark: Generated from `#/paths//getUserProfilePhotos/get(getUserProfilePhotos)`.
+    /// - Remark: HTTP `POST /getUserProfilePhotos`.
+    /// - Remark: Generated from `#/paths//getUserProfilePhotos/post(getUserProfilePhotos)`.
     func getUserProfilePhotos(_ input: Operations.GetUserProfilePhotos.Input) async throws -> Operations.GetUserProfilePhotos.Output
     /// getUserProfileAudios
     ///
     /// Use this method to get a list of profile audios for a user. Returns a UserProfileAudios object.
     ///
-    /// - Remark: HTTP `GET /getUserProfileAudios`.
-    /// - Remark: Generated from `#/paths//getUserProfileAudios/get(getUserProfileAudios)`.
+    /// - Remark: HTTP `POST /getUserProfileAudios`.
+    /// - Remark: Generated from `#/paths//getUserProfileAudios/post(getUserProfileAudios)`.
     func getUserProfileAudios(_ input: Operations.GetUserProfileAudios.Input) async throws -> Operations.GetUserProfileAudios.Output
     /// setUserEmojiStatus
     ///
@@ -260,8 +260,8 @@ public protocol APIProtocol: Sendable {
     /// Use this method to get basic information about a file and prepare it for downloading. For the moment, bots can download files of up to 20MB in size. On success, a File object is returned. The file can then be downloaded via the link https://api.telegram.org/file/bot<token>/<file_path>, where <file_path> is taken from the response. It is guaranteed that the link will be valid for at least 1 hour. When the link expires, a new one can be requested by calling getFile again.
     /// Note: This function may not preserve the original file name and MIME type. You should save the file's MIME type and name (if available) when the File object is received.
     ///
-    /// - Remark: HTTP `GET /getFile`.
-    /// - Remark: Generated from `#/paths//getFile/get(getFile)`.
+    /// - Remark: HTTP `POST /getFile`.
+    /// - Remark: Generated from `#/paths//getFile/post(getFile)`.
     func getFile(_ input: Operations.GetFile.Input) async throws -> Operations.GetFile.Output
     /// banChatMember
     ///
@@ -457,36 +457,36 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get up-to-date information about the chat. Returns a ChatFullInfo object on success.
     ///
-    /// - Remark: HTTP `GET /getChat`.
-    /// - Remark: Generated from `#/paths//getChat/get(getChat)`.
+    /// - Remark: HTTP `POST /getChat`.
+    /// - Remark: Generated from `#/paths//getChat/post(getChat)`.
     func getChat(_ input: Operations.GetChat.Input) async throws -> Operations.GetChat.Output
     /// getChatAdministrators
     ///
     /// Use this method to get a list of administrators in a chat. Returns an Array of ChatMember objects.
     ///
-    /// - Remark: HTTP `GET /getChatAdministrators`.
-    /// - Remark: Generated from `#/paths//getChatAdministrators/get(getChatAdministrators)`.
+    /// - Remark: HTTP `POST /getChatAdministrators`.
+    /// - Remark: Generated from `#/paths//getChatAdministrators/post(getChatAdministrators)`.
     func getChatAdministrators(_ input: Operations.GetChatAdministrators.Input) async throws -> Operations.GetChatAdministrators.Output
     /// getChatMemberCount
     ///
     /// Use this method to get the number of members in a chat. Returns Integer on success.
     ///
-    /// - Remark: HTTP `GET /getChatMemberCount`.
-    /// - Remark: Generated from `#/paths//getChatMemberCount/get(getChatMemberCount)`.
+    /// - Remark: HTTP `POST /getChatMemberCount`.
+    /// - Remark: Generated from `#/paths//getChatMemberCount/post(getChatMemberCount)`.
     func getChatMemberCount(_ input: Operations.GetChatMemberCount.Input) async throws -> Operations.GetChatMemberCount.Output
     /// getChatMember
     ///
     /// Use this method to get information about a member of a chat. The method is only guaranteed to work for other users if the bot is an administrator in the chat. Returns a ChatMember object on success.
     ///
-    /// - Remark: HTTP `GET /getChatMember`.
-    /// - Remark: Generated from `#/paths//getChatMember/get(getChatMember)`.
+    /// - Remark: HTTP `POST /getChatMember`.
+    /// - Remark: Generated from `#/paths//getChatMember/post(getChatMember)`.
     func getChatMember(_ input: Operations.GetChatMember.Input) async throws -> Operations.GetChatMember.Output
     /// getUserPersonalChatMessages
     ///
     /// Use this method to get the last messages from the personal chat (i.e., the chat currently added to their profile) of a given user. On success, an Array of Message objects is returned.
     ///
-    /// - Remark: HTTP `GET /getUserPersonalChatMessages`.
-    /// - Remark: Generated from `#/paths//getUserPersonalChatMessages/get(getUserPersonalChatMessages)`.
+    /// - Remark: HTTP `POST /getUserPersonalChatMessages`.
+    /// - Remark: Generated from `#/paths//getUserPersonalChatMessages/post(getUserPersonalChatMessages)`.
     func getUserPersonalChatMessages(_ input: Operations.GetUserPersonalChatMessages.Input) async throws -> Operations.GetUserPersonalChatMessages.Output
     /// setChatStickerSet
     ///
@@ -506,8 +506,8 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get custom emoji stickers, which can be used as a forum topic icon by any user. Requires no parameters. Returns an Array of Sticker objects.
     ///
-    /// - Remark: HTTP `GET /getForumTopicIconStickers`.
-    /// - Remark: Generated from `#/paths//getForumTopicIconStickers/get(getForumTopicIconStickers)`.
+    /// - Remark: HTTP `POST /getForumTopicIconStickers`.
+    /// - Remark: Generated from `#/paths//getForumTopicIconStickers/post(getForumTopicIconStickers)`.
     func getForumTopicIconStickers(_ input: Operations.GetForumTopicIconStickers.Input) async throws -> Operations.GetForumTopicIconStickers.Output
     /// createForumTopic
     ///
@@ -612,22 +612,22 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get the list of boosts added to a chat by a user. Requires administrator rights in the chat. Returns a UserChatBoosts object.
     ///
-    /// - Remark: HTTP `GET /getUserChatBoosts`.
-    /// - Remark: Generated from `#/paths//getUserChatBoosts/get(getUserChatBoosts)`.
+    /// - Remark: HTTP `POST /getUserChatBoosts`.
+    /// - Remark: Generated from `#/paths//getUserChatBoosts/post(getUserChatBoosts)`.
     func getUserChatBoosts(_ input: Operations.GetUserChatBoosts.Input) async throws -> Operations.GetUserChatBoosts.Output
     /// getBusinessConnection
     ///
     /// Use this method to get information about the connection of the bot with a business account. Returns a BusinessConnection object on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessConnection`.
-    /// - Remark: Generated from `#/paths//getBusinessConnection/get(getBusinessConnection)`.
+    /// - Remark: HTTP `POST /getBusinessConnection`.
+    /// - Remark: Generated from `#/paths//getBusinessConnection/post(getBusinessConnection)`.
     func getBusinessConnection(_ input: Operations.GetBusinessConnection.Input) async throws -> Operations.GetBusinessConnection.Output
     /// getManagedBotToken
     ///
     /// Use this method to get the token of a managed bot. Returns the token as String on success.
     ///
-    /// - Remark: HTTP `GET /getManagedBotToken`.
-    /// - Remark: Generated from `#/paths//getManagedBotToken/get(getManagedBotToken)`.
+    /// - Remark: HTTP `POST /getManagedBotToken`.
+    /// - Remark: Generated from `#/paths//getManagedBotToken/post(getManagedBotToken)`.
     func getManagedBotToken(_ input: Operations.GetManagedBotToken.Input) async throws -> Operations.GetManagedBotToken.Output
     /// replaceManagedBotToken
     ///
@@ -640,8 +640,8 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get the access settings of a managed bot. Returns a BotAccessSettings object on success.
     ///
-    /// - Remark: HTTP `GET /getManagedBotAccessSettings`.
-    /// - Remark: Generated from `#/paths//getManagedBotAccessSettings/get(getManagedBotAccessSettings)`.
+    /// - Remark: HTTP `POST /getManagedBotAccessSettings`.
+    /// - Remark: Generated from `#/paths//getManagedBotAccessSettings/post(getManagedBotAccessSettings)`.
     func getManagedBotAccessSettings(_ input: Operations.GetManagedBotAccessSettings.Input) async throws -> Operations.GetManagedBotAccessSettings.Output
     /// setManagedBotAccessSettings
     ///
@@ -668,8 +668,8 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get the current list of the bot's commands for the given scope and user language. Returns an Array of BotCommand objects. If commands aren't set, an empty list is returned.
     ///
-    /// - Remark: HTTP `GET /getMyCommands`.
-    /// - Remark: Generated from `#/paths//getMyCommands/get(getMyCommands)`.
+    /// - Remark: HTTP `POST /getMyCommands`.
+    /// - Remark: Generated from `#/paths//getMyCommands/post(getMyCommands)`.
     func getMyCommands(_ input: Operations.GetMyCommands.Input) async throws -> Operations.GetMyCommands.Output
     /// setMyName
     ///
@@ -682,8 +682,8 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get the current bot name for the given user language. Returns BotName on success.
     ///
-    /// - Remark: HTTP `GET /getMyName`.
-    /// - Remark: Generated from `#/paths//getMyName/get(getMyName)`.
+    /// - Remark: HTTP `POST /getMyName`.
+    /// - Remark: Generated from `#/paths//getMyName/post(getMyName)`.
     func getMyName(_ input: Operations.GetMyName.Input) async throws -> Operations.GetMyName.Output
     /// setMyDescription
     ///
@@ -696,8 +696,8 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get the current bot description for the given user language. Returns BotDescription on success.
     ///
-    /// - Remark: HTTP `GET /getMyDescription`.
-    /// - Remark: Generated from `#/paths//getMyDescription/get(getMyDescription)`.
+    /// - Remark: HTTP `POST /getMyDescription`.
+    /// - Remark: Generated from `#/paths//getMyDescription/post(getMyDescription)`.
     func getMyDescription(_ input: Operations.GetMyDescription.Input) async throws -> Operations.GetMyDescription.Output
     /// setMyShortDescription
     ///
@@ -710,8 +710,8 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get the current bot short description for the given user language. Returns BotShortDescription on success.
     ///
-    /// - Remark: HTTP `GET /getMyShortDescription`.
-    /// - Remark: Generated from `#/paths//getMyShortDescription/get(getMyShortDescription)`.
+    /// - Remark: HTTP `POST /getMyShortDescription`.
+    /// - Remark: Generated from `#/paths//getMyShortDescription/post(getMyShortDescription)`.
     func getMyShortDescription(_ input: Operations.GetMyShortDescription.Input) async throws -> Operations.GetMyShortDescription.Output
     /// setMyProfilePhoto
     ///
@@ -738,8 +738,8 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get the current value of the bot's menu button in a private chat, or the default menu button. Returns MenuButton on success.
     ///
-    /// - Remark: HTTP `GET /getChatMenuButton`.
-    /// - Remark: Generated from `#/paths//getChatMenuButton/get(getChatMenuButton)`.
+    /// - Remark: HTTP `POST /getChatMenuButton`.
+    /// - Remark: Generated from `#/paths//getChatMenuButton/post(getChatMenuButton)`.
     func getChatMenuButton(_ input: Operations.GetChatMenuButton.Input) async throws -> Operations.GetChatMenuButton.Output
     /// setMyDefaultAdministratorRights
     ///
@@ -752,15 +752,15 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get the current default administrator rights of the bot. Returns ChatAdministratorRights on success.
     ///
-    /// - Remark: HTTP `GET /getMyDefaultAdministratorRights`.
-    /// - Remark: Generated from `#/paths//getMyDefaultAdministratorRights/get(getMyDefaultAdministratorRights)`.
+    /// - Remark: HTTP `POST /getMyDefaultAdministratorRights`.
+    /// - Remark: Generated from `#/paths//getMyDefaultAdministratorRights/post(getMyDefaultAdministratorRights)`.
     func getMyDefaultAdministratorRights(_ input: Operations.GetMyDefaultAdministratorRights.Input) async throws -> Operations.GetMyDefaultAdministratorRights.Output
     /// getAvailableGifts
     ///
     /// Returns the list of gifts that can be sent by the bot to users and channel chats. Requires no parameters. Returns a Gifts object.
     ///
-    /// - Remark: HTTP `GET /getAvailableGifts`.
-    /// - Remark: Generated from `#/paths//getAvailableGifts/get(getAvailableGifts)`.
+    /// - Remark: HTTP `POST /getAvailableGifts`.
+    /// - Remark: Generated from `#/paths//getAvailableGifts/post(getAvailableGifts)`.
     func getAvailableGifts(_ input: Operations.GetAvailableGifts.Input) async throws -> Operations.GetAvailableGifts.Output
     /// sendGift
     ///
@@ -864,8 +864,8 @@ public protocol APIProtocol: Sendable {
     ///
     /// Returns the amount of Telegram Stars owned by a managed business account. Requires the can_view_gifts_and_stars business bot right. Returns StarAmount on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessAccountStarBalance`.
-    /// - Remark: Generated from `#/paths//getBusinessAccountStarBalance/get(getBusinessAccountStarBalance)`.
+    /// - Remark: HTTP `POST /getBusinessAccountStarBalance`.
+    /// - Remark: Generated from `#/paths//getBusinessAccountStarBalance/post(getBusinessAccountStarBalance)`.
     func getBusinessAccountStarBalance(_ input: Operations.GetBusinessAccountStarBalance.Input) async throws -> Operations.GetBusinessAccountStarBalance.Output
     /// transferBusinessAccountStars
     ///
@@ -878,22 +878,22 @@ public protocol APIProtocol: Sendable {
     ///
     /// Returns the gifts received and owned by a managed business account. Requires the can_view_gifts_and_stars business bot right. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessAccountGifts`.
-    /// - Remark: Generated from `#/paths//getBusinessAccountGifts/get(getBusinessAccountGifts)`.
+    /// - Remark: HTTP `POST /getBusinessAccountGifts`.
+    /// - Remark: Generated from `#/paths//getBusinessAccountGifts/post(getBusinessAccountGifts)`.
     func getBusinessAccountGifts(_ input: Operations.GetBusinessAccountGifts.Input) async throws -> Operations.GetBusinessAccountGifts.Output
     /// getUserGifts
     ///
     /// Returns the gifts owned and hosted by a user. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getUserGifts`.
-    /// - Remark: Generated from `#/paths//getUserGifts/get(getUserGifts)`.
+    /// - Remark: HTTP `POST /getUserGifts`.
+    /// - Remark: Generated from `#/paths//getUserGifts/post(getUserGifts)`.
     func getUserGifts(_ input: Operations.GetUserGifts.Input) async throws -> Operations.GetUserGifts.Output
     /// getChatGifts
     ///
     /// Returns the gifts owned by a chat. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getChatGifts`.
-    /// - Remark: Generated from `#/paths//getChatGifts/get(getChatGifts)`.
+    /// - Remark: HTTP `POST /getChatGifts`.
+    /// - Remark: Generated from `#/paths//getChatGifts/post(getChatGifts)`.
     func getChatGifts(_ input: Operations.GetChatGifts.Input) async throws -> Operations.GetChatGifts.Output
     /// convertGiftToStars
     ///
@@ -1109,15 +1109,15 @@ public protocol APIProtocol: Sendable {
     ///
     /// Use this method to get a sticker set. On success, a StickerSet object is returned.
     ///
-    /// - Remark: HTTP `GET /getStickerSet`.
-    /// - Remark: Generated from `#/paths//getStickerSet/get(getStickerSet)`.
+    /// - Remark: HTTP `POST /getStickerSet`.
+    /// - Remark: Generated from `#/paths//getStickerSet/post(getStickerSet)`.
     func getStickerSet(_ input: Operations.GetStickerSet.Input) async throws -> Operations.GetStickerSet.Output
     /// getCustomEmojiStickers
     ///
     /// Use this method to get information about custom emoji stickers by their identifiers. Returns an Array of Sticker objects.
     ///
-    /// - Remark: HTTP `GET /getCustomEmojiStickers`.
-    /// - Remark: Generated from `#/paths//getCustomEmojiStickers/get(getCustomEmojiStickers)`.
+    /// - Remark: HTTP `POST /getCustomEmojiStickers`.
+    /// - Remark: Generated from `#/paths//getCustomEmojiStickers/post(getCustomEmojiStickers)`.
     func getCustomEmojiStickers(_ input: Operations.GetCustomEmojiStickers.Input) async throws -> Operations.GetCustomEmojiStickers.Output
     /// uploadStickerFile
     ///
@@ -1263,15 +1263,15 @@ public protocol APIProtocol: Sendable {
     ///
     /// A method to get the current Telegram Stars balance of the bot. Requires no parameters. On success, returns a StarAmount object.
     ///
-    /// - Remark: HTTP `GET /getMyStarBalance`.
-    /// - Remark: Generated from `#/paths//getMyStarBalance/get(getMyStarBalance)`.
+    /// - Remark: HTTP `POST /getMyStarBalance`.
+    /// - Remark: Generated from `#/paths//getMyStarBalance/post(getMyStarBalance)`.
     func getMyStarBalance(_ input: Operations.GetMyStarBalance.Input) async throws -> Operations.GetMyStarBalance.Output
     /// getStarTransactions
     ///
     /// Returns the bot's Telegram Star transactions in chronological order. On success, returns a StarTransactions object.
     ///
-    /// - Remark: HTTP `GET /getStarTransactions`.
-    /// - Remark: Generated from `#/paths//getStarTransactions/get(getStarTransactions)`.
+    /// - Remark: HTTP `POST /getStarTransactions`.
+    /// - Remark: Generated from `#/paths//getStarTransactions/post(getStarTransactions)`.
     func getStarTransactions(_ input: Operations.GetStarTransactions.Input) async throws -> Operations.GetStarTransactions.Output
     /// refundStarPayment
     ///
@@ -1314,8 +1314,8 @@ public protocol APIProtocol: Sendable {
     /// Use this method to get data for high score tables. Will return the score of the specified user and several of their neighbors in a game. Returns an Array of GameHighScore objects.
     /// This method will currently return scores for the target user, plus two of their closest neighbors on each side. Will also return the top three users if the user and their neighbors are not among them. Please note that this behavior is subject to change.
     ///
-    /// - Remark: HTTP `GET /getGameHighScores`.
-    /// - Remark: Generated from `#/paths//getGameHighScores/get(getGameHighScores)`.
+    /// - Remark: HTTP `POST /getGameHighScores`.
+    /// - Remark: Generated from `#/paths//getGameHighScores/post(getGameHighScores)`.
     func getGameHighScores(_ input: Operations.GetGameHighScores.Input) async throws -> Operations.GetGameHighScores.Output
 }
 
@@ -1326,15 +1326,15 @@ extension APIProtocol {
     /// Use this method to receive incoming updates using long polling (wiki). Returns an Array of Update objects.
     /// Notes 1. This method will not work if an outgoing webhook is set up. 2. In order to avoid getting duplicate updates, recalculate offset after each server response.
     ///
-    /// - Remark: HTTP `GET /getUpdates`.
-    /// - Remark: Generated from `#/paths//getUpdates/get(getUpdates)`.
+    /// - Remark: HTTP `POST /getUpdates`.
+    /// - Remark: Generated from `#/paths//getUpdates/post(getUpdates)`.
     public func getUpdates(
-        query: Operations.GetUpdates.Input.Query = .init(),
-        headers: Operations.GetUpdates.Input.Headers = .init()
+        headers: Operations.GetUpdates.Input.Headers = .init(),
+        body: Operations.GetUpdates.Input.Body
     ) async throws -> Operations.GetUpdates.Output {
         try await getUpdates(Operations.GetUpdates.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// setWebhook
@@ -1373,8 +1373,8 @@ extension APIProtocol {
     ///
     /// Use this method to get current webhook status. Requires no parameters. On success, returns a WebhookInfo object. If the bot is using getUpdates, will return an object with the url field empty.
     ///
-    /// - Remark: HTTP `GET /getWebhookInfo`.
-    /// - Remark: Generated from `#/paths//getWebhookInfo/get(getWebhookInfo)`.
+    /// - Remark: HTTP `POST /getWebhookInfo`.
+    /// - Remark: Generated from `#/paths//getWebhookInfo/post(getWebhookInfo)`.
     public func getWebhookInfo(headers: Operations.GetWebhookInfo.Input.Headers = .init()) async throws -> Operations.GetWebhookInfo.Output {
         try await getWebhookInfo(Operations.GetWebhookInfo.Input(headers: headers))
     }
@@ -1382,8 +1382,8 @@ extension APIProtocol {
     ///
     /// A simple method for testing your bot's authentication token. Requires no parameters. Returns basic information about the bot in form of a User object.
     ///
-    /// - Remark: HTTP `GET /getMe`.
-    /// - Remark: Generated from `#/paths//getMe/get(getMe)`.
+    /// - Remark: HTTP `POST /getMe`.
+    /// - Remark: Generated from `#/paths//getMe/post(getMe)`.
     public func getMe(headers: Operations.GetMe.Input.Headers = .init()) async throws -> Operations.GetMe.Output {
         try await getMe(Operations.GetMe.Input(headers: headers))
     }
@@ -1772,30 +1772,30 @@ extension APIProtocol {
     ///
     /// Use this method to get a list of profile pictures for a user. Returns a UserProfilePhotos object.
     ///
-    /// - Remark: HTTP `GET /getUserProfilePhotos`.
-    /// - Remark: Generated from `#/paths//getUserProfilePhotos/get(getUserProfilePhotos)`.
+    /// - Remark: HTTP `POST /getUserProfilePhotos`.
+    /// - Remark: Generated from `#/paths//getUserProfilePhotos/post(getUserProfilePhotos)`.
     public func getUserProfilePhotos(
-        query: Operations.GetUserProfilePhotos.Input.Query,
-        headers: Operations.GetUserProfilePhotos.Input.Headers = .init()
+        headers: Operations.GetUserProfilePhotos.Input.Headers = .init(),
+        body: Operations.GetUserProfilePhotos.Input.Body
     ) async throws -> Operations.GetUserProfilePhotos.Output {
         try await getUserProfilePhotos(Operations.GetUserProfilePhotos.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getUserProfileAudios
     ///
     /// Use this method to get a list of profile audios for a user. Returns a UserProfileAudios object.
     ///
-    /// - Remark: HTTP `GET /getUserProfileAudios`.
-    /// - Remark: Generated from `#/paths//getUserProfileAudios/get(getUserProfileAudios)`.
+    /// - Remark: HTTP `POST /getUserProfileAudios`.
+    /// - Remark: Generated from `#/paths//getUserProfileAudios/post(getUserProfileAudios)`.
     public func getUserProfileAudios(
-        query: Operations.GetUserProfileAudios.Input.Query,
-        headers: Operations.GetUserProfileAudios.Input.Headers = .init()
+        headers: Operations.GetUserProfileAudios.Input.Headers = .init(),
+        body: Operations.GetUserProfileAudios.Input.Body
     ) async throws -> Operations.GetUserProfileAudios.Output {
         try await getUserProfileAudios(Operations.GetUserProfileAudios.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// setUserEmojiStatus
@@ -1818,15 +1818,15 @@ extension APIProtocol {
     /// Use this method to get basic information about a file and prepare it for downloading. For the moment, bots can download files of up to 20MB in size. On success, a File object is returned. The file can then be downloaded via the link https://api.telegram.org/file/bot<token>/<file_path>, where <file_path> is taken from the response. It is guaranteed that the link will be valid for at least 1 hour. When the link expires, a new one can be requested by calling getFile again.
     /// Note: This function may not preserve the original file name and MIME type. You should save the file's MIME type and name (if available) when the File object is received.
     ///
-    /// - Remark: HTTP `GET /getFile`.
-    /// - Remark: Generated from `#/paths//getFile/get(getFile)`.
+    /// - Remark: HTTP `POST /getFile`.
+    /// - Remark: Generated from `#/paths//getFile/post(getFile)`.
     public func getFile(
-        query: Operations.GetFile.Input.Query,
-        headers: Operations.GetFile.Input.Headers = .init()
+        headers: Operations.GetFile.Input.Headers = .init(),
+        body: Operations.GetFile.Input.Body
     ) async throws -> Operations.GetFile.Output {
         try await getFile(Operations.GetFile.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// banChatMember
@@ -2239,75 +2239,75 @@ extension APIProtocol {
     ///
     /// Use this method to get up-to-date information about the chat. Returns a ChatFullInfo object on success.
     ///
-    /// - Remark: HTTP `GET /getChat`.
-    /// - Remark: Generated from `#/paths//getChat/get(getChat)`.
+    /// - Remark: HTTP `POST /getChat`.
+    /// - Remark: Generated from `#/paths//getChat/post(getChat)`.
     public func getChat(
-        query: Operations.GetChat.Input.Query,
-        headers: Operations.GetChat.Input.Headers = .init()
+        headers: Operations.GetChat.Input.Headers = .init(),
+        body: Operations.GetChat.Input.Body
     ) async throws -> Operations.GetChat.Output {
         try await getChat(Operations.GetChat.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getChatAdministrators
     ///
     /// Use this method to get a list of administrators in a chat. Returns an Array of ChatMember objects.
     ///
-    /// - Remark: HTTP `GET /getChatAdministrators`.
-    /// - Remark: Generated from `#/paths//getChatAdministrators/get(getChatAdministrators)`.
+    /// - Remark: HTTP `POST /getChatAdministrators`.
+    /// - Remark: Generated from `#/paths//getChatAdministrators/post(getChatAdministrators)`.
     public func getChatAdministrators(
-        query: Operations.GetChatAdministrators.Input.Query,
-        headers: Operations.GetChatAdministrators.Input.Headers = .init()
+        headers: Operations.GetChatAdministrators.Input.Headers = .init(),
+        body: Operations.GetChatAdministrators.Input.Body
     ) async throws -> Operations.GetChatAdministrators.Output {
         try await getChatAdministrators(Operations.GetChatAdministrators.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getChatMemberCount
     ///
     /// Use this method to get the number of members in a chat. Returns Integer on success.
     ///
-    /// - Remark: HTTP `GET /getChatMemberCount`.
-    /// - Remark: Generated from `#/paths//getChatMemberCount/get(getChatMemberCount)`.
+    /// - Remark: HTTP `POST /getChatMemberCount`.
+    /// - Remark: Generated from `#/paths//getChatMemberCount/post(getChatMemberCount)`.
     public func getChatMemberCount(
-        query: Operations.GetChatMemberCount.Input.Query,
-        headers: Operations.GetChatMemberCount.Input.Headers = .init()
+        headers: Operations.GetChatMemberCount.Input.Headers = .init(),
+        body: Operations.GetChatMemberCount.Input.Body
     ) async throws -> Operations.GetChatMemberCount.Output {
         try await getChatMemberCount(Operations.GetChatMemberCount.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getChatMember
     ///
     /// Use this method to get information about a member of a chat. The method is only guaranteed to work for other users if the bot is an administrator in the chat. Returns a ChatMember object on success.
     ///
-    /// - Remark: HTTP `GET /getChatMember`.
-    /// - Remark: Generated from `#/paths//getChatMember/get(getChatMember)`.
+    /// - Remark: HTTP `POST /getChatMember`.
+    /// - Remark: Generated from `#/paths//getChatMember/post(getChatMember)`.
     public func getChatMember(
-        query: Operations.GetChatMember.Input.Query,
-        headers: Operations.GetChatMember.Input.Headers = .init()
+        headers: Operations.GetChatMember.Input.Headers = .init(),
+        body: Operations.GetChatMember.Input.Body
     ) async throws -> Operations.GetChatMember.Output {
         try await getChatMember(Operations.GetChatMember.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getUserPersonalChatMessages
     ///
     /// Use this method to get the last messages from the personal chat (i.e., the chat currently added to their profile) of a given user. On success, an Array of Message objects is returned.
     ///
-    /// - Remark: HTTP `GET /getUserPersonalChatMessages`.
-    /// - Remark: Generated from `#/paths//getUserPersonalChatMessages/get(getUserPersonalChatMessages)`.
+    /// - Remark: HTTP `POST /getUserPersonalChatMessages`.
+    /// - Remark: Generated from `#/paths//getUserPersonalChatMessages/post(getUserPersonalChatMessages)`.
     public func getUserPersonalChatMessages(
-        query: Operations.GetUserPersonalChatMessages.Input.Query,
-        headers: Operations.GetUserPersonalChatMessages.Input.Headers = .init()
+        headers: Operations.GetUserPersonalChatMessages.Input.Headers = .init(),
+        body: Operations.GetUserPersonalChatMessages.Input.Body
     ) async throws -> Operations.GetUserPersonalChatMessages.Output {
         try await getUserPersonalChatMessages(Operations.GetUserPersonalChatMessages.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// setChatStickerSet
@@ -2344,8 +2344,8 @@ extension APIProtocol {
     ///
     /// Use this method to get custom emoji stickers, which can be used as a forum topic icon by any user. Requires no parameters. Returns an Array of Sticker objects.
     ///
-    /// - Remark: HTTP `GET /getForumTopicIconStickers`.
-    /// - Remark: Generated from `#/paths//getForumTopicIconStickers/get(getForumTopicIconStickers)`.
+    /// - Remark: HTTP `POST /getForumTopicIconStickers`.
+    /// - Remark: Generated from `#/paths//getForumTopicIconStickers/post(getForumTopicIconStickers)`.
     public func getForumTopicIconStickers(headers: Operations.GetForumTopicIconStickers.Input.Headers = .init()) async throws -> Operations.GetForumTopicIconStickers.Output {
         try await getForumTopicIconStickers(Operations.GetForumTopicIconStickers.Input(headers: headers))
     }
@@ -2564,45 +2564,45 @@ extension APIProtocol {
     ///
     /// Use this method to get the list of boosts added to a chat by a user. Requires administrator rights in the chat. Returns a UserChatBoosts object.
     ///
-    /// - Remark: HTTP `GET /getUserChatBoosts`.
-    /// - Remark: Generated from `#/paths//getUserChatBoosts/get(getUserChatBoosts)`.
+    /// - Remark: HTTP `POST /getUserChatBoosts`.
+    /// - Remark: Generated from `#/paths//getUserChatBoosts/post(getUserChatBoosts)`.
     public func getUserChatBoosts(
-        query: Operations.GetUserChatBoosts.Input.Query,
-        headers: Operations.GetUserChatBoosts.Input.Headers = .init()
+        headers: Operations.GetUserChatBoosts.Input.Headers = .init(),
+        body: Operations.GetUserChatBoosts.Input.Body
     ) async throws -> Operations.GetUserChatBoosts.Output {
         try await getUserChatBoosts(Operations.GetUserChatBoosts.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getBusinessConnection
     ///
     /// Use this method to get information about the connection of the bot with a business account. Returns a BusinessConnection object on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessConnection`.
-    /// - Remark: Generated from `#/paths//getBusinessConnection/get(getBusinessConnection)`.
+    /// - Remark: HTTP `POST /getBusinessConnection`.
+    /// - Remark: Generated from `#/paths//getBusinessConnection/post(getBusinessConnection)`.
     public func getBusinessConnection(
-        query: Operations.GetBusinessConnection.Input.Query,
-        headers: Operations.GetBusinessConnection.Input.Headers = .init()
+        headers: Operations.GetBusinessConnection.Input.Headers = .init(),
+        body: Operations.GetBusinessConnection.Input.Body
     ) async throws -> Operations.GetBusinessConnection.Output {
         try await getBusinessConnection(Operations.GetBusinessConnection.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getManagedBotToken
     ///
     /// Use this method to get the token of a managed bot. Returns the token as String on success.
     ///
-    /// - Remark: HTTP `GET /getManagedBotToken`.
-    /// - Remark: Generated from `#/paths//getManagedBotToken/get(getManagedBotToken)`.
+    /// - Remark: HTTP `POST /getManagedBotToken`.
+    /// - Remark: Generated from `#/paths//getManagedBotToken/post(getManagedBotToken)`.
     public func getManagedBotToken(
-        query: Operations.GetManagedBotToken.Input.Query,
-        headers: Operations.GetManagedBotToken.Input.Headers = .init()
+        headers: Operations.GetManagedBotToken.Input.Headers = .init(),
+        body: Operations.GetManagedBotToken.Input.Body
     ) async throws -> Operations.GetManagedBotToken.Output {
         try await getManagedBotToken(Operations.GetManagedBotToken.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// replaceManagedBotToken
@@ -2624,15 +2624,15 @@ extension APIProtocol {
     ///
     /// Use this method to get the access settings of a managed bot. Returns a BotAccessSettings object on success.
     ///
-    /// - Remark: HTTP `GET /getManagedBotAccessSettings`.
-    /// - Remark: Generated from `#/paths//getManagedBotAccessSettings/get(getManagedBotAccessSettings)`.
+    /// - Remark: HTTP `POST /getManagedBotAccessSettings`.
+    /// - Remark: Generated from `#/paths//getManagedBotAccessSettings/post(getManagedBotAccessSettings)`.
     public func getManagedBotAccessSettings(
-        query: Operations.GetManagedBotAccessSettings.Input.Query,
-        headers: Operations.GetManagedBotAccessSettings.Input.Headers = .init()
+        headers: Operations.GetManagedBotAccessSettings.Input.Headers = .init(),
+        body: Operations.GetManagedBotAccessSettings.Input.Body
     ) async throws -> Operations.GetManagedBotAccessSettings.Output {
         try await getManagedBotAccessSettings(Operations.GetManagedBotAccessSettings.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// setManagedBotAccessSettings
@@ -2684,15 +2684,15 @@ extension APIProtocol {
     ///
     /// Use this method to get the current list of the bot's commands for the given scope and user language. Returns an Array of BotCommand objects. If commands aren't set, an empty list is returned.
     ///
-    /// - Remark: HTTP `GET /getMyCommands`.
-    /// - Remark: Generated from `#/paths//getMyCommands/get(getMyCommands)`.
+    /// - Remark: HTTP `POST /getMyCommands`.
+    /// - Remark: Generated from `#/paths//getMyCommands/post(getMyCommands)`.
     public func getMyCommands(
-        query: Operations.GetMyCommands.Input.Query = .init(),
-        headers: Operations.GetMyCommands.Input.Headers = .init()
+        headers: Operations.GetMyCommands.Input.Headers = .init(),
+        body: Operations.GetMyCommands.Input.Body
     ) async throws -> Operations.GetMyCommands.Output {
         try await getMyCommands(Operations.GetMyCommands.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// setMyName
@@ -2714,15 +2714,15 @@ extension APIProtocol {
     ///
     /// Use this method to get the current bot name for the given user language. Returns BotName on success.
     ///
-    /// - Remark: HTTP `GET /getMyName`.
-    /// - Remark: Generated from `#/paths//getMyName/get(getMyName)`.
+    /// - Remark: HTTP `POST /getMyName`.
+    /// - Remark: Generated from `#/paths//getMyName/post(getMyName)`.
     public func getMyName(
-        query: Operations.GetMyName.Input.Query = .init(),
-        headers: Operations.GetMyName.Input.Headers = .init()
+        headers: Operations.GetMyName.Input.Headers = .init(),
+        body: Operations.GetMyName.Input.Body
     ) async throws -> Operations.GetMyName.Output {
         try await getMyName(Operations.GetMyName.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// setMyDescription
@@ -2744,15 +2744,15 @@ extension APIProtocol {
     ///
     /// Use this method to get the current bot description for the given user language. Returns BotDescription on success.
     ///
-    /// - Remark: HTTP `GET /getMyDescription`.
-    /// - Remark: Generated from `#/paths//getMyDescription/get(getMyDescription)`.
+    /// - Remark: HTTP `POST /getMyDescription`.
+    /// - Remark: Generated from `#/paths//getMyDescription/post(getMyDescription)`.
     public func getMyDescription(
-        query: Operations.GetMyDescription.Input.Query = .init(),
-        headers: Operations.GetMyDescription.Input.Headers = .init()
+        headers: Operations.GetMyDescription.Input.Headers = .init(),
+        body: Operations.GetMyDescription.Input.Body
     ) async throws -> Operations.GetMyDescription.Output {
         try await getMyDescription(Operations.GetMyDescription.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// setMyShortDescription
@@ -2774,15 +2774,15 @@ extension APIProtocol {
     ///
     /// Use this method to get the current bot short description for the given user language. Returns BotShortDescription on success.
     ///
-    /// - Remark: HTTP `GET /getMyShortDescription`.
-    /// - Remark: Generated from `#/paths//getMyShortDescription/get(getMyShortDescription)`.
+    /// - Remark: HTTP `POST /getMyShortDescription`.
+    /// - Remark: Generated from `#/paths//getMyShortDescription/post(getMyShortDescription)`.
     public func getMyShortDescription(
-        query: Operations.GetMyShortDescription.Input.Query = .init(),
-        headers: Operations.GetMyShortDescription.Input.Headers = .init()
+        headers: Operations.GetMyShortDescription.Input.Headers = .init(),
+        body: Operations.GetMyShortDescription.Input.Body
     ) async throws -> Operations.GetMyShortDescription.Output {
         try await getMyShortDescription(Operations.GetMyShortDescription.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// setMyProfilePhoto
@@ -2828,15 +2828,15 @@ extension APIProtocol {
     ///
     /// Use this method to get the current value of the bot's menu button in a private chat, or the default menu button. Returns MenuButton on success.
     ///
-    /// - Remark: HTTP `GET /getChatMenuButton`.
-    /// - Remark: Generated from `#/paths//getChatMenuButton/get(getChatMenuButton)`.
+    /// - Remark: HTTP `POST /getChatMenuButton`.
+    /// - Remark: Generated from `#/paths//getChatMenuButton/post(getChatMenuButton)`.
     public func getChatMenuButton(
-        query: Operations.GetChatMenuButton.Input.Query = .init(),
-        headers: Operations.GetChatMenuButton.Input.Headers = .init()
+        headers: Operations.GetChatMenuButton.Input.Headers = .init(),
+        body: Operations.GetChatMenuButton.Input.Body
     ) async throws -> Operations.GetChatMenuButton.Output {
         try await getChatMenuButton(Operations.GetChatMenuButton.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// setMyDefaultAdministratorRights
@@ -2858,23 +2858,23 @@ extension APIProtocol {
     ///
     /// Use this method to get the current default administrator rights of the bot. Returns ChatAdministratorRights on success.
     ///
-    /// - Remark: HTTP `GET /getMyDefaultAdministratorRights`.
-    /// - Remark: Generated from `#/paths//getMyDefaultAdministratorRights/get(getMyDefaultAdministratorRights)`.
+    /// - Remark: HTTP `POST /getMyDefaultAdministratorRights`.
+    /// - Remark: Generated from `#/paths//getMyDefaultAdministratorRights/post(getMyDefaultAdministratorRights)`.
     public func getMyDefaultAdministratorRights(
-        query: Operations.GetMyDefaultAdministratorRights.Input.Query = .init(),
-        headers: Operations.GetMyDefaultAdministratorRights.Input.Headers = .init()
+        headers: Operations.GetMyDefaultAdministratorRights.Input.Headers = .init(),
+        body: Operations.GetMyDefaultAdministratorRights.Input.Body
     ) async throws -> Operations.GetMyDefaultAdministratorRights.Output {
         try await getMyDefaultAdministratorRights(Operations.GetMyDefaultAdministratorRights.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getAvailableGifts
     ///
     /// Returns the list of gifts that can be sent by the bot to users and channel chats. Requires no parameters. Returns a Gifts object.
     ///
-    /// - Remark: HTTP `GET /getAvailableGifts`.
-    /// - Remark: Generated from `#/paths//getAvailableGifts/get(getAvailableGifts)`.
+    /// - Remark: HTTP `POST /getAvailableGifts`.
+    /// - Remark: Generated from `#/paths//getAvailableGifts/post(getAvailableGifts)`.
     public func getAvailableGifts(headers: Operations.GetAvailableGifts.Input.Headers = .init()) async throws -> Operations.GetAvailableGifts.Output {
         try await getAvailableGifts(Operations.GetAvailableGifts.Input(headers: headers))
     }
@@ -3092,15 +3092,15 @@ extension APIProtocol {
     ///
     /// Returns the amount of Telegram Stars owned by a managed business account. Requires the can_view_gifts_and_stars business bot right. Returns StarAmount on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessAccountStarBalance`.
-    /// - Remark: Generated from `#/paths//getBusinessAccountStarBalance/get(getBusinessAccountStarBalance)`.
+    /// - Remark: HTTP `POST /getBusinessAccountStarBalance`.
+    /// - Remark: Generated from `#/paths//getBusinessAccountStarBalance/post(getBusinessAccountStarBalance)`.
     public func getBusinessAccountStarBalance(
-        query: Operations.GetBusinessAccountStarBalance.Input.Query,
-        headers: Operations.GetBusinessAccountStarBalance.Input.Headers = .init()
+        headers: Operations.GetBusinessAccountStarBalance.Input.Headers = .init(),
+        body: Operations.GetBusinessAccountStarBalance.Input.Body
     ) async throws -> Operations.GetBusinessAccountStarBalance.Output {
         try await getBusinessAccountStarBalance(Operations.GetBusinessAccountStarBalance.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// transferBusinessAccountStars
@@ -3122,45 +3122,45 @@ extension APIProtocol {
     ///
     /// Returns the gifts received and owned by a managed business account. Requires the can_view_gifts_and_stars business bot right. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessAccountGifts`.
-    /// - Remark: Generated from `#/paths//getBusinessAccountGifts/get(getBusinessAccountGifts)`.
+    /// - Remark: HTTP `POST /getBusinessAccountGifts`.
+    /// - Remark: Generated from `#/paths//getBusinessAccountGifts/post(getBusinessAccountGifts)`.
     public func getBusinessAccountGifts(
-        query: Operations.GetBusinessAccountGifts.Input.Query,
-        headers: Operations.GetBusinessAccountGifts.Input.Headers = .init()
+        headers: Operations.GetBusinessAccountGifts.Input.Headers = .init(),
+        body: Operations.GetBusinessAccountGifts.Input.Body
     ) async throws -> Operations.GetBusinessAccountGifts.Output {
         try await getBusinessAccountGifts(Operations.GetBusinessAccountGifts.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getUserGifts
     ///
     /// Returns the gifts owned and hosted by a user. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getUserGifts`.
-    /// - Remark: Generated from `#/paths//getUserGifts/get(getUserGifts)`.
+    /// - Remark: HTTP `POST /getUserGifts`.
+    /// - Remark: Generated from `#/paths//getUserGifts/post(getUserGifts)`.
     public func getUserGifts(
-        query: Operations.GetUserGifts.Input.Query,
-        headers: Operations.GetUserGifts.Input.Headers = .init()
+        headers: Operations.GetUserGifts.Input.Headers = .init(),
+        body: Operations.GetUserGifts.Input.Body
     ) async throws -> Operations.GetUserGifts.Output {
         try await getUserGifts(Operations.GetUserGifts.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getChatGifts
     ///
     /// Returns the gifts owned by a chat. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getChatGifts`.
-    /// - Remark: Generated from `#/paths//getChatGifts/get(getChatGifts)`.
+    /// - Remark: HTTP `POST /getChatGifts`.
+    /// - Remark: Generated from `#/paths//getChatGifts/post(getChatGifts)`.
     public func getChatGifts(
-        query: Operations.GetChatGifts.Input.Query,
-        headers: Operations.GetChatGifts.Input.Headers = .init()
+        headers: Operations.GetChatGifts.Input.Headers = .init(),
+        body: Operations.GetChatGifts.Input.Body
     ) async throws -> Operations.GetChatGifts.Output {
         try await getChatGifts(Operations.GetChatGifts.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// convertGiftToStars
@@ -3617,30 +3617,30 @@ extension APIProtocol {
     ///
     /// Use this method to get a sticker set. On success, a StickerSet object is returned.
     ///
-    /// - Remark: HTTP `GET /getStickerSet`.
-    /// - Remark: Generated from `#/paths//getStickerSet/get(getStickerSet)`.
+    /// - Remark: HTTP `POST /getStickerSet`.
+    /// - Remark: Generated from `#/paths//getStickerSet/post(getStickerSet)`.
     public func getStickerSet(
-        query: Operations.GetStickerSet.Input.Query,
-        headers: Operations.GetStickerSet.Input.Headers = .init()
+        headers: Operations.GetStickerSet.Input.Headers = .init(),
+        body: Operations.GetStickerSet.Input.Body
     ) async throws -> Operations.GetStickerSet.Output {
         try await getStickerSet(Operations.GetStickerSet.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// getCustomEmojiStickers
     ///
     /// Use this method to get information about custom emoji stickers by their identifiers. Returns an Array of Sticker objects.
     ///
-    /// - Remark: HTTP `GET /getCustomEmojiStickers`.
-    /// - Remark: Generated from `#/paths//getCustomEmojiStickers/get(getCustomEmojiStickers)`.
+    /// - Remark: HTTP `POST /getCustomEmojiStickers`.
+    /// - Remark: Generated from `#/paths//getCustomEmojiStickers/post(getCustomEmojiStickers)`.
     public func getCustomEmojiStickers(
-        query: Operations.GetCustomEmojiStickers.Input.Query,
-        headers: Operations.GetCustomEmojiStickers.Input.Headers = .init()
+        headers: Operations.GetCustomEmojiStickers.Input.Headers = .init(),
+        body: Operations.GetCustomEmojiStickers.Input.Body
     ) async throws -> Operations.GetCustomEmojiStickers.Output {
         try await getCustomEmojiStickers(Operations.GetCustomEmojiStickers.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// uploadStickerFile
@@ -3947,8 +3947,8 @@ extension APIProtocol {
     ///
     /// A method to get the current Telegram Stars balance of the bot. Requires no parameters. On success, returns a StarAmount object.
     ///
-    /// - Remark: HTTP `GET /getMyStarBalance`.
-    /// - Remark: Generated from `#/paths//getMyStarBalance/get(getMyStarBalance)`.
+    /// - Remark: HTTP `POST /getMyStarBalance`.
+    /// - Remark: Generated from `#/paths//getMyStarBalance/post(getMyStarBalance)`.
     public func getMyStarBalance(headers: Operations.GetMyStarBalance.Input.Headers = .init()) async throws -> Operations.GetMyStarBalance.Output {
         try await getMyStarBalance(Operations.GetMyStarBalance.Input(headers: headers))
     }
@@ -3956,15 +3956,15 @@ extension APIProtocol {
     ///
     /// Returns the bot's Telegram Star transactions in chronological order. On success, returns a StarTransactions object.
     ///
-    /// - Remark: HTTP `GET /getStarTransactions`.
-    /// - Remark: Generated from `#/paths//getStarTransactions/get(getStarTransactions)`.
+    /// - Remark: HTTP `POST /getStarTransactions`.
+    /// - Remark: Generated from `#/paths//getStarTransactions/post(getStarTransactions)`.
     public func getStarTransactions(
-        query: Operations.GetStarTransactions.Input.Query = .init(),
-        headers: Operations.GetStarTransactions.Input.Headers = .init()
+        headers: Operations.GetStarTransactions.Input.Headers = .init(),
+        body: Operations.GetStarTransactions.Input.Body
     ) async throws -> Operations.GetStarTransactions.Output {
         try await getStarTransactions(Operations.GetStarTransactions.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
     /// refundStarPayment
@@ -4048,15 +4048,15 @@ extension APIProtocol {
     /// Use this method to get data for high score tables. Will return the score of the specified user and several of their neighbors in a game. Returns an Array of GameHighScore objects.
     /// This method will currently return scores for the target user, plus two of their closest neighbors on each side. Will also return the top three users if the user and their neighbors are not among them. Please note that this behavior is subject to change.
     ///
-    /// - Remark: HTTP `GET /getGameHighScores`.
-    /// - Remark: Generated from `#/paths//getGameHighScores/get(getGameHighScores)`.
+    /// - Remark: HTTP `POST /getGameHighScores`.
+    /// - Remark: Generated from `#/paths//getGameHighScores/post(getGameHighScores)`.
     public func getGameHighScores(
-        query: Operations.GetGameHighScores.Input.Query,
-        headers: Operations.GetGameHighScores.Input.Headers = .init()
+        headers: Operations.GetGameHighScores.Input.Headers = .init(),
+        body: Operations.GetGameHighScores.Input.Body
     ) async throws -> Operations.GetGameHighScores.Output {
         try await getGameHighScores(Operations.GetGameHighScores.Input(
-            query: query,
-            headers: headers
+            headers: headers,
+            body: body
         ))
     }
 }
@@ -26804,50 +26804,12 @@ public enum Operations {
     /// Use this method to receive incoming updates using long polling (wiki). Returns an Array of Update objects.
     /// Notes 1. This method will not work if an outgoing webhook is set up. 2. In order to avoid getting duplicate updates, recalculate offset after each server response.
     ///
-    /// - Remark: HTTP `GET /getUpdates`.
-    /// - Remark: Generated from `#/paths//getUpdates/get(getUpdates)`.
+    /// - Remark: HTTP `POST /getUpdates`.
+    /// - Remark: Generated from `#/paths//getUpdates/post(getUpdates)`.
     public enum GetUpdates {
         public static let id: Swift.String = "getUpdates"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getUpdates/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Identifier of the first update to be returned. Must be greater by one than the highest among the identifiers of previously received updates. By default, updates starting with the earliest unconfirmed update are returned. An update is considered confirmed as soon as [getUpdates](https://core.telegram.org/bots/api#getupdates) is called with an *offset* higher than its *update_id*. The negative offset can be specified to retrieve updates starting from *-offset* update from the end of the updates queue. All previous updates will be forgotten.
-                ///
-                /// - Remark: Generated from `#/paths/getUpdates/GET/query/offset`.
-                public var offset: Swift.Int64?
-                /// Limits the number of updates to be retrieved. Values between 1-100 are accepted. Defaults to 100.
-                ///
-                /// - Remark: Generated from `#/paths/getUpdates/GET/query/limit`.
-                public var limit: Swift.Int64?
-                /// Timeout in seconds for long polling. Defaults to 0, i.e. usual short polling. Should be positive, short polling should be used for testing purposes only.
-                ///
-                /// - Remark: Generated from `#/paths/getUpdates/GET/query/timeout`.
-                public var timeout: Swift.Int64?
-                /// A JSON-serialized list of the update types you want your bot to receive. For example, specify `["message", "edited_channel_post", "callback_query"]` to only receive updates of these types. See [Update](https://core.telegram.org/bots/api#update) for a complete list of available update types. Specify an empty list to receive all update types except *chat_member*, *message_reaction*, and *message_reaction_count* (default). If not specified, the previous setting will be used.Please note that this parameter doesn't affect updates created before the call to getUpdates, so unwanted updates may be received for a short period of time.
-                ///
-                /// - Remark: Generated from `#/paths/getUpdates/GET/query/allowed_updates`.
-                public var allowedUpdates: [Swift.String]?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - offset: Identifier of the first update to be returned. Must be greater by one than the highest among the identifiers of previously received updates. By default, updates starting with the earliest unconfirmed update are returned. An update is considered confirmed as soon as [getUpdates](https://core.telegram.org/bots/api#getupdates) is called with an *offset* higher than its *update_id*. The negative offset can be specified to retrieve updates starting from *-offset* update from the end of the updates queue. All previous updates will be forgotten.
-                ///   - limit: Limits the number of updates to be retrieved. Values between 1-100 are accepted. Defaults to 100.
-                ///   - timeout: Timeout in seconds for long polling. Defaults to 0, i.e. usual short polling. Should be positive, short polling should be used for testing purposes only.
-                ///   - allowedUpdates: A JSON-serialized list of the update types you want your bot to receive. For example, specify `["message", "edited_channel_post", "callback_query"]` to only receive updates of these types. See [Update](https://core.telegram.org/bots/api#update) for a complete list of available update types. Specify an empty list to receive all update types except *chat_member*, *message_reaction*, and *message_reaction_count* (default). If not specified, the previous setting will be used.Please note that this parameter doesn't affect updates created before the call to getUpdates, so unwanted updates may be received for a short period of time.
-                public init(
-                    offset: Swift.Int64? = nil,
-                    limit: Swift.Int64? = nil,
-                    timeout: Swift.Int64? = nil,
-                    allowedUpdates: [Swift.String]? = nil
-                ) {
-                    self.offset = offset
-                    self.limit = limit
-                    self.timeout = timeout
-                    self.allowedUpdates = allowedUpdates
-                }
-            }
-            public var query: Operations.GetUpdates.Input.Query
-            /// - Remark: Generated from `#/paths/getUpdates/GET/header`.
+            /// - Remark: Generated from `#/paths/getUpdates/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetUpdates.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -26859,28 +26821,77 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetUpdates.Input.Headers
+            /// - Remark: Generated from `#/paths/getUpdates/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getUpdates/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Identifier of the first update to be returned. Must be greater by one than the highest among the identifiers of previously received updates. By default, updates starting with the earliest unconfirmed update are returned. An update is considered confirmed as soon as [getUpdates](https://core.telegram.org/bots/api#getupdates) is called with an *offset* higher than its *update_id*. The negative offset can be specified to retrieve updates starting from *-offset* update from the end of the updates queue. All previous updates will be forgotten.
+                    ///
+                    /// - Remark: Generated from `#/paths/getUpdates/POST/requestBody/json/offset`.
+                    public var offset: Swift.Int64?
+                    /// Limits the number of updates to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+                    ///
+                    /// - Remark: Generated from `#/paths/getUpdates/POST/requestBody/json/limit`.
+                    public var limit: Swift.Int64?
+                    /// Timeout in seconds for long polling. Defaults to 0, i.e. usual short polling. Should be positive, short polling should be used for testing purposes only.
+                    ///
+                    /// - Remark: Generated from `#/paths/getUpdates/POST/requestBody/json/timeout`.
+                    public var timeout: Swift.Int64?
+                    /// A JSON-serialized list of the update types you want your bot to receive. For example, specify `["message", "edited_channel_post", "callback_query"]` to only receive updates of these types. See [Update](https://core.telegram.org/bots/api#update) for a complete list of available update types. Specify an empty list to receive all update types except *chat_member*, *message_reaction*, and *message_reaction_count* (default). If not specified, the previous setting will be used.Please note that this parameter doesn't affect updates created before the call to getUpdates, so unwanted updates may be received for a short period of time.
+                    ///
+                    /// - Remark: Generated from `#/paths/getUpdates/POST/requestBody/json/allowed_updates`.
+                    public var allowedUpdates: [Swift.String]?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - offset: Identifier of the first update to be returned. Must be greater by one than the highest among the identifiers of previously received updates. By default, updates starting with the earliest unconfirmed update are returned. An update is considered confirmed as soon as [getUpdates](https://core.telegram.org/bots/api#getupdates) is called with an *offset* higher than its *update_id*. The negative offset can be specified to retrieve updates starting from *-offset* update from the end of the updates queue. All previous updates will be forgotten.
+                    ///   - limit: Limits the number of updates to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+                    ///   - timeout: Timeout in seconds for long polling. Defaults to 0, i.e. usual short polling. Should be positive, short polling should be used for testing purposes only.
+                    ///   - allowedUpdates: A JSON-serialized list of the update types you want your bot to receive. For example, specify `["message", "edited_channel_post", "callback_query"]` to only receive updates of these types. See [Update](https://core.telegram.org/bots/api#update) for a complete list of available update types. Specify an empty list to receive all update types except *chat_member*, *message_reaction*, and *message_reaction_count* (default). If not specified, the previous setting will be used.Please note that this parameter doesn't affect updates created before the call to getUpdates, so unwanted updates may be received for a short period of time.
+                    public init(
+                        offset: Swift.Int64? = nil,
+                        limit: Swift.Int64? = nil,
+                        timeout: Swift.Int64? = nil,
+                        allowedUpdates: [Swift.String]? = nil
+                    ) {
+                        self.offset = offset
+                        self.limit = limit
+                        self.timeout = timeout
+                        self.allowedUpdates = allowedUpdates
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case offset
+                        case limit
+                        case timeout
+                        case allowedUpdates = "allowed_updates"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getUpdates/POST/requestBody/content/application\/json`.
+                case json(Operations.GetUpdates.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetUpdates.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetUpdates.Input.Query = .init(),
-                headers: Operations.GetUpdates.Input.Headers = .init()
+                headers: Operations.GetUpdates.Input.Headers = .init(),
+                body: Operations.GetUpdates.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getUpdates/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getUpdates/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getUpdates/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getUpdates/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getUpdates/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getUpdates/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getUpdates/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getUpdates/POST/responses/200/content/json/result`.
                         public var result: [Components.Schemas.Update]
                         /// Creates a new `JsonPayload`.
                         ///
@@ -26899,7 +26910,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getUpdates/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getUpdates/POST/responses/200/content/application\/json`.
                     case json(Operations.GetUpdates.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -26926,7 +26937,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getUpdates/get(getUpdates)/responses/200`.
+            /// - Remark: Generated from `#/paths//getUpdates/post(getUpdates)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetUpdates.Output.Ok)
@@ -27381,12 +27392,12 @@ public enum Operations {
     ///
     /// Use this method to get current webhook status. Requires no parameters. On success, returns a WebhookInfo object. If the bot is using getUpdates, will return an object with the url field empty.
     ///
-    /// - Remark: HTTP `GET /getWebhookInfo`.
-    /// - Remark: Generated from `#/paths//getWebhookInfo/get(getWebhookInfo)`.
+    /// - Remark: HTTP `POST /getWebhookInfo`.
+    /// - Remark: Generated from `#/paths//getWebhookInfo/post(getWebhookInfo)`.
     public enum GetWebhookInfo {
         public static let id: Swift.String = "getWebhookInfo"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getWebhookInfo/GET/header`.
+            /// - Remark: Generated from `#/paths/getWebhookInfo/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetWebhookInfo.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -27408,13 +27419,13 @@ public enum Operations {
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getWebhookInfo/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getWebhookInfo/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getWebhookInfo/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getWebhookInfo/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getWebhookInfo/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getWebhookInfo/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getWebhookInfo/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getWebhookInfo/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.WebhookInfo
                         /// Creates a new `JsonPayload`.
                         ///
@@ -27433,7 +27444,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getWebhookInfo/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getWebhookInfo/POST/responses/200/content/application\/json`.
                     case json(Operations.GetWebhookInfo.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -27460,7 +27471,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getWebhookInfo/get(getWebhookInfo)/responses/200`.
+            /// - Remark: Generated from `#/paths//getWebhookInfo/post(getWebhookInfo)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetWebhookInfo.Output.Ok)
@@ -27516,12 +27527,12 @@ public enum Operations {
     ///
     /// A simple method for testing your bot's authentication token. Requires no parameters. Returns basic information about the bot in form of a User object.
     ///
-    /// - Remark: HTTP `GET /getMe`.
-    /// - Remark: Generated from `#/paths//getMe/get(getMe)`.
+    /// - Remark: HTTP `POST /getMe`.
+    /// - Remark: Generated from `#/paths//getMe/post(getMe)`.
     public enum GetMe {
         public static let id: Swift.String = "getMe"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getMe/GET/header`.
+            /// - Remark: Generated from `#/paths/getMe/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetMe.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -27543,13 +27554,13 @@ public enum Operations {
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getMe/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getMe/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getMe/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getMe/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getMe/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getMe/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getMe/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getMe/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.User
                         /// Creates a new `JsonPayload`.
                         ///
@@ -27568,7 +27579,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getMe/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getMe/POST/responses/200/content/application\/json`.
                     case json(Operations.GetMe.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -27595,7 +27606,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getMe/get(getMe)/responses/200`.
+            /// - Remark: Generated from `#/paths//getMe/post(getMe)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetMe.Output.Ok)
@@ -35305,43 +35316,12 @@ public enum Operations {
     ///
     /// Use this method to get a list of profile pictures for a user. Returns a UserProfilePhotos object.
     ///
-    /// - Remark: HTTP `GET /getUserProfilePhotos`.
-    /// - Remark: Generated from `#/paths//getUserProfilePhotos/get(getUserProfilePhotos)`.
+    /// - Remark: HTTP `POST /getUserProfilePhotos`.
+    /// - Remark: Generated from `#/paths//getUserProfilePhotos/post(getUserProfilePhotos)`.
     public enum GetUserProfilePhotos {
         public static let id: Swift.String = "getUserProfilePhotos"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getUserProfilePhotos/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier of the target user
-                ///
-                /// - Remark: Generated from `#/paths/getUserProfilePhotos/GET/query/user_id`.
-                public var userId: Swift.Int64
-                /// Sequential number of the first photo to be returned. By default, all photos are returned.
-                ///
-                /// - Remark: Generated from `#/paths/getUserProfilePhotos/GET/query/offset`.
-                public var offset: Swift.Int64?
-                /// Limits the number of photos to be retrieved. Values between 1-100 are accepted. Defaults to 100.
-                ///
-                /// - Remark: Generated from `#/paths/getUserProfilePhotos/GET/query/limit`.
-                public var limit: Swift.Int64?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - userId: Unique identifier of the target user
-                ///   - offset: Sequential number of the first photo to be returned. By default, all photos are returned.
-                ///   - limit: Limits the number of photos to be retrieved. Values between 1-100 are accepted. Defaults to 100.
-                public init(
-                    userId: Swift.Int64,
-                    offset: Swift.Int64? = nil,
-                    limit: Swift.Int64? = nil
-                ) {
-                    self.userId = userId
-                    self.offset = offset
-                    self.limit = limit
-                }
-            }
-            public var query: Operations.GetUserProfilePhotos.Input.Query
-            /// - Remark: Generated from `#/paths/getUserProfilePhotos/GET/header`.
+            /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetUserProfilePhotos.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -35353,28 +35333,69 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetUserProfilePhotos.Input.Headers
+            /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Unique identifier of the target user
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/requestBody/json/user_id`.
+                    public var userId: Swift.Int64
+                    /// Sequential number of the first photo to be returned. By default, all photos are returned.
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/requestBody/json/offset`.
+                    public var offset: Swift.Int64?
+                    /// Limits the number of photos to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/requestBody/json/limit`.
+                    public var limit: Swift.Int64?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - userId: Unique identifier of the target user
+                    ///   - offset: Sequential number of the first photo to be returned. By default, all photos are returned.
+                    ///   - limit: Limits the number of photos to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+                    public init(
+                        userId: Swift.Int64,
+                        offset: Swift.Int64? = nil,
+                        limit: Swift.Int64? = nil
+                    ) {
+                        self.userId = userId
+                        self.offset = offset
+                        self.limit = limit
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case userId = "user_id"
+                        case offset
+                        case limit
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/requestBody/content/application\/json`.
+                case json(Operations.GetUserProfilePhotos.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetUserProfilePhotos.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetUserProfilePhotos.Input.Query,
-                headers: Operations.GetUserProfilePhotos.Input.Headers = .init()
+                headers: Operations.GetUserProfilePhotos.Input.Headers = .init(),
+                body: Operations.GetUserProfilePhotos.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getUserProfilePhotos/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getUserProfilePhotos/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getUserProfilePhotos/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getUserProfilePhotos/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.UserProfilePhotos
                         /// Creates a new `JsonPayload`.
                         ///
@@ -35393,7 +35414,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getUserProfilePhotos/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getUserProfilePhotos/POST/responses/200/content/application\/json`.
                     case json(Operations.GetUserProfilePhotos.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -35420,7 +35441,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getUserProfilePhotos/get(getUserProfilePhotos)/responses/200`.
+            /// - Remark: Generated from `#/paths//getUserProfilePhotos/post(getUserProfilePhotos)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetUserProfilePhotos.Output.Ok)
@@ -35476,43 +35497,12 @@ public enum Operations {
     ///
     /// Use this method to get a list of profile audios for a user. Returns a UserProfileAudios object.
     ///
-    /// - Remark: HTTP `GET /getUserProfileAudios`.
-    /// - Remark: Generated from `#/paths//getUserProfileAudios/get(getUserProfileAudios)`.
+    /// - Remark: HTTP `POST /getUserProfileAudios`.
+    /// - Remark: Generated from `#/paths//getUserProfileAudios/post(getUserProfileAudios)`.
     public enum GetUserProfileAudios {
         public static let id: Swift.String = "getUserProfileAudios"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getUserProfileAudios/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier of the target user
-                ///
-                /// - Remark: Generated from `#/paths/getUserProfileAudios/GET/query/user_id`.
-                public var userId: Swift.Int64
-                /// Sequential number of the first audio to be returned. By default, all audios are returned.
-                ///
-                /// - Remark: Generated from `#/paths/getUserProfileAudios/GET/query/offset`.
-                public var offset: Swift.Int64?
-                /// Limits the number of audios to be retrieved. Values between 1-100 are accepted. Defaults to 100.
-                ///
-                /// - Remark: Generated from `#/paths/getUserProfileAudios/GET/query/limit`.
-                public var limit: Swift.Int64?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - userId: Unique identifier of the target user
-                ///   - offset: Sequential number of the first audio to be returned. By default, all audios are returned.
-                ///   - limit: Limits the number of audios to be retrieved. Values between 1-100 are accepted. Defaults to 100.
-                public init(
-                    userId: Swift.Int64,
-                    offset: Swift.Int64? = nil,
-                    limit: Swift.Int64? = nil
-                ) {
-                    self.userId = userId
-                    self.offset = offset
-                    self.limit = limit
-                }
-            }
-            public var query: Operations.GetUserProfileAudios.Input.Query
-            /// - Remark: Generated from `#/paths/getUserProfileAudios/GET/header`.
+            /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetUserProfileAudios.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -35524,28 +35514,69 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetUserProfileAudios.Input.Headers
+            /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Unique identifier of the target user
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/requestBody/json/user_id`.
+                    public var userId: Swift.Int64
+                    /// Sequential number of the first audio to be returned. By default, all audios are returned.
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/requestBody/json/offset`.
+                    public var offset: Swift.Int64?
+                    /// Limits the number of audios to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/requestBody/json/limit`.
+                    public var limit: Swift.Int64?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - userId: Unique identifier of the target user
+                    ///   - offset: Sequential number of the first audio to be returned. By default, all audios are returned.
+                    ///   - limit: Limits the number of audios to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+                    public init(
+                        userId: Swift.Int64,
+                        offset: Swift.Int64? = nil,
+                        limit: Swift.Int64? = nil
+                    ) {
+                        self.userId = userId
+                        self.offset = offset
+                        self.limit = limit
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case userId = "user_id"
+                        case offset
+                        case limit
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/requestBody/content/application\/json`.
+                case json(Operations.GetUserProfileAudios.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetUserProfileAudios.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetUserProfileAudios.Input.Query,
-                headers: Operations.GetUserProfileAudios.Input.Headers = .init()
+                headers: Operations.GetUserProfileAudios.Input.Headers = .init(),
+                body: Operations.GetUserProfileAudios.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getUserProfileAudios/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getUserProfileAudios/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getUserProfileAudios/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getUserProfileAudios/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.UserProfileAudios
                         /// Creates a new `JsonPayload`.
                         ///
@@ -35564,7 +35595,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getUserProfileAudios/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getUserProfileAudios/POST/responses/200/content/application\/json`.
                     case json(Operations.GetUserProfileAudios.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -35591,7 +35622,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getUserProfileAudios/get(getUserProfileAudios)/responses/200`.
+            /// - Remark: Generated from `#/paths//getUserProfileAudios/post(getUserProfileAudios)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetUserProfileAudios.Output.Ok)
@@ -35829,27 +35860,12 @@ public enum Operations {
     /// Use this method to get basic information about a file and prepare it for downloading. For the moment, bots can download files of up to 20MB in size. On success, a File object is returned. The file can then be downloaded via the link https://api.telegram.org/file/bot<token>/<file_path>, where <file_path> is taken from the response. It is guaranteed that the link will be valid for at least 1 hour. When the link expires, a new one can be requested by calling getFile again.
     /// Note: This function may not preserve the original file name and MIME type. You should save the file's MIME type and name (if available) when the File object is received.
     ///
-    /// - Remark: HTTP `GET /getFile`.
-    /// - Remark: Generated from `#/paths//getFile/get(getFile)`.
+    /// - Remark: HTTP `POST /getFile`.
+    /// - Remark: Generated from `#/paths//getFile/post(getFile)`.
     public enum GetFile {
         public static let id: Swift.String = "getFile"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getFile/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// File identifier to get information about
-                ///
-                /// - Remark: Generated from `#/paths/getFile/GET/query/file_id`.
-                public var fileId: Swift.String
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - fileId: File identifier to get information about
-                public init(fileId: Swift.String) {
-                    self.fileId = fileId
-                }
-            }
-            public var query: Operations.GetFile.Input.Query
-            /// - Remark: Generated from `#/paths/getFile/GET/header`.
+            /// - Remark: Generated from `#/paths/getFile/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetFile.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -35861,28 +35877,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetFile.Input.Headers
+            /// - Remark: Generated from `#/paths/getFile/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getFile/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// File identifier to get information about
+                    ///
+                    /// - Remark: Generated from `#/paths/getFile/POST/requestBody/json/file_id`.
+                    public var fileId: Swift.String
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - fileId: File identifier to get information about
+                    public init(fileId: Swift.String) {
+                        self.fileId = fileId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case fileId = "file_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getFile/POST/requestBody/content/application\/json`.
+                case json(Operations.GetFile.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetFile.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetFile.Input.Query,
-                headers: Operations.GetFile.Input.Headers = .init()
+                headers: Operations.GetFile.Input.Headers = .init(),
+                body: Operations.GetFile.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getFile/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getFile/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getFile/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getFile/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getFile/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getFile/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getFile/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getFile/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.File
                         /// Creates a new `JsonPayload`.
                         ///
@@ -35901,7 +35940,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getFile/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getFile/POST/responses/200/content/application\/json`.
                     case json(Operations.GetFile.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -35928,7 +35967,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getFile/get(getFile)/responses/200`.
+            /// - Remark: Generated from `#/paths//getFile/post(getFile)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetFile.Output.Ok)
@@ -40885,27 +40924,12 @@ public enum Operations {
     ///
     /// Use this method to get up-to-date information about the chat. Returns a ChatFullInfo object on success.
     ///
-    /// - Remark: HTTP `GET /getChat`.
-    /// - Remark: Generated from `#/paths//getChat/get(getChat)`.
+    /// - Remark: HTTP `POST /getChat`.
+    /// - Remark: Generated from `#/paths//getChat/post(getChat)`.
     public enum GetChat {
         public static let id: Swift.String = "getChat"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getChat/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`
-                ///
-                /// - Remark: Generated from `#/paths/getChat/GET/query/chat_id`.
-                public var chatId: Components.Schemas.ChatId
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - chatId: Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`
-                public init(chatId: Components.Schemas.ChatId) {
-                    self.chatId = chatId
-                }
-            }
-            public var query: Operations.GetChat.Input.Query
-            /// - Remark: Generated from `#/paths/getChat/GET/header`.
+            /// - Remark: Generated from `#/paths/getChat/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetChat.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -40917,28 +40941,49 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetChat.Input.Headers
+            /// - Remark: Generated from `#/paths/getChat/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getChat/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/paths/getChat/POST/requestBody/json/chat_id`.
+                    public var chatId: Components.Schemas.ChatId
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - chatId:
+                    public init(chatId: Components.Schemas.ChatId) {
+                        self.chatId = chatId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case chatId = "chat_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getChat/POST/requestBody/content/application\/json`.
+                case json(Operations.GetChat.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetChat.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetChat.Input.Query,
-                headers: Operations.GetChat.Input.Headers = .init()
+                headers: Operations.GetChat.Input.Headers = .init(),
+                body: Operations.GetChat.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getChat/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getChat/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getChat/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getChat/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getChat/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getChat/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getChat/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getChat/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.ChatFullInfo
                         /// Creates a new `JsonPayload`.
                         ///
@@ -40957,7 +41002,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getChat/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getChat/POST/responses/200/content/application\/json`.
                     case json(Operations.GetChat.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -40984,7 +41029,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getChat/get(getChat)/responses/200`.
+            /// - Remark: Generated from `#/paths//getChat/post(getChat)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetChat.Output.Ok)
@@ -41040,36 +41085,12 @@ public enum Operations {
     ///
     /// Use this method to get a list of administrators in a chat. Returns an Array of ChatMember objects.
     ///
-    /// - Remark: HTTP `GET /getChatAdministrators`.
-    /// - Remark: Generated from `#/paths//getChatAdministrators/get(getChatAdministrators)`.
+    /// - Remark: HTTP `POST /getChatAdministrators`.
+    /// - Remark: Generated from `#/paths//getChatAdministrators/post(getChatAdministrators)`.
     public enum GetChatAdministrators {
         public static let id: Swift.String = "getChatAdministrators"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getChatAdministrators/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`
-                ///
-                /// - Remark: Generated from `#/paths/getChatAdministrators/GET/query/chat_id`.
-                public var chatId: Components.Schemas.ChatId
-                /// Pass *True* to additionally receive all bots that are administrators of the chat. By default, bots other than the current bot are omitted.
-                ///
-                /// - Remark: Generated from `#/paths/getChatAdministrators/GET/query/return_bots`.
-                public var returnBots: Swift.Bool?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - chatId: Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`
-                ///   - returnBots: Pass *True* to additionally receive all bots that are administrators of the chat. By default, bots other than the current bot are omitted.
-                public init(
-                    chatId: Components.Schemas.ChatId,
-                    returnBots: Swift.Bool? = nil
-                ) {
-                    self.chatId = chatId
-                    self.returnBots = returnBots
-                }
-            }
-            public var query: Operations.GetChatAdministrators.Input.Query
-            /// - Remark: Generated from `#/paths/getChatAdministrators/GET/header`.
+            /// - Remark: Generated from `#/paths/getChatAdministrators/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetChatAdministrators.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -41081,28 +41102,59 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetChatAdministrators.Input.Headers
+            /// - Remark: Generated from `#/paths/getChatAdministrators/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getChatAdministrators/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/paths/getChatAdministrators/POST/requestBody/json/chat_id`.
+                    public var chatId: Components.Schemas.ChatId
+                    /// Pass *True* to additionally receive all bots that are administrators of the chat. By default, bots other than the current bot are omitted.
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatAdministrators/POST/requestBody/json/return_bots`.
+                    public var returnBots: Swift.Bool?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - chatId:
+                    ///   - returnBots: Pass *True* to additionally receive all bots that are administrators of the chat. By default, bots other than the current bot are omitted.
+                    public init(
+                        chatId: Components.Schemas.ChatId,
+                        returnBots: Swift.Bool? = nil
+                    ) {
+                        self.chatId = chatId
+                        self.returnBots = returnBots
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case chatId = "chat_id"
+                        case returnBots = "return_bots"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getChatAdministrators/POST/requestBody/content/application\/json`.
+                case json(Operations.GetChatAdministrators.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetChatAdministrators.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetChatAdministrators.Input.Query,
-                headers: Operations.GetChatAdministrators.Input.Headers = .init()
+                headers: Operations.GetChatAdministrators.Input.Headers = .init(),
+                body: Operations.GetChatAdministrators.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getChatAdministrators/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getChatAdministrators/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getChatAdministrators/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getChatAdministrators/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getChatAdministrators/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getChatAdministrators/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getChatAdministrators/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getChatAdministrators/POST/responses/200/content/json/result`.
                         public var result: [Components.Schemas.ChatMember]
                         /// Creates a new `JsonPayload`.
                         ///
@@ -41121,7 +41173,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getChatAdministrators/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getChatAdministrators/POST/responses/200/content/application\/json`.
                     case json(Operations.GetChatAdministrators.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -41148,7 +41200,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getChatAdministrators/get(getChatAdministrators)/responses/200`.
+            /// - Remark: Generated from `#/paths//getChatAdministrators/post(getChatAdministrators)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetChatAdministrators.Output.Ok)
@@ -41204,27 +41256,12 @@ public enum Operations {
     ///
     /// Use this method to get the number of members in a chat. Returns Integer on success.
     ///
-    /// - Remark: HTTP `GET /getChatMemberCount`.
-    /// - Remark: Generated from `#/paths//getChatMemberCount/get(getChatMemberCount)`.
+    /// - Remark: HTTP `POST /getChatMemberCount`.
+    /// - Remark: Generated from `#/paths//getChatMemberCount/post(getChatMemberCount)`.
     public enum GetChatMemberCount {
         public static let id: Swift.String = "getChatMemberCount"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getChatMemberCount/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`
-                ///
-                /// - Remark: Generated from `#/paths/getChatMemberCount/GET/query/chat_id`.
-                public var chatId: Components.Schemas.ChatId
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - chatId: Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`
-                public init(chatId: Components.Schemas.ChatId) {
-                    self.chatId = chatId
-                }
-            }
-            public var query: Operations.GetChatMemberCount.Input.Query
-            /// - Remark: Generated from `#/paths/getChatMemberCount/GET/header`.
+            /// - Remark: Generated from `#/paths/getChatMemberCount/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetChatMemberCount.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -41236,28 +41273,49 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetChatMemberCount.Input.Headers
+            /// - Remark: Generated from `#/paths/getChatMemberCount/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getChatMemberCount/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/paths/getChatMemberCount/POST/requestBody/json/chat_id`.
+                    public var chatId: Components.Schemas.ChatId
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - chatId:
+                    public init(chatId: Components.Schemas.ChatId) {
+                        self.chatId = chatId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case chatId = "chat_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getChatMemberCount/POST/requestBody/content/application\/json`.
+                case json(Operations.GetChatMemberCount.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetChatMemberCount.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetChatMemberCount.Input.Query,
-                headers: Operations.GetChatMemberCount.Input.Headers = .init()
+                headers: Operations.GetChatMemberCount.Input.Headers = .init(),
+                body: Operations.GetChatMemberCount.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getChatMemberCount/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getChatMemberCount/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getChatMemberCount/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getChatMemberCount/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getChatMemberCount/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getChatMemberCount/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getChatMemberCount/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getChatMemberCount/POST/responses/200/content/json/result`.
                         public var result: Swift.Int64
                         /// Creates a new `JsonPayload`.
                         ///
@@ -41276,7 +41334,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getChatMemberCount/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getChatMemberCount/POST/responses/200/content/application\/json`.
                     case json(Operations.GetChatMemberCount.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -41303,7 +41361,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getChatMemberCount/get(getChatMemberCount)/responses/200`.
+            /// - Remark: Generated from `#/paths//getChatMemberCount/post(getChatMemberCount)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetChatMemberCount.Output.Ok)
@@ -41359,36 +41417,12 @@ public enum Operations {
     ///
     /// Use this method to get information about a member of a chat. The method is only guaranteed to work for other users if the bot is an administrator in the chat. Returns a ChatMember object on success.
     ///
-    /// - Remark: HTTP `GET /getChatMember`.
-    /// - Remark: Generated from `#/paths//getChatMember/get(getChatMember)`.
+    /// - Remark: HTTP `POST /getChatMember`.
+    /// - Remark: Generated from `#/paths//getChatMember/post(getChatMember)`.
     public enum GetChatMember {
         public static let id: Swift.String = "getChatMember"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getChatMember/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`
-                ///
-                /// - Remark: Generated from `#/paths/getChatMember/GET/query/chat_id`.
-                public var chatId: Components.Schemas.ChatId
-                /// Unique identifier of the target user
-                ///
-                /// - Remark: Generated from `#/paths/getChatMember/GET/query/user_id`.
-                public var userId: Swift.Int64
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - chatId: Unique identifier for the target chat or username of the target supergroup or channel in the format `@username`
-                ///   - userId: Unique identifier of the target user
-                public init(
-                    chatId: Components.Schemas.ChatId,
-                    userId: Swift.Int64
-                ) {
-                    self.chatId = chatId
-                    self.userId = userId
-                }
-            }
-            public var query: Operations.GetChatMember.Input.Query
-            /// - Remark: Generated from `#/paths/getChatMember/GET/header`.
+            /// - Remark: Generated from `#/paths/getChatMember/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetChatMember.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -41400,28 +41434,59 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetChatMember.Input.Headers
+            /// - Remark: Generated from `#/paths/getChatMember/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getChatMember/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/paths/getChatMember/POST/requestBody/json/chat_id`.
+                    public var chatId: Components.Schemas.ChatId
+                    /// Unique identifier of the target user
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatMember/POST/requestBody/json/user_id`.
+                    public var userId: Swift.Int64
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - chatId:
+                    ///   - userId: Unique identifier of the target user
+                    public init(
+                        chatId: Components.Schemas.ChatId,
+                        userId: Swift.Int64
+                    ) {
+                        self.chatId = chatId
+                        self.userId = userId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case chatId = "chat_id"
+                        case userId = "user_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getChatMember/POST/requestBody/content/application\/json`.
+                case json(Operations.GetChatMember.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetChatMember.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetChatMember.Input.Query,
-                headers: Operations.GetChatMember.Input.Headers = .init()
+                headers: Operations.GetChatMember.Input.Headers = .init(),
+                body: Operations.GetChatMember.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getChatMember/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getChatMember/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getChatMember/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getChatMember/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getChatMember/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getChatMember/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getChatMember/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getChatMember/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.ChatMember
                         /// Creates a new `JsonPayload`.
                         ///
@@ -41440,7 +41505,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getChatMember/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getChatMember/POST/responses/200/content/application\/json`.
                     case json(Operations.GetChatMember.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -41467,7 +41532,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getChatMember/get(getChatMember)/responses/200`.
+            /// - Remark: Generated from `#/paths//getChatMember/post(getChatMember)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetChatMember.Output.Ok)
@@ -41523,36 +41588,12 @@ public enum Operations {
     ///
     /// Use this method to get the last messages from the personal chat (i.e., the chat currently added to their profile) of a given user. On success, an Array of Message objects is returned.
     ///
-    /// - Remark: HTTP `GET /getUserPersonalChatMessages`.
-    /// - Remark: Generated from `#/paths//getUserPersonalChatMessages/get(getUserPersonalChatMessages)`.
+    /// - Remark: HTTP `POST /getUserPersonalChatMessages`.
+    /// - Remark: Generated from `#/paths//getUserPersonalChatMessages/post(getUserPersonalChatMessages)`.
     public enum GetUserPersonalChatMessages {
         public static let id: Swift.String = "getUserPersonalChatMessages"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier for the target user
-                ///
-                /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/GET/query/user_id`.
-                public var userId: Swift.Int64
-                /// The maximum number of messages to return; 1-20
-                ///
-                /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/GET/query/limit`.
-                public var limit: Swift.Int64
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - userId: Unique identifier for the target user
-                ///   - limit: The maximum number of messages to return; 1-20
-                public init(
-                    userId: Swift.Int64,
-                    limit: Swift.Int64
-                ) {
-                    self.userId = userId
-                    self.limit = limit
-                }
-            }
-            public var query: Operations.GetUserPersonalChatMessages.Input.Query
-            /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/GET/header`.
+            /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetUserPersonalChatMessages.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -41564,28 +41605,61 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetUserPersonalChatMessages.Input.Headers
+            /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Unique identifier for the target user
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/requestBody/json/user_id`.
+                    public var userId: Swift.Int64
+                    /// The maximum number of messages to return; 1-20
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/requestBody/json/limit`.
+                    public var limit: Swift.Int64
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - userId: Unique identifier for the target user
+                    ///   - limit: The maximum number of messages to return; 1-20
+                    public init(
+                        userId: Swift.Int64,
+                        limit: Swift.Int64
+                    ) {
+                        self.userId = userId
+                        self.limit = limit
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case userId = "user_id"
+                        case limit
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/requestBody/content/application\/json`.
+                case json(Operations.GetUserPersonalChatMessages.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetUserPersonalChatMessages.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetUserPersonalChatMessages.Input.Query,
-                headers: Operations.GetUserPersonalChatMessages.Input.Headers = .init()
+                headers: Operations.GetUserPersonalChatMessages.Input.Headers = .init(),
+                body: Operations.GetUserPersonalChatMessages.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/responses/200/content/json/result`.
                         public var result: [Components.Schemas.Message]
                         /// Creates a new `JsonPayload`.
                         ///
@@ -41604,7 +41678,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getUserPersonalChatMessages/POST/responses/200/content/application\/json`.
                     case json(Operations.GetUserPersonalChatMessages.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -41631,7 +41705,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getUserPersonalChatMessages/get(getUserPersonalChatMessages)/responses/200`.
+            /// - Remark: Generated from `#/paths//getUserPersonalChatMessages/post(getUserPersonalChatMessages)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetUserPersonalChatMessages.Output.Ok)
@@ -42019,12 +42093,12 @@ public enum Operations {
     ///
     /// Use this method to get custom emoji stickers, which can be used as a forum topic icon by any user. Requires no parameters. Returns an Array of Sticker objects.
     ///
-    /// - Remark: HTTP `GET /getForumTopicIconStickers`.
-    /// - Remark: Generated from `#/paths//getForumTopicIconStickers/get(getForumTopicIconStickers)`.
+    /// - Remark: HTTP `POST /getForumTopicIconStickers`.
+    /// - Remark: Generated from `#/paths//getForumTopicIconStickers/post(getForumTopicIconStickers)`.
     public enum GetForumTopicIconStickers {
         public static let id: Swift.String = "getForumTopicIconStickers"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getForumTopicIconStickers/GET/header`.
+            /// - Remark: Generated from `#/paths/getForumTopicIconStickers/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetForumTopicIconStickers.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -42046,13 +42120,13 @@ public enum Operations {
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getForumTopicIconStickers/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getForumTopicIconStickers/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getForumTopicIconStickers/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getForumTopicIconStickers/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getForumTopicIconStickers/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getForumTopicIconStickers/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getForumTopicIconStickers/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getForumTopicIconStickers/POST/responses/200/content/json/result`.
                         public var result: [Components.Schemas.Sticker]
                         /// Creates a new `JsonPayload`.
                         ///
@@ -42071,7 +42145,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getForumTopicIconStickers/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getForumTopicIconStickers/POST/responses/200/content/application\/json`.
                     case json(Operations.GetForumTopicIconStickers.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -42098,7 +42172,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getForumTopicIconStickers/get(getForumTopicIconStickers)/responses/200`.
+            /// - Remark: Generated from `#/paths//getForumTopicIconStickers/post(getForumTopicIconStickers)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetForumTopicIconStickers.Output.Ok)
@@ -44560,36 +44634,12 @@ public enum Operations {
     ///
     /// Use this method to get the list of boosts added to a chat by a user. Requires administrator rights in the chat. Returns a UserChatBoosts object.
     ///
-    /// - Remark: HTTP `GET /getUserChatBoosts`.
-    /// - Remark: Generated from `#/paths//getUserChatBoosts/get(getUserChatBoosts)`.
+    /// - Remark: HTTP `POST /getUserChatBoosts`.
+    /// - Remark: Generated from `#/paths//getUserChatBoosts/post(getUserChatBoosts)`.
     public enum GetUserChatBoosts {
         public static let id: Swift.String = "getUserChatBoosts"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getUserChatBoosts/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier for the chat or username of the channel in the format `@username`
-                ///
-                /// - Remark: Generated from `#/paths/getUserChatBoosts/GET/query/chat_id`.
-                public var chatId: Components.Schemas.ChatId
-                /// Unique identifier of the target user
-                ///
-                /// - Remark: Generated from `#/paths/getUserChatBoosts/GET/query/user_id`.
-                public var userId: Swift.Int64
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - chatId: Unique identifier for the chat or username of the channel in the format `@username`
-                ///   - userId: Unique identifier of the target user
-                public init(
-                    chatId: Components.Schemas.ChatId,
-                    userId: Swift.Int64
-                ) {
-                    self.chatId = chatId
-                    self.userId = userId
-                }
-            }
-            public var query: Operations.GetUserChatBoosts.Input.Query
-            /// - Remark: Generated from `#/paths/getUserChatBoosts/GET/header`.
+            /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetUserChatBoosts.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -44601,28 +44651,59 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetUserChatBoosts.Input.Headers
+            /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/requestBody/json/chat_id`.
+                    public var chatId: Components.Schemas.ChatId
+                    /// Unique identifier of the target user
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/requestBody/json/user_id`.
+                    public var userId: Swift.Int64
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - chatId:
+                    ///   - userId: Unique identifier of the target user
+                    public init(
+                        chatId: Components.Schemas.ChatId,
+                        userId: Swift.Int64
+                    ) {
+                        self.chatId = chatId
+                        self.userId = userId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case chatId = "chat_id"
+                        case userId = "user_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/requestBody/content/application\/json`.
+                case json(Operations.GetUserChatBoosts.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetUserChatBoosts.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetUserChatBoosts.Input.Query,
-                headers: Operations.GetUserChatBoosts.Input.Headers = .init()
+                headers: Operations.GetUserChatBoosts.Input.Headers = .init(),
+                body: Operations.GetUserChatBoosts.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getUserChatBoosts/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getUserChatBoosts/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getUserChatBoosts/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getUserChatBoosts/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.UserChatBoosts
                         /// Creates a new `JsonPayload`.
                         ///
@@ -44641,7 +44722,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getUserChatBoosts/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getUserChatBoosts/POST/responses/200/content/application\/json`.
                     case json(Operations.GetUserChatBoosts.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -44668,7 +44749,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getUserChatBoosts/get(getUserChatBoosts)/responses/200`.
+            /// - Remark: Generated from `#/paths//getUserChatBoosts/post(getUserChatBoosts)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetUserChatBoosts.Output.Ok)
@@ -44724,27 +44805,12 @@ public enum Operations {
     ///
     /// Use this method to get information about the connection of the bot with a business account. Returns a BusinessConnection object on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessConnection`.
-    /// - Remark: Generated from `#/paths//getBusinessConnection/get(getBusinessConnection)`.
+    /// - Remark: HTTP `POST /getBusinessConnection`.
+    /// - Remark: Generated from `#/paths//getBusinessConnection/post(getBusinessConnection)`.
     public enum GetBusinessConnection {
         public static let id: Swift.String = "getBusinessConnection"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getBusinessConnection/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier of the business connection
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessConnection/GET/query/business_connection_id`.
-                public var businessConnectionId: Swift.String
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - businessConnectionId: Unique identifier of the business connection
-                public init(businessConnectionId: Swift.String) {
-                    self.businessConnectionId = businessConnectionId
-                }
-            }
-            public var query: Operations.GetBusinessConnection.Input.Query
-            /// - Remark: Generated from `#/paths/getBusinessConnection/GET/header`.
+            /// - Remark: Generated from `#/paths/getBusinessConnection/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetBusinessConnection.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -44756,28 +44822,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetBusinessConnection.Input.Headers
+            /// - Remark: Generated from `#/paths/getBusinessConnection/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getBusinessConnection/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Unique identifier of the business connection
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessConnection/POST/requestBody/json/business_connection_id`.
+                    public var businessConnectionId: Swift.String
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - businessConnectionId: Unique identifier of the business connection
+                    public init(businessConnectionId: Swift.String) {
+                        self.businessConnectionId = businessConnectionId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case businessConnectionId = "business_connection_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getBusinessConnection/POST/requestBody/content/application\/json`.
+                case json(Operations.GetBusinessConnection.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetBusinessConnection.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetBusinessConnection.Input.Query,
-                headers: Operations.GetBusinessConnection.Input.Headers = .init()
+                headers: Operations.GetBusinessConnection.Input.Headers = .init(),
+                body: Operations.GetBusinessConnection.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getBusinessConnection/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getBusinessConnection/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getBusinessConnection/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getBusinessConnection/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getBusinessConnection/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getBusinessConnection/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getBusinessConnection/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getBusinessConnection/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.BusinessConnection
                         /// Creates a new `JsonPayload`.
                         ///
@@ -44796,7 +44885,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getBusinessConnection/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getBusinessConnection/POST/responses/200/content/application\/json`.
                     case json(Operations.GetBusinessConnection.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -44823,7 +44912,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getBusinessConnection/get(getBusinessConnection)/responses/200`.
+            /// - Remark: Generated from `#/paths//getBusinessConnection/post(getBusinessConnection)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetBusinessConnection.Output.Ok)
@@ -44879,27 +44968,12 @@ public enum Operations {
     ///
     /// Use this method to get the token of a managed bot. Returns the token as String on success.
     ///
-    /// - Remark: HTTP `GET /getManagedBotToken`.
-    /// - Remark: Generated from `#/paths//getManagedBotToken/get(getManagedBotToken)`.
+    /// - Remark: HTTP `POST /getManagedBotToken`.
+    /// - Remark: Generated from `#/paths//getManagedBotToken/post(getManagedBotToken)`.
     public enum GetManagedBotToken {
         public static let id: Swift.String = "getManagedBotToken"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getManagedBotToken/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// User identifier of the managed bot whose token will be returned
-                ///
-                /// - Remark: Generated from `#/paths/getManagedBotToken/GET/query/user_id`.
-                public var userId: Swift.Int64
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - userId: User identifier of the managed bot whose token will be returned
-                public init(userId: Swift.Int64) {
-                    self.userId = userId
-                }
-            }
-            public var query: Operations.GetManagedBotToken.Input.Query
-            /// - Remark: Generated from `#/paths/getManagedBotToken/GET/header`.
+            /// - Remark: Generated from `#/paths/getManagedBotToken/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetManagedBotToken.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -44911,28 +44985,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetManagedBotToken.Input.Headers
+            /// - Remark: Generated from `#/paths/getManagedBotToken/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getManagedBotToken/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// User identifier of the managed bot whose token will be returned
+                    ///
+                    /// - Remark: Generated from `#/paths/getManagedBotToken/POST/requestBody/json/user_id`.
+                    public var userId: Swift.Int64
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - userId: User identifier of the managed bot whose token will be returned
+                    public init(userId: Swift.Int64) {
+                        self.userId = userId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case userId = "user_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getManagedBotToken/POST/requestBody/content/application\/json`.
+                case json(Operations.GetManagedBotToken.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetManagedBotToken.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetManagedBotToken.Input.Query,
-                headers: Operations.GetManagedBotToken.Input.Headers = .init()
+                headers: Operations.GetManagedBotToken.Input.Headers = .init(),
+                body: Operations.GetManagedBotToken.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getManagedBotToken/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getManagedBotToken/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getManagedBotToken/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getManagedBotToken/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getManagedBotToken/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getManagedBotToken/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getManagedBotToken/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getManagedBotToken/POST/responses/200/content/json/result`.
                         public var result: Swift.String
                         /// Creates a new `JsonPayload`.
                         ///
@@ -44951,7 +45048,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getManagedBotToken/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getManagedBotToken/POST/responses/200/content/application\/json`.
                     case json(Operations.GetManagedBotToken.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -44978,7 +45075,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getManagedBotToken/get(getManagedBotToken)/responses/200`.
+            /// - Remark: Generated from `#/paths//getManagedBotToken/post(getManagedBotToken)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetManagedBotToken.Output.Ok)
@@ -45197,27 +45294,12 @@ public enum Operations {
     ///
     /// Use this method to get the access settings of a managed bot. Returns a BotAccessSettings object on success.
     ///
-    /// - Remark: HTTP `GET /getManagedBotAccessSettings`.
-    /// - Remark: Generated from `#/paths//getManagedBotAccessSettings/get(getManagedBotAccessSettings)`.
+    /// - Remark: HTTP `POST /getManagedBotAccessSettings`.
+    /// - Remark: Generated from `#/paths//getManagedBotAccessSettings/post(getManagedBotAccessSettings)`.
     public enum GetManagedBotAccessSettings {
         public static let id: Swift.String = "getManagedBotAccessSettings"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// User identifier of the managed bot whose access settings will be returned
-                ///
-                /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/GET/query/user_id`.
-                public var userId: Swift.Int64
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - userId: User identifier of the managed bot whose access settings will be returned
-                public init(userId: Swift.Int64) {
-                    self.userId = userId
-                }
-            }
-            public var query: Operations.GetManagedBotAccessSettings.Input.Query
-            /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/GET/header`.
+            /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetManagedBotAccessSettings.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -45229,28 +45311,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetManagedBotAccessSettings.Input.Headers
+            /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// User identifier of the managed bot whose access settings will be returned
+                    ///
+                    /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/POST/requestBody/json/user_id`.
+                    public var userId: Swift.Int64
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - userId: User identifier of the managed bot whose access settings will be returned
+                    public init(userId: Swift.Int64) {
+                        self.userId = userId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case userId = "user_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/POST/requestBody/content/application\/json`.
+                case json(Operations.GetManagedBotAccessSettings.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetManagedBotAccessSettings.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetManagedBotAccessSettings.Input.Query,
-                headers: Operations.GetManagedBotAccessSettings.Input.Headers = .init()
+                headers: Operations.GetManagedBotAccessSettings.Input.Headers = .init(),
+                body: Operations.GetManagedBotAccessSettings.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.BotAccessSettings
                         /// Creates a new `JsonPayload`.
                         ///
@@ -45269,7 +45374,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getManagedBotAccessSettings/POST/responses/200/content/application\/json`.
                     case json(Operations.GetManagedBotAccessSettings.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -45296,7 +45401,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getManagedBotAccessSettings/get(getManagedBotAccessSettings)/responses/200`.
+            /// - Remark: Generated from `#/paths//getManagedBotAccessSettings/post(getManagedBotAccessSettings)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetManagedBotAccessSettings.Output.Ok)
@@ -45883,36 +45988,12 @@ public enum Operations {
     ///
     /// Use this method to get the current list of the bot's commands for the given scope and user language. Returns an Array of BotCommand objects. If commands aren't set, an empty list is returned.
     ///
-    /// - Remark: HTTP `GET /getMyCommands`.
-    /// - Remark: Generated from `#/paths//getMyCommands/get(getMyCommands)`.
+    /// - Remark: HTTP `POST /getMyCommands`.
+    /// - Remark: Generated from `#/paths//getMyCommands/post(getMyCommands)`.
     public enum GetMyCommands {
         public static let id: Swift.String = "getMyCommands"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getMyCommands/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// A JSON-serialized object, describing scope of users. Defaults to [BotCommandScopeDefault](https://core.telegram.org/bots/api#botcommandscopedefault).
-                ///
-                /// - Remark: Generated from `#/paths/getMyCommands/GET/query/scope`.
-                public var scope: Components.Schemas.BotCommandScope?
-                /// A two-letter ISO 639-1 language code or an empty string
-                ///
-                /// - Remark: Generated from `#/paths/getMyCommands/GET/query/language_code`.
-                public var languageCode: Swift.String?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - scope: A JSON-serialized object, describing scope of users. Defaults to [BotCommandScopeDefault](https://core.telegram.org/bots/api#botcommandscopedefault).
-                ///   - languageCode: A two-letter ISO 639-1 language code or an empty string
-                public init(
-                    scope: Components.Schemas.BotCommandScope? = nil,
-                    languageCode: Swift.String? = nil
-                ) {
-                    self.scope = scope
-                    self.languageCode = languageCode
-                }
-            }
-            public var query: Operations.GetMyCommands.Input.Query
-            /// - Remark: Generated from `#/paths/getMyCommands/GET/header`.
+            /// - Remark: Generated from `#/paths/getMyCommands/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetMyCommands.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -45924,28 +46005,59 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetMyCommands.Input.Headers
+            /// - Remark: Generated from `#/paths/getMyCommands/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getMyCommands/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/paths/getMyCommands/POST/requestBody/json/scope`.
+                    public var scope: Components.Schemas.BotCommandScope?
+                    /// A two-letter ISO 639-1 language code or an empty string
+                    ///
+                    /// - Remark: Generated from `#/paths/getMyCommands/POST/requestBody/json/language_code`.
+                    public var languageCode: Swift.String?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - scope:
+                    ///   - languageCode: A two-letter ISO 639-1 language code or an empty string
+                    public init(
+                        scope: Components.Schemas.BotCommandScope? = nil,
+                        languageCode: Swift.String? = nil
+                    ) {
+                        self.scope = scope
+                        self.languageCode = languageCode
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case scope
+                        case languageCode = "language_code"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getMyCommands/POST/requestBody/content/application\/json`.
+                case json(Operations.GetMyCommands.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetMyCommands.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetMyCommands.Input.Query = .init(),
-                headers: Operations.GetMyCommands.Input.Headers = .init()
+                headers: Operations.GetMyCommands.Input.Headers = .init(),
+                body: Operations.GetMyCommands.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getMyCommands/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getMyCommands/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getMyCommands/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getMyCommands/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getMyCommands/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getMyCommands/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getMyCommands/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getMyCommands/POST/responses/200/content/json/result`.
                         public var result: [Components.Schemas.BotCommand]
                         /// Creates a new `JsonPayload`.
                         ///
@@ -45964,7 +46076,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getMyCommands/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getMyCommands/POST/responses/200/content/application\/json`.
                     case json(Operations.GetMyCommands.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -45991,7 +46103,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getMyCommands/get(getMyCommands)/responses/200`.
+            /// - Remark: Generated from `#/paths//getMyCommands/post(getMyCommands)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetMyCommands.Output.Ok)
@@ -46220,27 +46332,12 @@ public enum Operations {
     ///
     /// Use this method to get the current bot name for the given user language. Returns BotName on success.
     ///
-    /// - Remark: HTTP `GET /getMyName`.
-    /// - Remark: Generated from `#/paths//getMyName/get(getMyName)`.
+    /// - Remark: HTTP `POST /getMyName`.
+    /// - Remark: Generated from `#/paths//getMyName/post(getMyName)`.
     public enum GetMyName {
         public static let id: Swift.String = "getMyName"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getMyName/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// A two-letter ISO 639-1 language code or an empty string
-                ///
-                /// - Remark: Generated from `#/paths/getMyName/GET/query/language_code`.
-                public var languageCode: Swift.String?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - languageCode: A two-letter ISO 639-1 language code or an empty string
-                public init(languageCode: Swift.String? = nil) {
-                    self.languageCode = languageCode
-                }
-            }
-            public var query: Operations.GetMyName.Input.Query
-            /// - Remark: Generated from `#/paths/getMyName/GET/header`.
+            /// - Remark: Generated from `#/paths/getMyName/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetMyName.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -46252,28 +46349,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetMyName.Input.Headers
+            /// - Remark: Generated from `#/paths/getMyName/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getMyName/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// A two-letter ISO 639-1 language code or an empty string
+                    ///
+                    /// - Remark: Generated from `#/paths/getMyName/POST/requestBody/json/language_code`.
+                    public var languageCode: Swift.String?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - languageCode: A two-letter ISO 639-1 language code or an empty string
+                    public init(languageCode: Swift.String? = nil) {
+                        self.languageCode = languageCode
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case languageCode = "language_code"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getMyName/POST/requestBody/content/application\/json`.
+                case json(Operations.GetMyName.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetMyName.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetMyName.Input.Query = .init(),
-                headers: Operations.GetMyName.Input.Headers = .init()
+                headers: Operations.GetMyName.Input.Headers = .init(),
+                body: Operations.GetMyName.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getMyName/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getMyName/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getMyName/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getMyName/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getMyName/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getMyName/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getMyName/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getMyName/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.BotName
                         /// Creates a new `JsonPayload`.
                         ///
@@ -46292,7 +46412,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getMyName/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getMyName/POST/responses/200/content/application\/json`.
                     case json(Operations.GetMyName.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -46319,7 +46439,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getMyName/get(getMyName)/responses/200`.
+            /// - Remark: Generated from `#/paths//getMyName/post(getMyName)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetMyName.Output.Ok)
@@ -46548,27 +46668,12 @@ public enum Operations {
     ///
     /// Use this method to get the current bot description for the given user language. Returns BotDescription on success.
     ///
-    /// - Remark: HTTP `GET /getMyDescription`.
-    /// - Remark: Generated from `#/paths//getMyDescription/get(getMyDescription)`.
+    /// - Remark: HTTP `POST /getMyDescription`.
+    /// - Remark: Generated from `#/paths//getMyDescription/post(getMyDescription)`.
     public enum GetMyDescription {
         public static let id: Swift.String = "getMyDescription"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getMyDescription/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// A two-letter ISO 639-1 language code or an empty string
-                ///
-                /// - Remark: Generated from `#/paths/getMyDescription/GET/query/language_code`.
-                public var languageCode: Swift.String?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - languageCode: A two-letter ISO 639-1 language code or an empty string
-                public init(languageCode: Swift.String? = nil) {
-                    self.languageCode = languageCode
-                }
-            }
-            public var query: Operations.GetMyDescription.Input.Query
-            /// - Remark: Generated from `#/paths/getMyDescription/GET/header`.
+            /// - Remark: Generated from `#/paths/getMyDescription/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetMyDescription.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -46580,28 +46685,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetMyDescription.Input.Headers
+            /// - Remark: Generated from `#/paths/getMyDescription/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getMyDescription/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// A two-letter ISO 639-1 language code or an empty string
+                    ///
+                    /// - Remark: Generated from `#/paths/getMyDescription/POST/requestBody/json/language_code`.
+                    public var languageCode: Swift.String?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - languageCode: A two-letter ISO 639-1 language code or an empty string
+                    public init(languageCode: Swift.String? = nil) {
+                        self.languageCode = languageCode
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case languageCode = "language_code"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getMyDescription/POST/requestBody/content/application\/json`.
+                case json(Operations.GetMyDescription.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetMyDescription.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetMyDescription.Input.Query = .init(),
-                headers: Operations.GetMyDescription.Input.Headers = .init()
+                headers: Operations.GetMyDescription.Input.Headers = .init(),
+                body: Operations.GetMyDescription.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getMyDescription/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getMyDescription/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getMyDescription/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getMyDescription/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getMyDescription/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getMyDescription/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getMyDescription/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getMyDescription/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.BotDescription
                         /// Creates a new `JsonPayload`.
                         ///
@@ -46620,7 +46748,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getMyDescription/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getMyDescription/POST/responses/200/content/application\/json`.
                     case json(Operations.GetMyDescription.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -46647,7 +46775,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getMyDescription/get(getMyDescription)/responses/200`.
+            /// - Remark: Generated from `#/paths//getMyDescription/post(getMyDescription)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetMyDescription.Output.Ok)
@@ -46876,27 +47004,12 @@ public enum Operations {
     ///
     /// Use this method to get the current bot short description for the given user language. Returns BotShortDescription on success.
     ///
-    /// - Remark: HTTP `GET /getMyShortDescription`.
-    /// - Remark: Generated from `#/paths//getMyShortDescription/get(getMyShortDescription)`.
+    /// - Remark: HTTP `POST /getMyShortDescription`.
+    /// - Remark: Generated from `#/paths//getMyShortDescription/post(getMyShortDescription)`.
     public enum GetMyShortDescription {
         public static let id: Swift.String = "getMyShortDescription"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getMyShortDescription/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// A two-letter ISO 639-1 language code or an empty string
-                ///
-                /// - Remark: Generated from `#/paths/getMyShortDescription/GET/query/language_code`.
-                public var languageCode: Swift.String?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - languageCode: A two-letter ISO 639-1 language code or an empty string
-                public init(languageCode: Swift.String? = nil) {
-                    self.languageCode = languageCode
-                }
-            }
-            public var query: Operations.GetMyShortDescription.Input.Query
-            /// - Remark: Generated from `#/paths/getMyShortDescription/GET/header`.
+            /// - Remark: Generated from `#/paths/getMyShortDescription/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetMyShortDescription.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -46908,28 +47021,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetMyShortDescription.Input.Headers
+            /// - Remark: Generated from `#/paths/getMyShortDescription/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getMyShortDescription/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// A two-letter ISO 639-1 language code or an empty string
+                    ///
+                    /// - Remark: Generated from `#/paths/getMyShortDescription/POST/requestBody/json/language_code`.
+                    public var languageCode: Swift.String?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - languageCode: A two-letter ISO 639-1 language code or an empty string
+                    public init(languageCode: Swift.String? = nil) {
+                        self.languageCode = languageCode
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case languageCode = "language_code"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getMyShortDescription/POST/requestBody/content/application\/json`.
+                case json(Operations.GetMyShortDescription.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetMyShortDescription.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetMyShortDescription.Input.Query = .init(),
-                headers: Operations.GetMyShortDescription.Input.Headers = .init()
+                headers: Operations.GetMyShortDescription.Input.Headers = .init(),
+                body: Operations.GetMyShortDescription.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getMyShortDescription/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getMyShortDescription/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getMyShortDescription/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getMyShortDescription/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getMyShortDescription/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getMyShortDescription/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getMyShortDescription/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getMyShortDescription/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.BotShortDescription
                         /// Creates a new `JsonPayload`.
                         ///
@@ -46948,7 +47084,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getMyShortDescription/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getMyShortDescription/POST/responses/200/content/application\/json`.
                     case json(Operations.GetMyShortDescription.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -46975,7 +47111,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getMyShortDescription/get(getMyShortDescription)/responses/200`.
+            /// - Remark: Generated from `#/paths//getMyShortDescription/post(getMyShortDescription)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetMyShortDescription.Output.Ok)
@@ -47499,27 +47635,12 @@ public enum Operations {
     ///
     /// Use this method to get the current value of the bot's menu button in a private chat, or the default menu button. Returns MenuButton on success.
     ///
-    /// - Remark: HTTP `GET /getChatMenuButton`.
-    /// - Remark: Generated from `#/paths//getChatMenuButton/get(getChatMenuButton)`.
+    /// - Remark: HTTP `POST /getChatMenuButton`.
+    /// - Remark: Generated from `#/paths//getChatMenuButton/post(getChatMenuButton)`.
     public enum GetChatMenuButton {
         public static let id: Swift.String = "getChatMenuButton"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getChatMenuButton/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier for the target private chat. If not specified, the bot's default menu button will be returned.
-                ///
-                /// - Remark: Generated from `#/paths/getChatMenuButton/GET/query/chat_id`.
-                public var chatId: Swift.Int64?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - chatId: Unique identifier for the target private chat. If not specified, the bot's default menu button will be returned.
-                public init(chatId: Swift.Int64? = nil) {
-                    self.chatId = chatId
-                }
-            }
-            public var query: Operations.GetChatMenuButton.Input.Query
-            /// - Remark: Generated from `#/paths/getChatMenuButton/GET/header`.
+            /// - Remark: Generated from `#/paths/getChatMenuButton/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetChatMenuButton.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -47531,28 +47652,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetChatMenuButton.Input.Headers
+            /// - Remark: Generated from `#/paths/getChatMenuButton/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getChatMenuButton/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Unique identifier for the target private chat. If not specified, the bot's default menu button will be returned.
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatMenuButton/POST/requestBody/json/chat_id`.
+                    public var chatId: Swift.Int64?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - chatId: Unique identifier for the target private chat. If not specified, the bot's default menu button will be returned.
+                    public init(chatId: Swift.Int64? = nil) {
+                        self.chatId = chatId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case chatId = "chat_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getChatMenuButton/POST/requestBody/content/application\/json`.
+                case json(Operations.GetChatMenuButton.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetChatMenuButton.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetChatMenuButton.Input.Query = .init(),
-                headers: Operations.GetChatMenuButton.Input.Headers = .init()
+                headers: Operations.GetChatMenuButton.Input.Headers = .init(),
+                body: Operations.GetChatMenuButton.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getChatMenuButton/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getChatMenuButton/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getChatMenuButton/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getChatMenuButton/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getChatMenuButton/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getChatMenuButton/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getChatMenuButton/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getChatMenuButton/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.MenuButton
                         /// Creates a new `JsonPayload`.
                         ///
@@ -47571,7 +47715,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getChatMenuButton/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getChatMenuButton/POST/responses/200/content/application\/json`.
                     case json(Operations.GetChatMenuButton.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -47598,7 +47742,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getChatMenuButton/get(getChatMenuButton)/responses/200`.
+            /// - Remark: Generated from `#/paths//getChatMenuButton/post(getChatMenuButton)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetChatMenuButton.Output.Ok)
@@ -47825,27 +47969,12 @@ public enum Operations {
     ///
     /// Use this method to get the current default administrator rights of the bot. Returns ChatAdministratorRights on success.
     ///
-    /// - Remark: HTTP `GET /getMyDefaultAdministratorRights`.
-    /// - Remark: Generated from `#/paths//getMyDefaultAdministratorRights/get(getMyDefaultAdministratorRights)`.
+    /// - Remark: HTTP `POST /getMyDefaultAdministratorRights`.
+    /// - Remark: Generated from `#/paths//getMyDefaultAdministratorRights/post(getMyDefaultAdministratorRights)`.
     public enum GetMyDefaultAdministratorRights {
         public static let id: Swift.String = "getMyDefaultAdministratorRights"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Pass *True* to get default administrator rights of the bot in channels. Otherwise, default administrator rights of the bot for groups and supergroups will be returned.
-                ///
-                /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/GET/query/for_channels`.
-                public var forChannels: Swift.Bool?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - forChannels: Pass *True* to get default administrator rights of the bot in channels. Otherwise, default administrator rights of the bot for groups and supergroups will be returned.
-                public init(forChannels: Swift.Bool? = nil) {
-                    self.forChannels = forChannels
-                }
-            }
-            public var query: Operations.GetMyDefaultAdministratorRights.Input.Query
-            /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/GET/header`.
+            /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetMyDefaultAdministratorRights.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -47857,28 +47986,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetMyDefaultAdministratorRights.Input.Headers
+            /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Pass *True* to get default administrator rights of the bot in channels. Otherwise, default administrator rights of the bot for groups and supergroups will be returned.
+                    ///
+                    /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/POST/requestBody/json/for_channels`.
+                    public var forChannels: Swift.Bool?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - forChannels: Pass *True* to get default administrator rights of the bot in channels. Otherwise, default administrator rights of the bot for groups and supergroups will be returned.
+                    public init(forChannels: Swift.Bool? = nil) {
+                        self.forChannels = forChannels
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case forChannels = "for_channels"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/POST/requestBody/content/application\/json`.
+                case json(Operations.GetMyDefaultAdministratorRights.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetMyDefaultAdministratorRights.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetMyDefaultAdministratorRights.Input.Query = .init(),
-                headers: Operations.GetMyDefaultAdministratorRights.Input.Headers = .init()
+                headers: Operations.GetMyDefaultAdministratorRights.Input.Headers = .init(),
+                body: Operations.GetMyDefaultAdministratorRights.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.ChatAdministratorRights
                         /// Creates a new `JsonPayload`.
                         ///
@@ -47897,7 +48049,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getMyDefaultAdministratorRights/POST/responses/200/content/application\/json`.
                     case json(Operations.GetMyDefaultAdministratorRights.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -47924,7 +48076,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getMyDefaultAdministratorRights/get(getMyDefaultAdministratorRights)/responses/200`.
+            /// - Remark: Generated from `#/paths//getMyDefaultAdministratorRights/post(getMyDefaultAdministratorRights)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetMyDefaultAdministratorRights.Output.Ok)
@@ -47980,12 +48132,12 @@ public enum Operations {
     ///
     /// Returns the list of gifts that can be sent by the bot to users and channel chats. Requires no parameters. Returns a Gifts object.
     ///
-    /// - Remark: HTTP `GET /getAvailableGifts`.
-    /// - Remark: Generated from `#/paths//getAvailableGifts/get(getAvailableGifts)`.
+    /// - Remark: HTTP `POST /getAvailableGifts`.
+    /// - Remark: Generated from `#/paths//getAvailableGifts/post(getAvailableGifts)`.
     public enum GetAvailableGifts {
         public static let id: Swift.String = "getAvailableGifts"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getAvailableGifts/GET/header`.
+            /// - Remark: Generated from `#/paths/getAvailableGifts/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetAvailableGifts.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -48007,13 +48159,13 @@ public enum Operations {
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getAvailableGifts/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getAvailableGifts/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getAvailableGifts/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getAvailableGifts/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getAvailableGifts/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getAvailableGifts/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getAvailableGifts/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getAvailableGifts/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.Gifts
                         /// Creates a new `JsonPayload`.
                         ///
@@ -48032,7 +48184,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getAvailableGifts/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getAvailableGifts/POST/responses/200/content/application\/json`.
                     case json(Operations.GetAvailableGifts.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -48059,7 +48211,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getAvailableGifts/get(getAvailableGifts)/responses/200`.
+            /// - Remark: Generated from `#/paths//getAvailableGifts/post(getAvailableGifts)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetAvailableGifts.Output.Ok)
@@ -50618,27 +50770,12 @@ public enum Operations {
     ///
     /// Returns the amount of Telegram Stars owned by a managed business account. Requires the can_view_gifts_and_stars business bot right. Returns StarAmount on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessAccountStarBalance`.
-    /// - Remark: Generated from `#/paths//getBusinessAccountStarBalance/get(getBusinessAccountStarBalance)`.
+    /// - Remark: HTTP `POST /getBusinessAccountStarBalance`.
+    /// - Remark: Generated from `#/paths//getBusinessAccountStarBalance/post(getBusinessAccountStarBalance)`.
     public enum GetBusinessAccountStarBalance {
         public static let id: Swift.String = "getBusinessAccountStarBalance"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier of the business connection
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/GET/query/business_connection_id`.
-                public var businessConnectionId: Swift.String
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - businessConnectionId: Unique identifier of the business connection
-                public init(businessConnectionId: Swift.String) {
-                    self.businessConnectionId = businessConnectionId
-                }
-            }
-            public var query: Operations.GetBusinessAccountStarBalance.Input.Query
-            /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/GET/header`.
+            /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetBusinessAccountStarBalance.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -50650,28 +50787,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetBusinessAccountStarBalance.Input.Headers
+            /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Unique identifier of the business connection
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/POST/requestBody/json/business_connection_id`.
+                    public var businessConnectionId: Swift.String
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - businessConnectionId: Unique identifier of the business connection
+                    public init(businessConnectionId: Swift.String) {
+                        self.businessConnectionId = businessConnectionId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case businessConnectionId = "business_connection_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/POST/requestBody/content/application\/json`.
+                case json(Operations.GetBusinessAccountStarBalance.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetBusinessAccountStarBalance.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetBusinessAccountStarBalance.Input.Query,
-                headers: Operations.GetBusinessAccountStarBalance.Input.Headers = .init()
+                headers: Operations.GetBusinessAccountStarBalance.Input.Headers = .init(),
+                body: Operations.GetBusinessAccountStarBalance.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.StarAmount
                         /// Creates a new `JsonPayload`.
                         ///
@@ -50690,7 +50850,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getBusinessAccountStarBalance/POST/responses/200/content/application\/json`.
                     case json(Operations.GetBusinessAccountStarBalance.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -50717,7 +50877,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getBusinessAccountStarBalance/get(getBusinessAccountStarBalance)/responses/200`.
+            /// - Remark: Generated from `#/paths//getBusinessAccountStarBalance/post(getBusinessAccountStarBalance)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetBusinessAccountStarBalance.Output.Ok)
@@ -50946,99 +51106,12 @@ public enum Operations {
     ///
     /// Returns the gifts received and owned by a managed business account. Requires the can_view_gifts_and_stars business bot right. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getBusinessAccountGifts`.
-    /// - Remark: Generated from `#/paths//getBusinessAccountGifts/get(getBusinessAccountGifts)`.
+    /// - Remark: HTTP `POST /getBusinessAccountGifts`.
+    /// - Remark: Generated from `#/paths//getBusinessAccountGifts/post(getBusinessAccountGifts)`.
     public enum GetBusinessAccountGifts {
         public static let id: Swift.String = "getBusinessAccountGifts"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier of the business connection
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/business_connection_id`.
-                public var businessConnectionId: Swift.String
-                /// Pass *True* to exclude gifts that aren't saved to the account's profile page
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/exclude_unsaved`.
-                public var excludeUnsaved: Swift.Bool?
-                /// Pass *True* to exclude gifts that are saved to the account's profile page
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/exclude_saved`.
-                public var excludeSaved: Swift.Bool?
-                /// Pass *True* to exclude gifts that can be purchased an unlimited number of times
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/exclude_unlimited`.
-                public var excludeUnlimited: Swift.Bool?
-                /// Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/exclude_limited_upgradable`.
-                public var excludeLimitedUpgradable: Swift.Bool?
-                /// Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/exclude_limited_non_upgradable`.
-                public var excludeLimitedNonUpgradable: Swift.Bool?
-                /// Pass *True* to exclude unique gifts
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/exclude_unique`.
-                public var excludeUnique: Swift.Bool?
-                /// Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/exclude_from_blockchain`.
-                public var excludeFromBlockchain: Swift.Bool?
-                /// Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/sort_by_price`.
-                public var sortByPrice: Swift.Bool?
-                /// Offset of the first entry to return as received from the previous request; use empty string to get the first chunk of results
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/offset`.
-                public var offset: Swift.String?
-                /// The maximum number of gifts to be returned; 1-100. Defaults to 100.
-                ///
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/query/limit`.
-                public var limit: Swift.Int64?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - businessConnectionId: Unique identifier of the business connection
-                ///   - excludeUnsaved: Pass *True* to exclude gifts that aren't saved to the account's profile page
-                ///   - excludeSaved: Pass *True* to exclude gifts that are saved to the account's profile page
-                ///   - excludeUnlimited: Pass *True* to exclude gifts that can be purchased an unlimited number of times
-                ///   - excludeLimitedUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
-                ///   - excludeLimitedNonUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
-                ///   - excludeUnique: Pass *True* to exclude unique gifts
-                ///   - excludeFromBlockchain: Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
-                ///   - sortByPrice: Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
-                ///   - offset: Offset of the first entry to return as received from the previous request; use empty string to get the first chunk of results
-                ///   - limit: The maximum number of gifts to be returned; 1-100. Defaults to 100.
-                public init(
-                    businessConnectionId: Swift.String,
-                    excludeUnsaved: Swift.Bool? = nil,
-                    excludeSaved: Swift.Bool? = nil,
-                    excludeUnlimited: Swift.Bool? = nil,
-                    excludeLimitedUpgradable: Swift.Bool? = nil,
-                    excludeLimitedNonUpgradable: Swift.Bool? = nil,
-                    excludeUnique: Swift.Bool? = nil,
-                    excludeFromBlockchain: Swift.Bool? = nil,
-                    sortByPrice: Swift.Bool? = nil,
-                    offset: Swift.String? = nil,
-                    limit: Swift.Int64? = nil
-                ) {
-                    self.businessConnectionId = businessConnectionId
-                    self.excludeUnsaved = excludeUnsaved
-                    self.excludeSaved = excludeSaved
-                    self.excludeUnlimited = excludeUnlimited
-                    self.excludeLimitedUpgradable = excludeLimitedUpgradable
-                    self.excludeLimitedNonUpgradable = excludeLimitedNonUpgradable
-                    self.excludeUnique = excludeUnique
-                    self.excludeFromBlockchain = excludeFromBlockchain
-                    self.sortByPrice = sortByPrice
-                    self.offset = offset
-                    self.limit = limit
-                }
-            }
-            public var query: Operations.GetBusinessAccountGifts.Input.Query
-            /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/header`.
+            /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetBusinessAccountGifts.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -51050,28 +51123,133 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetBusinessAccountGifts.Input.Headers
+            /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Unique identifier of the business connection
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/business_connection_id`.
+                    public var businessConnectionId: Swift.String
+                    /// Pass *True* to exclude gifts that aren't saved to the account's profile page
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/exclude_unsaved`.
+                    public var excludeUnsaved: Swift.Bool?
+                    /// Pass *True* to exclude gifts that are saved to the account's profile page
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/exclude_saved`.
+                    public var excludeSaved: Swift.Bool?
+                    /// Pass *True* to exclude gifts that can be purchased an unlimited number of times
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/exclude_unlimited`.
+                    public var excludeUnlimited: Swift.Bool?
+                    /// Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/exclude_limited_upgradable`.
+                    public var excludeLimitedUpgradable: Swift.Bool?
+                    /// Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/exclude_limited_non_upgradable`.
+                    public var excludeLimitedNonUpgradable: Swift.Bool?
+                    /// Pass *True* to exclude unique gifts
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/exclude_unique`.
+                    public var excludeUnique: Swift.Bool?
+                    /// Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/exclude_from_blockchain`.
+                    public var excludeFromBlockchain: Swift.Bool?
+                    /// Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/sort_by_price`.
+                    public var sortByPrice: Swift.Bool?
+                    /// Offset of the first entry to return as received from the previous request; use empty string to get the first chunk of results
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/offset`.
+                    public var offset: Swift.String?
+                    /// The maximum number of gifts to be returned; 1-100. Defaults to 100.
+                    ///
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/json/limit`.
+                    public var limit: Swift.Int64?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - businessConnectionId: Unique identifier of the business connection
+                    ///   - excludeUnsaved: Pass *True* to exclude gifts that aren't saved to the account's profile page
+                    ///   - excludeSaved: Pass *True* to exclude gifts that are saved to the account's profile page
+                    ///   - excludeUnlimited: Pass *True* to exclude gifts that can be purchased an unlimited number of times
+                    ///   - excludeLimitedUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
+                    ///   - excludeLimitedNonUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
+                    ///   - excludeUnique: Pass *True* to exclude unique gifts
+                    ///   - excludeFromBlockchain: Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
+                    ///   - sortByPrice: Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
+                    ///   - offset: Offset of the first entry to return as received from the previous request; use empty string to get the first chunk of results
+                    ///   - limit: The maximum number of gifts to be returned; 1-100. Defaults to 100.
+                    public init(
+                        businessConnectionId: Swift.String,
+                        excludeUnsaved: Swift.Bool? = nil,
+                        excludeSaved: Swift.Bool? = nil,
+                        excludeUnlimited: Swift.Bool? = nil,
+                        excludeLimitedUpgradable: Swift.Bool? = nil,
+                        excludeLimitedNonUpgradable: Swift.Bool? = nil,
+                        excludeUnique: Swift.Bool? = nil,
+                        excludeFromBlockchain: Swift.Bool? = nil,
+                        sortByPrice: Swift.Bool? = nil,
+                        offset: Swift.String? = nil,
+                        limit: Swift.Int64? = nil
+                    ) {
+                        self.businessConnectionId = businessConnectionId
+                        self.excludeUnsaved = excludeUnsaved
+                        self.excludeSaved = excludeSaved
+                        self.excludeUnlimited = excludeUnlimited
+                        self.excludeLimitedUpgradable = excludeLimitedUpgradable
+                        self.excludeLimitedNonUpgradable = excludeLimitedNonUpgradable
+                        self.excludeUnique = excludeUnique
+                        self.excludeFromBlockchain = excludeFromBlockchain
+                        self.sortByPrice = sortByPrice
+                        self.offset = offset
+                        self.limit = limit
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case businessConnectionId = "business_connection_id"
+                        case excludeUnsaved = "exclude_unsaved"
+                        case excludeSaved = "exclude_saved"
+                        case excludeUnlimited = "exclude_unlimited"
+                        case excludeLimitedUpgradable = "exclude_limited_upgradable"
+                        case excludeLimitedNonUpgradable = "exclude_limited_non_upgradable"
+                        case excludeUnique = "exclude_unique"
+                        case excludeFromBlockchain = "exclude_from_blockchain"
+                        case sortByPrice = "sort_by_price"
+                        case offset
+                        case limit
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/requestBody/content/application\/json`.
+                case json(Operations.GetBusinessAccountGifts.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetBusinessAccountGifts.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetBusinessAccountGifts.Input.Query,
-                headers: Operations.GetBusinessAccountGifts.Input.Headers = .init()
+                headers: Operations.GetBusinessAccountGifts.Input.Headers = .init(),
+                body: Operations.GetBusinessAccountGifts.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.OwnedGifts
                         /// Creates a new `JsonPayload`.
                         ///
@@ -51090,7 +51268,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getBusinessAccountGifts/POST/responses/200/content/application\/json`.
                     case json(Operations.GetBusinessAccountGifts.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -51117,7 +51295,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getBusinessAccountGifts/get(getBusinessAccountGifts)/responses/200`.
+            /// - Remark: Generated from `#/paths//getBusinessAccountGifts/post(getBusinessAccountGifts)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetBusinessAccountGifts.Output.Ok)
@@ -51173,85 +51351,12 @@ public enum Operations {
     ///
     /// Returns the gifts owned and hosted by a user. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getUserGifts`.
-    /// - Remark: Generated from `#/paths//getUserGifts/get(getUserGifts)`.
+    /// - Remark: HTTP `POST /getUserGifts`.
+    /// - Remark: Generated from `#/paths//getUserGifts/post(getUserGifts)`.
     public enum GetUserGifts {
         public static let id: Swift.String = "getUserGifts"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getUserGifts/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier of the user
-                ///
-                /// - Remark: Generated from `#/paths/getUserGifts/GET/query/user_id`.
-                public var userId: Swift.Int64
-                /// Pass *True* to exclude gifts that can be purchased an unlimited number of times
-                ///
-                /// - Remark: Generated from `#/paths/getUserGifts/GET/query/exclude_unlimited`.
-                public var excludeUnlimited: Swift.Bool?
-                /// Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
-                ///
-                /// - Remark: Generated from `#/paths/getUserGifts/GET/query/exclude_limited_upgradable`.
-                public var excludeLimitedUpgradable: Swift.Bool?
-                /// Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
-                ///
-                /// - Remark: Generated from `#/paths/getUserGifts/GET/query/exclude_limited_non_upgradable`.
-                public var excludeLimitedNonUpgradable: Swift.Bool?
-                /// Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
-                ///
-                /// - Remark: Generated from `#/paths/getUserGifts/GET/query/exclude_from_blockchain`.
-                public var excludeFromBlockchain: Swift.Bool?
-                /// Pass *True* to exclude unique gifts
-                ///
-                /// - Remark: Generated from `#/paths/getUserGifts/GET/query/exclude_unique`.
-                public var excludeUnique: Swift.Bool?
-                /// Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
-                ///
-                /// - Remark: Generated from `#/paths/getUserGifts/GET/query/sort_by_price`.
-                public var sortByPrice: Swift.Bool?
-                /// Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results
-                ///
-                /// - Remark: Generated from `#/paths/getUserGifts/GET/query/offset`.
-                public var offset: Swift.String?
-                /// The maximum number of gifts to be returned; 1-100. Defaults to 100.
-                ///
-                /// - Remark: Generated from `#/paths/getUserGifts/GET/query/limit`.
-                public var limit: Swift.Int64?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - userId: Unique identifier of the user
-                ///   - excludeUnlimited: Pass *True* to exclude gifts that can be purchased an unlimited number of times
-                ///   - excludeLimitedUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
-                ///   - excludeLimitedNonUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
-                ///   - excludeFromBlockchain: Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
-                ///   - excludeUnique: Pass *True* to exclude unique gifts
-                ///   - sortByPrice: Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
-                ///   - offset: Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results
-                ///   - limit: The maximum number of gifts to be returned; 1-100. Defaults to 100.
-                public init(
-                    userId: Swift.Int64,
-                    excludeUnlimited: Swift.Bool? = nil,
-                    excludeLimitedUpgradable: Swift.Bool? = nil,
-                    excludeLimitedNonUpgradable: Swift.Bool? = nil,
-                    excludeFromBlockchain: Swift.Bool? = nil,
-                    excludeUnique: Swift.Bool? = nil,
-                    sortByPrice: Swift.Bool? = nil,
-                    offset: Swift.String? = nil,
-                    limit: Swift.Int64? = nil
-                ) {
-                    self.userId = userId
-                    self.excludeUnlimited = excludeUnlimited
-                    self.excludeLimitedUpgradable = excludeLimitedUpgradable
-                    self.excludeLimitedNonUpgradable = excludeLimitedNonUpgradable
-                    self.excludeFromBlockchain = excludeFromBlockchain
-                    self.excludeUnique = excludeUnique
-                    self.sortByPrice = sortByPrice
-                    self.offset = offset
-                    self.limit = limit
-                }
-            }
-            public var query: Operations.GetUserGifts.Input.Query
-            /// - Remark: Generated from `#/paths/getUserGifts/GET/header`.
+            /// - Remark: Generated from `#/paths/getUserGifts/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetUserGifts.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -51263,28 +51368,117 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetUserGifts.Input.Headers
+            /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Unique identifier of the user
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/json/user_id`.
+                    public var userId: Swift.Int64
+                    /// Pass *True* to exclude gifts that can be purchased an unlimited number of times
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/json/exclude_unlimited`.
+                    public var excludeUnlimited: Swift.Bool?
+                    /// Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/json/exclude_limited_upgradable`.
+                    public var excludeLimitedUpgradable: Swift.Bool?
+                    /// Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/json/exclude_limited_non_upgradable`.
+                    public var excludeLimitedNonUpgradable: Swift.Bool?
+                    /// Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/json/exclude_from_blockchain`.
+                    public var excludeFromBlockchain: Swift.Bool?
+                    /// Pass *True* to exclude unique gifts
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/json/exclude_unique`.
+                    public var excludeUnique: Swift.Bool?
+                    /// Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/json/sort_by_price`.
+                    public var sortByPrice: Swift.Bool?
+                    /// Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/json/offset`.
+                    public var offset: Swift.String?
+                    /// The maximum number of gifts to be returned; 1-100. Defaults to 100.
+                    ///
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/json/limit`.
+                    public var limit: Swift.Int64?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - userId: Unique identifier of the user
+                    ///   - excludeUnlimited: Pass *True* to exclude gifts that can be purchased an unlimited number of times
+                    ///   - excludeLimitedUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
+                    ///   - excludeLimitedNonUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
+                    ///   - excludeFromBlockchain: Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
+                    ///   - excludeUnique: Pass *True* to exclude unique gifts
+                    ///   - sortByPrice: Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
+                    ///   - offset: Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results
+                    ///   - limit: The maximum number of gifts to be returned; 1-100. Defaults to 100.
+                    public init(
+                        userId: Swift.Int64,
+                        excludeUnlimited: Swift.Bool? = nil,
+                        excludeLimitedUpgradable: Swift.Bool? = nil,
+                        excludeLimitedNonUpgradable: Swift.Bool? = nil,
+                        excludeFromBlockchain: Swift.Bool? = nil,
+                        excludeUnique: Swift.Bool? = nil,
+                        sortByPrice: Swift.Bool? = nil,
+                        offset: Swift.String? = nil,
+                        limit: Swift.Int64? = nil
+                    ) {
+                        self.userId = userId
+                        self.excludeUnlimited = excludeUnlimited
+                        self.excludeLimitedUpgradable = excludeLimitedUpgradable
+                        self.excludeLimitedNonUpgradable = excludeLimitedNonUpgradable
+                        self.excludeFromBlockchain = excludeFromBlockchain
+                        self.excludeUnique = excludeUnique
+                        self.sortByPrice = sortByPrice
+                        self.offset = offset
+                        self.limit = limit
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case userId = "user_id"
+                        case excludeUnlimited = "exclude_unlimited"
+                        case excludeLimitedUpgradable = "exclude_limited_upgradable"
+                        case excludeLimitedNonUpgradable = "exclude_limited_non_upgradable"
+                        case excludeFromBlockchain = "exclude_from_blockchain"
+                        case excludeUnique = "exclude_unique"
+                        case sortByPrice = "sort_by_price"
+                        case offset
+                        case limit
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getUserGifts/POST/requestBody/content/application\/json`.
+                case json(Operations.GetUserGifts.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetUserGifts.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetUserGifts.Input.Query,
-                headers: Operations.GetUserGifts.Input.Headers = .init()
+                headers: Operations.GetUserGifts.Input.Headers = .init(),
+                body: Operations.GetUserGifts.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getUserGifts/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getUserGifts/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getUserGifts/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getUserGifts/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getUserGifts/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getUserGifts/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getUserGifts/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.OwnedGifts
                         /// Creates a new `JsonPayload`.
                         ///
@@ -51303,7 +51497,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getUserGifts/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getUserGifts/POST/responses/200/content/application\/json`.
                     case json(Operations.GetUserGifts.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -51330,7 +51524,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getUserGifts/get(getUserGifts)/responses/200`.
+            /// - Remark: Generated from `#/paths//getUserGifts/post(getUserGifts)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetUserGifts.Output.Ok)
@@ -51386,99 +51580,12 @@ public enum Operations {
     ///
     /// Returns the gifts owned by a chat. Returns OwnedGifts on success.
     ///
-    /// - Remark: HTTP `GET /getChatGifts`.
-    /// - Remark: Generated from `#/paths//getChatGifts/get(getChatGifts)`.
+    /// - Remark: HTTP `POST /getChatGifts`.
+    /// - Remark: Generated from `#/paths//getChatGifts/post(getChatGifts)`.
     public enum GetChatGifts {
         public static let id: Swift.String = "getChatGifts"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getChatGifts/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Unique identifier for the target chat or username of the target channel in the format `@username`
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/chat_id`.
-                public var chatId: Components.Schemas.ChatId
-                /// Pass *True* to exclude gifts that aren't saved to the chat's profile page. Always *True*, unless the bot has the *can_post_messages* administrator right in the channel.
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/exclude_unsaved`.
-                public var excludeUnsaved: Swift.Bool?
-                /// Pass *True* to exclude gifts that are saved to the chat's profile page. Always *False*, unless the bot has the *can_post_messages* administrator right in the channel.
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/exclude_saved`.
-                public var excludeSaved: Swift.Bool?
-                /// Pass *True* to exclude gifts that can be purchased an unlimited number of times
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/exclude_unlimited`.
-                public var excludeUnlimited: Swift.Bool?
-                /// Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/exclude_limited_upgradable`.
-                public var excludeLimitedUpgradable: Swift.Bool?
-                /// Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/exclude_limited_non_upgradable`.
-                public var excludeLimitedNonUpgradable: Swift.Bool?
-                /// Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/exclude_from_blockchain`.
-                public var excludeFromBlockchain: Swift.Bool?
-                /// Pass *True* to exclude unique gifts
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/exclude_unique`.
-                public var excludeUnique: Swift.Bool?
-                /// Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/sort_by_price`.
-                public var sortByPrice: Swift.Bool?
-                /// Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/offset`.
-                public var offset: Swift.String?
-                /// The maximum number of gifts to be returned; 1-100. Defaults to 100.
-                ///
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/query/limit`.
-                public var limit: Swift.Int64?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - chatId: Unique identifier for the target chat or username of the target channel in the format `@username`
-                ///   - excludeUnsaved: Pass *True* to exclude gifts that aren't saved to the chat's profile page. Always *True*, unless the bot has the *can_post_messages* administrator right in the channel.
-                ///   - excludeSaved: Pass *True* to exclude gifts that are saved to the chat's profile page. Always *False*, unless the bot has the *can_post_messages* administrator right in the channel.
-                ///   - excludeUnlimited: Pass *True* to exclude gifts that can be purchased an unlimited number of times
-                ///   - excludeLimitedUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
-                ///   - excludeLimitedNonUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
-                ///   - excludeFromBlockchain: Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
-                ///   - excludeUnique: Pass *True* to exclude unique gifts
-                ///   - sortByPrice: Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
-                ///   - offset: Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results
-                ///   - limit: The maximum number of gifts to be returned; 1-100. Defaults to 100.
-                public init(
-                    chatId: Components.Schemas.ChatId,
-                    excludeUnsaved: Swift.Bool? = nil,
-                    excludeSaved: Swift.Bool? = nil,
-                    excludeUnlimited: Swift.Bool? = nil,
-                    excludeLimitedUpgradable: Swift.Bool? = nil,
-                    excludeLimitedNonUpgradable: Swift.Bool? = nil,
-                    excludeFromBlockchain: Swift.Bool? = nil,
-                    excludeUnique: Swift.Bool? = nil,
-                    sortByPrice: Swift.Bool? = nil,
-                    offset: Swift.String? = nil,
-                    limit: Swift.Int64? = nil
-                ) {
-                    self.chatId = chatId
-                    self.excludeUnsaved = excludeUnsaved
-                    self.excludeSaved = excludeSaved
-                    self.excludeUnlimited = excludeUnlimited
-                    self.excludeLimitedUpgradable = excludeLimitedUpgradable
-                    self.excludeLimitedNonUpgradable = excludeLimitedNonUpgradable
-                    self.excludeFromBlockchain = excludeFromBlockchain
-                    self.excludeUnique = excludeUnique
-                    self.sortByPrice = sortByPrice
-                    self.offset = offset
-                    self.limit = limit
-                }
-            }
-            public var query: Operations.GetChatGifts.Input.Query
-            /// - Remark: Generated from `#/paths/getChatGifts/GET/header`.
+            /// - Remark: Generated from `#/paths/getChatGifts/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetChatGifts.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -51490,28 +51597,131 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetChatGifts.Input.Headers
+            /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/chat_id`.
+                    public var chatId: Components.Schemas.ChatId
+                    /// Pass *True* to exclude gifts that aren't saved to the chat's profile page. Always *True*, unless the bot has the *can_post_messages* administrator right in the channel.
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/exclude_unsaved`.
+                    public var excludeUnsaved: Swift.Bool?
+                    /// Pass *True* to exclude gifts that are saved to the chat's profile page. Always *False*, unless the bot has the *can_post_messages* administrator right in the channel.
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/exclude_saved`.
+                    public var excludeSaved: Swift.Bool?
+                    /// Pass *True* to exclude gifts that can be purchased an unlimited number of times
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/exclude_unlimited`.
+                    public var excludeUnlimited: Swift.Bool?
+                    /// Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/exclude_limited_upgradable`.
+                    public var excludeLimitedUpgradable: Swift.Bool?
+                    /// Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/exclude_limited_non_upgradable`.
+                    public var excludeLimitedNonUpgradable: Swift.Bool?
+                    /// Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/exclude_from_blockchain`.
+                    public var excludeFromBlockchain: Swift.Bool?
+                    /// Pass *True* to exclude unique gifts
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/exclude_unique`.
+                    public var excludeUnique: Swift.Bool?
+                    /// Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/sort_by_price`.
+                    public var sortByPrice: Swift.Bool?
+                    /// Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/offset`.
+                    public var offset: Swift.String?
+                    /// The maximum number of gifts to be returned; 1-100. Defaults to 100.
+                    ///
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/json/limit`.
+                    public var limit: Swift.Int64?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - chatId:
+                    ///   - excludeUnsaved: Pass *True* to exclude gifts that aren't saved to the chat's profile page. Always *True*, unless the bot has the *can_post_messages* administrator right in the channel.
+                    ///   - excludeSaved: Pass *True* to exclude gifts that are saved to the chat's profile page. Always *False*, unless the bot has the *can_post_messages* administrator right in the channel.
+                    ///   - excludeUnlimited: Pass *True* to exclude gifts that can be purchased an unlimited number of times
+                    ///   - excludeLimitedUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can be upgraded to unique
+                    ///   - excludeLimitedNonUpgradable: Pass *True* to exclude gifts that can be purchased a limited number of times and can't be upgraded to unique
+                    ///   - excludeFromBlockchain: Pass *True* to exclude gifts that were assigned from the TON blockchain and can't be resold or transferred in Telegram
+                    ///   - excludeUnique: Pass *True* to exclude unique gifts
+                    ///   - sortByPrice: Pass *True* to sort results by gift price instead of send date. Sorting is applied before pagination.
+                    ///   - offset: Offset of the first entry to return as received from the previous request; use an empty string to get the first chunk of results
+                    ///   - limit: The maximum number of gifts to be returned; 1-100. Defaults to 100.
+                    public init(
+                        chatId: Components.Schemas.ChatId,
+                        excludeUnsaved: Swift.Bool? = nil,
+                        excludeSaved: Swift.Bool? = nil,
+                        excludeUnlimited: Swift.Bool? = nil,
+                        excludeLimitedUpgradable: Swift.Bool? = nil,
+                        excludeLimitedNonUpgradable: Swift.Bool? = nil,
+                        excludeFromBlockchain: Swift.Bool? = nil,
+                        excludeUnique: Swift.Bool? = nil,
+                        sortByPrice: Swift.Bool? = nil,
+                        offset: Swift.String? = nil,
+                        limit: Swift.Int64? = nil
+                    ) {
+                        self.chatId = chatId
+                        self.excludeUnsaved = excludeUnsaved
+                        self.excludeSaved = excludeSaved
+                        self.excludeUnlimited = excludeUnlimited
+                        self.excludeLimitedUpgradable = excludeLimitedUpgradable
+                        self.excludeLimitedNonUpgradable = excludeLimitedNonUpgradable
+                        self.excludeFromBlockchain = excludeFromBlockchain
+                        self.excludeUnique = excludeUnique
+                        self.sortByPrice = sortByPrice
+                        self.offset = offset
+                        self.limit = limit
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case chatId = "chat_id"
+                        case excludeUnsaved = "exclude_unsaved"
+                        case excludeSaved = "exclude_saved"
+                        case excludeUnlimited = "exclude_unlimited"
+                        case excludeLimitedUpgradable = "exclude_limited_upgradable"
+                        case excludeLimitedNonUpgradable = "exclude_limited_non_upgradable"
+                        case excludeFromBlockchain = "exclude_from_blockchain"
+                        case excludeUnique = "exclude_unique"
+                        case sortByPrice = "sort_by_price"
+                        case offset
+                        case limit
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getChatGifts/POST/requestBody/content/application\/json`.
+                case json(Operations.GetChatGifts.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetChatGifts.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetChatGifts.Input.Query,
-                headers: Operations.GetChatGifts.Input.Headers = .init()
+                headers: Operations.GetChatGifts.Input.Headers = .init(),
+                body: Operations.GetChatGifts.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getChatGifts/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getChatGifts/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getChatGifts/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getChatGifts/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getChatGifts/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getChatGifts/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getChatGifts/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.OwnedGifts
                         /// Creates a new `JsonPayload`.
                         ///
@@ -51530,7 +51740,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getChatGifts/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getChatGifts/POST/responses/200/content/application\/json`.
                     case json(Operations.GetChatGifts.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -51557,7 +51767,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getChatGifts/get(getChatGifts)/responses/200`.
+            /// - Remark: Generated from `#/paths//getChatGifts/post(getChatGifts)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetChatGifts.Output.Ok)
@@ -57968,27 +58178,12 @@ public enum Operations {
     ///
     /// Use this method to get a sticker set. On success, a StickerSet object is returned.
     ///
-    /// - Remark: HTTP `GET /getStickerSet`.
-    /// - Remark: Generated from `#/paths//getStickerSet/get(getStickerSet)`.
+    /// - Remark: HTTP `POST /getStickerSet`.
+    /// - Remark: Generated from `#/paths//getStickerSet/post(getStickerSet)`.
     public enum GetStickerSet {
         public static let id: Swift.String = "getStickerSet"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getStickerSet/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Name of the sticker set
-                ///
-                /// - Remark: Generated from `#/paths/getStickerSet/GET/query/name`.
-                public var name: Swift.String
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - name: Name of the sticker set
-                public init(name: Swift.String) {
-                    self.name = name
-                }
-            }
-            public var query: Operations.GetStickerSet.Input.Query
-            /// - Remark: Generated from `#/paths/getStickerSet/GET/header`.
+            /// - Remark: Generated from `#/paths/getStickerSet/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetStickerSet.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -58000,28 +58195,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetStickerSet.Input.Headers
+            /// - Remark: Generated from `#/paths/getStickerSet/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getStickerSet/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Name of the sticker set
+                    ///
+                    /// - Remark: Generated from `#/paths/getStickerSet/POST/requestBody/json/name`.
+                    public var name: Swift.String
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - name: Name of the sticker set
+                    public init(name: Swift.String) {
+                        self.name = name
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case name
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getStickerSet/POST/requestBody/content/application\/json`.
+                case json(Operations.GetStickerSet.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetStickerSet.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetStickerSet.Input.Query,
-                headers: Operations.GetStickerSet.Input.Headers = .init()
+                headers: Operations.GetStickerSet.Input.Headers = .init(),
+                body: Operations.GetStickerSet.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getStickerSet/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getStickerSet/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getStickerSet/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getStickerSet/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getStickerSet/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getStickerSet/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getStickerSet/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getStickerSet/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.StickerSet
                         /// Creates a new `JsonPayload`.
                         ///
@@ -58040,7 +58258,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getStickerSet/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getStickerSet/POST/responses/200/content/application\/json`.
                     case json(Operations.GetStickerSet.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -58067,7 +58285,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getStickerSet/get(getStickerSet)/responses/200`.
+            /// - Remark: Generated from `#/paths//getStickerSet/post(getStickerSet)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetStickerSet.Output.Ok)
@@ -58123,27 +58341,12 @@ public enum Operations {
     ///
     /// Use this method to get information about custom emoji stickers by their identifiers. Returns an Array of Sticker objects.
     ///
-    /// - Remark: HTTP `GET /getCustomEmojiStickers`.
-    /// - Remark: Generated from `#/paths//getCustomEmojiStickers/get(getCustomEmojiStickers)`.
+    /// - Remark: HTTP `POST /getCustomEmojiStickers`.
+    /// - Remark: Generated from `#/paths//getCustomEmojiStickers/post(getCustomEmojiStickers)`.
     public enum GetCustomEmojiStickers {
         public static let id: Swift.String = "getCustomEmojiStickers"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getCustomEmojiStickers/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// A JSON-serialized list of custom emoji identifiers. At most 200 custom emoji identifiers can be specified.
-                ///
-                /// - Remark: Generated from `#/paths/getCustomEmojiStickers/GET/query/custom_emoji_ids`.
-                public var customEmojiIds: [Swift.String]
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - customEmojiIds: A JSON-serialized list of custom emoji identifiers. At most 200 custom emoji identifiers can be specified.
-                public init(customEmojiIds: [Swift.String]) {
-                    self.customEmojiIds = customEmojiIds
-                }
-            }
-            public var query: Operations.GetCustomEmojiStickers.Input.Query
-            /// - Remark: Generated from `#/paths/getCustomEmojiStickers/GET/header`.
+            /// - Remark: Generated from `#/paths/getCustomEmojiStickers/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetCustomEmojiStickers.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -58155,28 +58358,51 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetCustomEmojiStickers.Input.Headers
+            /// - Remark: Generated from `#/paths/getCustomEmojiStickers/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getCustomEmojiStickers/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// A JSON-serialized list of custom emoji identifiers. At most 200 custom emoji identifiers can be specified.
+                    ///
+                    /// - Remark: Generated from `#/paths/getCustomEmojiStickers/POST/requestBody/json/custom_emoji_ids`.
+                    public var customEmojiIds: [Swift.String]
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - customEmojiIds: A JSON-serialized list of custom emoji identifiers. At most 200 custom emoji identifiers can be specified.
+                    public init(customEmojiIds: [Swift.String]) {
+                        self.customEmojiIds = customEmojiIds
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case customEmojiIds = "custom_emoji_ids"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getCustomEmojiStickers/POST/requestBody/content/application\/json`.
+                case json(Operations.GetCustomEmojiStickers.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetCustomEmojiStickers.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetCustomEmojiStickers.Input.Query,
-                headers: Operations.GetCustomEmojiStickers.Input.Headers = .init()
+                headers: Operations.GetCustomEmojiStickers.Input.Headers = .init(),
+                body: Operations.GetCustomEmojiStickers.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getCustomEmojiStickers/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getCustomEmojiStickers/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getCustomEmojiStickers/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getCustomEmojiStickers/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getCustomEmojiStickers/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getCustomEmojiStickers/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getCustomEmojiStickers/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getCustomEmojiStickers/POST/responses/200/content/json/result`.
                         public var result: [Components.Schemas.Sticker]
                         /// Creates a new `JsonPayload`.
                         ///
@@ -58195,7 +58421,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getCustomEmojiStickers/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getCustomEmojiStickers/POST/responses/200/content/application\/json`.
                     case json(Operations.GetCustomEmojiStickers.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -58222,7 +58448,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getCustomEmojiStickers/get(getCustomEmojiStickers)/responses/200`.
+            /// - Remark: Generated from `#/paths//getCustomEmojiStickers/post(getCustomEmojiStickers)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetCustomEmojiStickers.Output.Ok)
@@ -62480,12 +62706,12 @@ public enum Operations {
     ///
     /// A method to get the current Telegram Stars balance of the bot. Requires no parameters. On success, returns a StarAmount object.
     ///
-    /// - Remark: HTTP `GET /getMyStarBalance`.
-    /// - Remark: Generated from `#/paths//getMyStarBalance/get(getMyStarBalance)`.
+    /// - Remark: HTTP `POST /getMyStarBalance`.
+    /// - Remark: Generated from `#/paths//getMyStarBalance/post(getMyStarBalance)`.
     public enum GetMyStarBalance {
         public static let id: Swift.String = "getMyStarBalance"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getMyStarBalance/GET/header`.
+            /// - Remark: Generated from `#/paths/getMyStarBalance/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetMyStarBalance.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -62507,13 +62733,13 @@ public enum Operations {
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getMyStarBalance/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getMyStarBalance/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getMyStarBalance/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getMyStarBalance/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getMyStarBalance/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getMyStarBalance/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getMyStarBalance/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getMyStarBalance/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.StarAmount
                         /// Creates a new `JsonPayload`.
                         ///
@@ -62532,7 +62758,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getMyStarBalance/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getMyStarBalance/POST/responses/200/content/application\/json`.
                     case json(Operations.GetMyStarBalance.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -62559,7 +62785,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getMyStarBalance/get(getMyStarBalance)/responses/200`.
+            /// - Remark: Generated from `#/paths//getMyStarBalance/post(getMyStarBalance)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetMyStarBalance.Output.Ok)
@@ -62615,36 +62841,12 @@ public enum Operations {
     ///
     /// Returns the bot's Telegram Star transactions in chronological order. On success, returns a StarTransactions object.
     ///
-    /// - Remark: HTTP `GET /getStarTransactions`.
-    /// - Remark: Generated from `#/paths//getStarTransactions/get(getStarTransactions)`.
+    /// - Remark: HTTP `POST /getStarTransactions`.
+    /// - Remark: Generated from `#/paths//getStarTransactions/post(getStarTransactions)`.
     public enum GetStarTransactions {
         public static let id: Swift.String = "getStarTransactions"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getStarTransactions/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Number of transactions to skip in the response
-                ///
-                /// - Remark: Generated from `#/paths/getStarTransactions/GET/query/offset`.
-                public var offset: Swift.Int64?
-                /// The maximum number of transactions to be retrieved. Values between 1-100 are accepted. Defaults to 100.
-                ///
-                /// - Remark: Generated from `#/paths/getStarTransactions/GET/query/limit`.
-                public var limit: Swift.Int64?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - offset: Number of transactions to skip in the response
-                ///   - limit: The maximum number of transactions to be retrieved. Values between 1-100 are accepted. Defaults to 100.
-                public init(
-                    offset: Swift.Int64? = nil,
-                    limit: Swift.Int64? = nil
-                ) {
-                    self.offset = offset
-                    self.limit = limit
-                }
-            }
-            public var query: Operations.GetStarTransactions.Input.Query
-            /// - Remark: Generated from `#/paths/getStarTransactions/GET/header`.
+            /// - Remark: Generated from `#/paths/getStarTransactions/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetStarTransactions.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -62656,28 +62858,61 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetStarTransactions.Input.Headers
+            /// - Remark: Generated from `#/paths/getStarTransactions/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getStarTransactions/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Number of transactions to skip in the response
+                    ///
+                    /// - Remark: Generated from `#/paths/getStarTransactions/POST/requestBody/json/offset`.
+                    public var offset: Swift.Int64?
+                    /// The maximum number of transactions to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+                    ///
+                    /// - Remark: Generated from `#/paths/getStarTransactions/POST/requestBody/json/limit`.
+                    public var limit: Swift.Int64?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - offset: Number of transactions to skip in the response
+                    ///   - limit: The maximum number of transactions to be retrieved. Values between 1-100 are accepted. Defaults to 100.
+                    public init(
+                        offset: Swift.Int64? = nil,
+                        limit: Swift.Int64? = nil
+                    ) {
+                        self.offset = offset
+                        self.limit = limit
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case offset
+                        case limit
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getStarTransactions/POST/requestBody/content/application\/json`.
+                case json(Operations.GetStarTransactions.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetStarTransactions.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetStarTransactions.Input.Query = .init(),
-                headers: Operations.GetStarTransactions.Input.Headers = .init()
+                headers: Operations.GetStarTransactions.Input.Headers = .init(),
+                body: Operations.GetStarTransactions.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getStarTransactions/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getStarTransactions/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getStarTransactions/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getStarTransactions/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getStarTransactions/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getStarTransactions/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getStarTransactions/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getStarTransactions/POST/responses/200/content/json/result`.
                         public var result: Components.Schemas.StarTransactions
                         /// Creates a new `JsonPayload`.
                         ///
@@ -62696,7 +62931,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getStarTransactions/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getStarTransactions/POST/responses/200/content/application\/json`.
                     case json(Operations.GetStarTransactions.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -62723,7 +62958,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getStarTransactions/get(getStarTransactions)/responses/200`.
+            /// - Remark: Generated from `#/paths//getStarTransactions/post(getStarTransactions)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetStarTransactions.Output.Ok)
@@ -63787,50 +64022,12 @@ public enum Operations {
     /// Use this method to get data for high score tables. Will return the score of the specified user and several of their neighbors in a game. Returns an Array of GameHighScore objects.
     /// This method will currently return scores for the target user, plus two of their closest neighbors on each side. Will also return the top three users if the user and their neighbors are not among them. Please note that this behavior is subject to change.
     ///
-    /// - Remark: HTTP `GET /getGameHighScores`.
-    /// - Remark: Generated from `#/paths//getGameHighScores/get(getGameHighScores)`.
+    /// - Remark: HTTP `POST /getGameHighScores`.
+    /// - Remark: Generated from `#/paths//getGameHighScores/post(getGameHighScores)`.
     public enum GetGameHighScores {
         public static let id: Swift.String = "getGameHighScores"
         public struct Input: Sendable, Hashable {
-            /// - Remark: Generated from `#/paths/getGameHighScores/GET/query`.
-            public struct Query: Sendable, Hashable {
-                /// Target user id
-                ///
-                /// - Remark: Generated from `#/paths/getGameHighScores/GET/query/user_id`.
-                public var userId: Swift.Int64
-                /// Required if *inline_message_id* is not specified. Unique identifier for the target chat.
-                ///
-                /// - Remark: Generated from `#/paths/getGameHighScores/GET/query/chat_id`.
-                public var chatId: Swift.Int64?
-                /// Required if *inline_message_id* is not specified. Identifier of the sent message.
-                ///
-                /// - Remark: Generated from `#/paths/getGameHighScores/GET/query/message_id`.
-                public var messageId: Swift.Int64?
-                /// Required if *chat_id* and *message_id* are not specified. Identifier of the inline message.
-                ///
-                /// - Remark: Generated from `#/paths/getGameHighScores/GET/query/inline_message_id`.
-                public var inlineMessageId: Swift.String?
-                /// Creates a new `Query`.
-                ///
-                /// - Parameters:
-                ///   - userId: Target user id
-                ///   - chatId: Required if *inline_message_id* is not specified. Unique identifier for the target chat.
-                ///   - messageId: Required if *inline_message_id* is not specified. Identifier of the sent message.
-                ///   - inlineMessageId: Required if *chat_id* and *message_id* are not specified. Identifier of the inline message.
-                public init(
-                    userId: Swift.Int64,
-                    chatId: Swift.Int64? = nil,
-                    messageId: Swift.Int64? = nil,
-                    inlineMessageId: Swift.String? = nil
-                ) {
-                    self.userId = userId
-                    self.chatId = chatId
-                    self.messageId = messageId
-                    self.inlineMessageId = inlineMessageId
-                }
-            }
-            public var query: Operations.GetGameHighScores.Input.Query
-            /// - Remark: Generated from `#/paths/getGameHighScores/GET/header`.
+            /// - Remark: Generated from `#/paths/getGameHighScores/POST/header`.
             public struct Headers: Sendable, Hashable {
                 public var accept: [OpenAPIRuntime.AcceptHeaderContentType<Operations.GetGameHighScores.AcceptableContentType>]
                 /// Creates a new `Headers`.
@@ -63842,28 +64039,77 @@ public enum Operations {
                 }
             }
             public var headers: Operations.GetGameHighScores.Input.Headers
+            /// - Remark: Generated from `#/paths/getGameHighScores/POST/requestBody`.
+            @frozen public enum Body: Sendable, Hashable {
+                /// - Remark: Generated from `#/paths/getGameHighScores/POST/requestBody/json`.
+                public struct JsonPayload: Codable, Hashable, Sendable {
+                    /// Target user id
+                    ///
+                    /// - Remark: Generated from `#/paths/getGameHighScores/POST/requestBody/json/user_id`.
+                    public var userId: Swift.Int64
+                    /// Required if *inline_message_id* is not specified. Unique identifier for the target chat.
+                    ///
+                    /// - Remark: Generated from `#/paths/getGameHighScores/POST/requestBody/json/chat_id`.
+                    public var chatId: Swift.Int64?
+                    /// Required if *inline_message_id* is not specified. Identifier of the sent message.
+                    ///
+                    /// - Remark: Generated from `#/paths/getGameHighScores/POST/requestBody/json/message_id`.
+                    public var messageId: Swift.Int64?
+                    /// Required if *chat_id* and *message_id* are not specified. Identifier of the inline message.
+                    ///
+                    /// - Remark: Generated from `#/paths/getGameHighScores/POST/requestBody/json/inline_message_id`.
+                    public var inlineMessageId: Swift.String?
+                    /// Creates a new `JsonPayload`.
+                    ///
+                    /// - Parameters:
+                    ///   - userId: Target user id
+                    ///   - chatId: Required if *inline_message_id* is not specified. Unique identifier for the target chat.
+                    ///   - messageId: Required if *inline_message_id* is not specified. Identifier of the sent message.
+                    ///   - inlineMessageId: Required if *chat_id* and *message_id* are not specified. Identifier of the inline message.
+                    public init(
+                        userId: Swift.Int64,
+                        chatId: Swift.Int64? = nil,
+                        messageId: Swift.Int64? = nil,
+                        inlineMessageId: Swift.String? = nil
+                    ) {
+                        self.userId = userId
+                        self.chatId = chatId
+                        self.messageId = messageId
+                        self.inlineMessageId = inlineMessageId
+                    }
+                    public enum CodingKeys: String, CodingKey {
+                        case userId = "user_id"
+                        case chatId = "chat_id"
+                        case messageId = "message_id"
+                        case inlineMessageId = "inline_message_id"
+                    }
+                }
+                /// - Remark: Generated from `#/paths/getGameHighScores/POST/requestBody/content/application\/json`.
+                case json(Operations.GetGameHighScores.Input.Body.JsonPayload)
+            }
+            public var body: Operations.GetGameHighScores.Input.Body
             /// Creates a new `Input`.
             ///
             /// - Parameters:
-            ///   - query:
             ///   - headers:
+            ///   - body:
             public init(
-                query: Operations.GetGameHighScores.Input.Query,
-                headers: Operations.GetGameHighScores.Input.Headers = .init()
+                headers: Operations.GetGameHighScores.Input.Headers = .init(),
+                body: Operations.GetGameHighScores.Input.Body
             ) {
-                self.query = query
                 self.headers = headers
+                self.body = body
             }
         }
         @frozen public enum Output: Sendable, Hashable {
             public struct Ok: Sendable, Hashable {
-                /// - Remark: Generated from `#/paths/getGameHighScores/GET/responses/200/content`.
+                /// - Remark: Generated from `#/paths/getGameHighScores/POST/responses/200/content`.
                 @frozen public enum Body: Sendable, Hashable {
-                    /// - Remark: Generated from `#/paths/getGameHighScores/GET/responses/200/content/json`.
+                    /// - Remark: Generated from `#/paths/getGameHighScores/POST/responses/200/content/json`.
                     public struct JsonPayload: Codable, Hashable, Sendable {
-                        /// - Remark: Generated from `#/paths/getGameHighScores/GET/responses/200/content/json/ok`.
+                        /// - Remark: Generated from `#/paths/getGameHighScores/POST/responses/200/content/json/ok`.
                         public var ok: Swift.Bool
-                        /// - Remark: Generated from `#/paths/getGameHighScores/GET/responses/200/content/json/result`.
+                        /// - Remark: Generated from `#/paths/getGameHighScores/POST/responses/200/content/json/result`.
                         public var result: [Components.Schemas.GameHighScore]
                         /// Creates a new `JsonPayload`.
                         ///
@@ -63882,7 +64128,7 @@ public enum Operations {
                             case result
                         }
                     }
-                    /// - Remark: Generated from `#/paths/getGameHighScores/GET/responses/200/content/application\/json`.
+                    /// - Remark: Generated from `#/paths/getGameHighScores/POST/responses/200/content/application\/json`.
                     case json(Operations.GetGameHighScores.Output.Ok.Body.JsonPayload)
                     /// The associated value of the enum case if `self` is `.json`.
                     ///
@@ -63909,7 +64155,7 @@ public enum Operations {
             }
             /// Successful response
             ///
-            /// - Remark: Generated from `#/paths//getGameHighScores/get(getGameHighScores)/responses/200`.
+            /// - Remark: Generated from `#/paths//getGameHighScores/post(getGameHighScores)/responses/200`.
             ///
             /// HTTP response code: `200 ok`.
             case ok(Operations.GetGameHighScores.Output.Ok)

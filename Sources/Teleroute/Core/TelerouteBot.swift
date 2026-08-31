@@ -50,6 +50,7 @@ public final class TelerouteBot: Sendable {
     ///   - router: Route graph to serve.
     ///   - logger: Logger used by the runtime.
     ///   - configuration: Processing policies and long-polling behavior.
+    ///   - mode: How the bot receives its updates; defaults to long polling.
     ///   - transport: Optional custom HTTP transport; defaults to
     ///     AsyncHTTPClient with a long-polling-friendly timeout.
     ///   - rateLimit: Outbound request throttle; pass `nil` to disable.
@@ -86,8 +87,8 @@ public final class TelerouteBot: Sendable {
     }
 
     /// Creates a routed bot over a pre-configured Telegram client. Prefer
-    /// ``init(token:router:logger:configuration:transport:rateLimit:)`` unless
-    /// the client needs custom middlewares or a fully custom setup.
+    /// ``init(token:router:logger:configuration:mode:transport:rateLimit:)``
+    /// unless the client needs custom middlewares or a fully custom setup.
     public init<Context: TelerouteRequestContext>(
         client: TelegramBotClient,
         router: Teleroute<Context>,

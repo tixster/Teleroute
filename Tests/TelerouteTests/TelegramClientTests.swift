@@ -54,11 +54,11 @@ import Testing
 
     @Test func longPollingAdvancesOffsetAndStopsOnCancellation() async throws {
         let requests = Mutex<[Int64?]>([])
-        let transport = ScriptedTransport { request, _, operationID in
+        let transport = ScriptedTransport { request, body, operationID in
             guard operationID == "getUpdates" else {
                 return try ScriptedTransport.okJSON(#"{"ok":true,"result":true}"#)
             }
-            let offset = Self.queryValue(request, name: "offset").flatMap(Int64.init)
+            let offset = try await Self.bodyValue(body, name: "offset")
             let call = requests.withLock { calls in
                 calls.append(offset)
                 return calls.count
@@ -172,12 +172,11 @@ import Testing
         #expect(MaybeInaccessibleMessage.Message(inaccessible).chat.id == 1)
     }
 
-    private static func queryValue(_ request: HTTPRequest, name: String) -> String? {
-        guard let path = request.path,
-              let components = URLComponents(string: path) else {
-            return nil
-        }
-        return components.queryItems?.first(where: { $0.name == name })?.value
+    private static func bodyValue(_ body: HTTPBody?, name: String) async throws -> Int64? {
+        guard let body else { return nil }
+        let data = try await Data(collecting: body, upTo: 1024 * 1024)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return (json?[name] as? NSNumber)?.int64Value
     }
 }
 

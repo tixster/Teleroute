@@ -8,8 +8,13 @@ public extension TelerouteRequestContext {
     /// `reply_parameters` attached so the reply is visibly linked.
     /// Falls back to a plain send when the update carries no message.
     ///
-    /// - Parameter quote: Optional exact passage of the original message to
-    ///   highlight in the reply.
+    /// - Parameters:
+    ///   - text: Text of the reply.
+    ///   - parseMode: Parse mode for the text; defaults to the configured
+    ///     ``TelerouteConfiguration/defaultParseMode``.
+    ///   - replyMarkup: Optional keyboard attached to the reply.
+    ///   - quote: Optional exact passage of the original message to
+    ///     highlight in the reply.
     func reply(
         _ text: String,
         parseMode: ParseMode? = nil,

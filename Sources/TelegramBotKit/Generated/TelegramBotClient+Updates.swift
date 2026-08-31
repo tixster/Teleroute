@@ -11,7 +11,12 @@ public extension TelegramBotClient {
     /// to avoid getting duplicate updates, recalculate offset after each server response.
     @discardableResult
     func getUpdates(offset: Swift.Int64? = nil, limit: Swift.Int64? = nil, timeout: Swift.Int64? = nil, allowedUpdates: [Swift.String]? = nil) async throws -> [Components.Schemas.Update] {
-        let output = try await self.api.getUpdates(.init(query: .init(offset: offset, limit: limit, timeout: timeout, allowedUpdates: allowedUpdates)))
+        let output = try await self.api.getUpdates(.init(body: .json(.init(
+            offset: offset,
+            limit: limit,
+            timeout: timeout,
+            allowedUpdates: allowedUpdates
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result

@@ -34,6 +34,7 @@ counts = {
     "reply_markup_hoisted": 0,
     "input_file_rewritten": 0,
     "union_hoisted": 0,
+    "get_converted": 0,
 }
 
 # frozenset of member $refs -> component name, for pure oneOf-of-refs
@@ -136,6 +137,36 @@ def main():
 
     already_patched = "ChatId" in spec.get("components", {}).get("schemas", {})
 
+    # Telegram parses query strings loosely: array- and object-valued
+    # parameters must be JSON-serialized, which OpenAPI query serialization
+    # does not produce (it explodes arrays into repeated keys, and Telegram
+    # silently ignores them — e.g. `allowed_updates` on getUpdates). Telegram
+    # accepts POST with a JSON body for every method, so convert each GET
+    # operation into an equivalent POST + application/json requestBody.
+    for path_item in spec["paths"].values():
+        operation = path_item.pop("get", None)
+        if operation is None:
+            continue
+        properties = {}
+        required = []
+        for parameter in operation.pop("parameters", []):
+            properties[parameter["name"]] = dict(
+                parameter["schema"],
+                **({"description": parameter["description"]} if "description" in parameter else {}),
+            )
+            if parameter.get("required"):
+                required.append(parameter["name"])
+        if properties:
+            schema = {"type": "object", "properties": properties}
+            if required:
+                schema["required"] = required
+            operation["requestBody"] = {
+                "required": True,
+                "content": {"application/json": {"schema": schema}},
+            }
+        path_item["post"] = operation
+        counts["get_converted"] += 1
+
     for name, schema in spec["components"]["schemas"].items():
         if name in ("ChatId", "ReplyMarkup"):
             continue
@@ -190,6 +221,7 @@ def main():
             ("chat_id_hoisted", 50),
             ("reply_markup_hoisted", 10),
             ("input_file_rewritten", 1),
+            ("get_converted", 25),
         ):
             if counts[key] < minimum:
                 sys.exit(

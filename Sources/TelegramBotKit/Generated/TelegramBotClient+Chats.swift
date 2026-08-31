@@ -555,7 +555,9 @@ public extension TelegramBotClient {
     @discardableResult
     func getChat(chatId: Components.Schemas.ChatId) async throws -> Components.Schemas.ChatFullInfo {
         try await self.pace(chatId: chatId)
-        let output = try await self.api.getChat(.init(query: .init(chatId: chatId)))
+        let output = try await self.api.getChat(.init(body: .json(.init(
+            chatId: chatId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -571,7 +573,10 @@ public extension TelegramBotClient {
     @discardableResult
     func getChatAdministrators(chatId: Components.Schemas.ChatId, returnBots: Swift.Bool? = nil) async throws -> [Components.Schemas.ChatMember] {
         try await self.pace(chatId: chatId)
-        let output = try await self.api.getChatAdministrators(.init(query: .init(chatId: chatId, returnBots: returnBots)))
+        let output = try await self.api.getChatAdministrators(.init(body: .json(.init(
+            chatId: chatId,
+            returnBots: returnBots
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -586,7 +591,9 @@ public extension TelegramBotClient {
     @discardableResult
     func getChatMemberCount(chatId: Components.Schemas.ChatId) async throws -> Swift.Int64 {
         try await self.pace(chatId: chatId)
-        let output = try await self.api.getChatMemberCount(.init(query: .init(chatId: chatId)))
+        let output = try await self.api.getChatMemberCount(.init(body: .json(.init(
+            chatId: chatId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -603,7 +610,10 @@ public extension TelegramBotClient {
     @discardableResult
     func getChatMember(chatId: Components.Schemas.ChatId, userId: Swift.Int64) async throws -> Components.Schemas.ChatMember {
         try await self.pace(chatId: chatId)
-        let output = try await self.api.getChatMember(.init(query: .init(chatId: chatId, userId: userId)))
+        let output = try await self.api.getChatMember(.init(body: .json(.init(
+            chatId: chatId,
+            userId: userId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -618,7 +628,10 @@ public extension TelegramBotClient {
     /// to their profile) of a given user. On success, an Array of Message objects is returned.
     @discardableResult
     func getUserPersonalChatMessages(userId: Swift.Int64, limit: Swift.Int64) async throws -> [Components.Schemas.Message] {
-        let output = try await self.api.getUserPersonalChatMessages(.init(query: .init(userId: userId, limit: limit)))
+        let output = try await self.api.getUserPersonalChatMessages(.init(body: .json(.init(
+            userId: userId,
+            limit: limit
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -877,7 +890,10 @@ public extension TelegramBotClient {
     @discardableResult
     func getUserChatBoosts(chatId: Components.Schemas.ChatId, userId: Swift.Int64) async throws -> Components.Schemas.UserChatBoosts {
         try await self.pace(chatId: chatId)
-        let output = try await self.api.getUserChatBoosts(.init(query: .init(chatId: chatId, userId: userId)))
+        let output = try await self.api.getUserChatBoosts(.init(body: .json(.init(
+            chatId: chatId,
+            userId: userId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -912,7 +928,9 @@ public extension TelegramBotClient {
     @discardableResult
     func getChatMenuButton(chatId: Swift.Int64? = nil) async throws -> Components.Schemas.MenuButton {
         try await self.pace(chatId: chatId.map(ChatId.id))
-        let output = try await self.api.getChatMenuButton(.init(query: .init(chatId: chatId)))
+        let output = try await self.api.getChatMenuButton(.init(body: .json(.init(
+            chatId: chatId
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result

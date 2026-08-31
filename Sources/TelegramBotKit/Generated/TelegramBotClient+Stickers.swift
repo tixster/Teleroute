@@ -120,7 +120,9 @@ public extension TelegramBotClient {
     /// Use this method to get a sticker set. On success, a StickerSet object is returned.
     @discardableResult
     func getStickerSet(name: Swift.String) async throws -> Components.Schemas.StickerSet {
-        let output = try await self.api.getStickerSet(.init(query: .init(name: name)))
+        let output = try await self.api.getStickerSet(.init(body: .json(.init(
+            name: name
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result
@@ -135,7 +137,9 @@ public extension TelegramBotClient {
     /// Array of Sticker objects.
     @discardableResult
     func getCustomEmojiStickers(customEmojiIds: [Swift.String]) async throws -> [Components.Schemas.Sticker] {
-        let output = try await self.api.getCustomEmojiStickers(.init(query: .init(customEmojiIds: customEmojiIds)))
+        let output = try await self.api.getCustomEmojiStickers(.init(body: .json(.init(
+            customEmojiIds: customEmojiIds
+        ))))
         switch output {
         case let .ok(ok):
             return try ok.body.json.result

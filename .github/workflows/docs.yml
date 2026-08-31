@@ -1,0 +1,93 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build DocC Site
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pull Swift Docker Image
+        run: docker pull swift:6.3
+
+      - name: Build Documentation
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE":/workspace \
+            -w /workspace \
+            swift:6.3 \
+            swift package --allow-writing-to-directory /workspace/docs-out \
+              generate-documentation \
+              --target Teleroute \
+              --target TelegramBotKit \
+              --target TelerouteMacros \
+              --target TelerouteTestSupport \
+              --target TelerouteHummingbird \
+              --enable-experimental-combined-documentation \
+              --disable-indexing \
+              --transform-for-static-hosting \
+              --hosting-base-path Teleroute \
+              --output-path /workspace/docs-out
+
+      - name: Fix Ownership of Docker Output
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE/docs-out"
+
+      - name: Add Root Redirect
+        run: |
+          cat > "$GITHUB_WORKSPACE/docs-out/index.html" <<'HTML'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="0; url=/Teleroute/documentation/teleroute/">
+            <link rel="canonical" href="https://tixster.github.io/Teleroute/documentation/teleroute/">
+            <title>Teleroute Documentation</title>
+          </head>
+          <body>
+            <p><a href="/Teleroute/documentation/teleroute/">Teleroute documentation</a></p>
+          </body>
+          </html>
+          HTML
+
+      - name: Setup Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages Artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs-out
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

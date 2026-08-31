@@ -469,10 +469,10 @@ class Generator:
     def verify_counts(self):
         expectations = {
             "ops": (185, 220),
-            "query": (30, 40),
-            "json": (110, 130),
+            "query": (0, 5),
+            "json": (130, 170),
             "multipart": (30, 40),
-            "empty": (2, 6),
+            "empty": (2, 12),
             "file_input": (17, 30),
             "parse_mode": (10, 60),
             "chat_action": (1, 1),

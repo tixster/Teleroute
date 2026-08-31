@@ -60,6 +60,14 @@ struct TelegramLongPollingConnection: Sendable {
     func run(
         onUpdates: @Sendable ([Update]) async -> Void
     ) async {
+        self.logger.info(
+            "Telegram long polling started",
+            metadata: [
+                "allowed_updates": .string(
+                    self.resolvedAllowedUpdates?.joined(separator: ",") ?? "telegram-default"
+                ),
+            ]
+        )
         if self.configuration.deleteWebhookOnStart {
             await self.deleteWebhook()
         }

@@ -10,7 +10,7 @@ import TelerouteTestSupport
 /// Wire-level tests for the generated flat client wrappers — one per
 /// generation template (query, JSON body, multipart scalar/file/array parts).
 @Suite struct TelegramWrapperTests {
-    @Test func queryTemplateEncodesParameters() async throws {
+    @Test func formerQueryOperationsPostJSONBodies() async throws {
         let capture = CapturingTransport(respond: { _, _ in
             try CapturingTransport.okJSON(#"{"ok":true,"result":{"status":"member","user":{"id":7,"is_bot":false,"first_name":"U"}}}"#)
         })
@@ -20,11 +20,14 @@ import TelerouteTestSupport
             Issue.record("Expected .member, got \(member)")
             return
         }
-        let request = capture.captured.withLock { $0!.request }
-        #expect(request.method == .get)
+        let (request, body) = capture.captured.withLock { ($0!.request, $0!.body) }
+        // Telegram ignores non-JSON query serialization of arrays/objects, so
+        // every former GET operation posts a JSON body instead.
+        #expect(request.method == .post)
         #expect(request.path?.contains("getChatMember") == true)
-        #expect(request.path?.contains("chat_id=42") == true)
-        #expect(request.path?.contains("user_id=7") == true)
+        let json = try JSONSerialization.jsonObject(with: body) as! [String: Any]
+        #expect(json["chat_id"] as? Int == 42)
+        #expect(json["user_id"] as? Int == 7)
     }
 
     @Test func jsonTemplateEncodesFullOptionSet() async throws {

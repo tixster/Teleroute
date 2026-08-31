@@ -46,7 +46,7 @@ public enum ChatType: String, Sendable, Hashable {
     case channel
 }
 
-/// Telegram chat actions used by ``TelerouteContext/sendChatAction(_:to:)``.
+/// Telegram chat actions accepted by `sendChatAction`.
 public enum ChatAction: String, Sendable, Hashable {
     case typing
     case uploadPhoto = "upload_photo"
