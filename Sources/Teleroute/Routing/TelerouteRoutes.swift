@@ -186,16 +186,30 @@ public final class TelerouteRoutes: Sendable {
 
     /// Renders one typed button description in this route scope.
     public func render(_ button: TelerouteButton) throws -> InlineKeyboardButton {
-        try button.render(in: self)
+        try self.render(button, in: nil)
     }
 
     /// Renders callback button descriptions into Telegram keyboard rows.
     public func keyboard(
         _ rows: [[TelerouteButton]]
     ) throws -> InlineKeyboardMarkup {
+        try self.keyboard(rows, in: nil)
+    }
+
+    func render(
+        _ button: TelerouteButton,
+        in context: TelerouteRenderContext?
+    ) throws -> InlineKeyboardButton {
+        try button.render(in: self, context: context)
+    }
+
+    func keyboard(
+        _ rows: [[TelerouteButton]],
+        in context: TelerouteRenderContext?
+    ) throws -> InlineKeyboardMarkup {
         try .init(
             inlineKeyboard: rows.map { row in
-                try row.map { try $0.render(in: self) }
+                try row.map { try $0.render(in: self, context: context) }
             }
         )
     }
@@ -214,9 +228,29 @@ public final class TelerouteRoutes: Sendable {
 
     func registeredCallbackData(for callback: any TelerouteCallback) throws -> String {
         let pattern = self.callbackPattern(for: callback)
-        guard self.storage.containsCallbackRoute(pattern.routeDescription) else {
-            throw TelerouteError.callbackRouteNotRegistered(pattern.routeDescription)
+        // This scope wins when it registered the route itself, so a group
+        // rendering its own callbacks keeps resolving exactly as before.
+        if self.storage.containsCallbackRoute(pattern.routeDescription) {
+            return try pattern.render(parameters: callback.parameters)
         }
-        return try pattern.render(parameters: callback.parameters)
+
+        // Otherwise the value may belong to a route registered under some
+        // other prefix — a group, or a flow mounted in one. Rendering happens
+        // from the router root (a handler's `keyboard { }`), which has no way
+        // to know that prefix, so find it among the registered routes.
+        let ownPath = TelerouteCallbackPattern(
+            prefix: [],
+            path: type(of: callback).path
+        ).routeDescription
+        let matches = self.storage.resolveCallbackRoutes(matching: ownPath)
+        switch matches.count {
+        case 0:
+            throw TelerouteError.callbackRouteNotRegistered(pattern.routeDescription)
+        case 1:
+            return try TelerouteCallbackPattern(prefix: [], path: matches[0])
+                .render(parameters: callback.parameters)
+        default:
+            throw TelerouteError.ambiguousCallbackRoute(ownPath, matches: matches)
+        }
     }
 }

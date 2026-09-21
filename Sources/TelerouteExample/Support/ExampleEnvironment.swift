@@ -1,4 +1,5 @@
 import Foundation
+import Teleroute
 
 /// Runtime configuration for the example executable.
 ///
@@ -10,12 +11,15 @@ struct ExampleEnvironment {
     let botToken: String
 
     /// Loads configuration from the current process environment.
-    static func load(
-        from environment: [String: String] = ProcessInfo.processInfo.environment
-    ) throws -> Self {
-        guard let botToken = environment["TELEGRAM_BOT_TOKEN"], botToken.isEmpty == false else {
+    ///
+    /// `TelerouteEnvironment.token()` does the reading and blank-value
+    /// rejection; the example only re-labels the failure so `swift run`
+    /// prints the command to fix it.
+    static func load() throws -> Self {
+        do {
+            return .init(botToken: try TelerouteEnvironment.token())
+        } catch {
             throw ExampleError.missingBotToken
         }
-        return .init(botToken: botToken)
     }
 }

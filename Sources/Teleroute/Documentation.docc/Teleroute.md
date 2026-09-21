@@ -88,6 +88,7 @@ Start with <doc:GettingStarted>, then explore <doc:Routing> and
 - ``TelerouteParameters``
 - ``TelerouteCommandMatch``
 - ``TelerouteResponderState``
+- ``TelerouteEditTarget``
 
 ### Response Types
 
@@ -162,6 +163,10 @@ Start with <doc:GettingStarted>, then explore <doc:Routing> and
 - ``TelerouteKeyRowBuilder``
 - ``TelerouteReplyKeyboardBuilder``
 - ``TeleroutePagination``
+- ``TelerouteConfirm``
+- ``TelerouteInlineActionScope``
+- ``TelerouteInlineActionPolicy``
+- ``TelerouteButtonCompletion``
 
 ### Flow Sessions
 
@@ -183,6 +188,7 @@ Start with <doc:GettingStarted>, then explore <doc:Routing> and
 - <doc:LifecycleAndWebhooks>
 - ``TelerouteBotMode``
 - ``TelerouteBotError``
+- ``TelerouteEnvironment``
 - ``TelegramPollingConfiguration``
 - ``TelerouteAllowedUpdates``
 

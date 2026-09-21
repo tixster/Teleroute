@@ -43,9 +43,8 @@ router.callback("orders/{id}/approve") { context in
 }
 
 let bot = try TelerouteBot(
-    token: ProcessInfo.processInfo.environment["TELEGRAM_BOT_TOKEN"]!,
-    router: router,
-    logger: Logger(label: "bot")
+    token: TelerouteEnvironment.token(),   // TELEGRAM_BOT_TOKEN
+    router: router
 )
 try await bot.runService()   // SIGTERM/SIGINT → graceful drain + shutdown
 ```
@@ -59,7 +58,7 @@ try await bot.runService()   // SIGTERM/SIGINT → graceful drain + shutdown
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/tixster/Teleroute.git", from: "2.0.0"),
+    .package(url: "https://github.com/tixster/Teleroute.git", from: "3.1.0"),
 ],
 targets: [
     .executableTarget(
@@ -185,14 +184,15 @@ opt out).
 
 ## Context Helpers
 
-Every request context (including custom and flow contexts) carries the full
-helper surface: `reply`, `send`, `edit`, `editCaption`, `editReplyMarkup`,
-`deleteMessage`, `forwardMessage`, `copyMessage`, `react`, `pinMessage`,
+Every `TelerouteRequestContext` — the built-in one and your own — carries the
+full helper surface: `reply`, `send`, `edit`, `editCaption`, `editReplyMarkup`,
+`removePressedButton`, `deleteMessage`, `forwardMessage`, `copyMessage`,
+`react`, `pinMessage`,
 `sendPhoto`/`Video`/`Audio`/`Voice`/`Sticker`/`MediaGroup`/`Location`/`Contact`/`Dice`,
 `sendChatAction`/`typing()`/`withChatAction`, `banMember`/`unbanMember`/
 `restrictMember`, `getChatMember`/`isAdmin`, `approveJoinRequest`,
-`publishCommands`, and flow control (`start`/`cancelFlow`). Anything else:
-`context.bot.<operation>`.
+`publishCommands`, `keyboard { }`/`render`, `resolvedEditTarget`, and flow
+control (`start`/`cancelFlow`). Anything else: `context.bot.<operation>`.
 
 ## Groups, Contexts, Middleware, Guards
 
@@ -269,27 +269,80 @@ declare their own `Context` and return a response.
 
 ## Keyboards
 
-```swift
-let markup = try router.keyboard {
-    Row {
-        route.button(OrderPageCallback(orderId: "7", page: 2), "Next")
-        TelerouteButton.url("Docs", "https://example.com")
-    }
-    TelerouteButton.switchInlineQuery("Share", query: "cats")
-}
+Build the markup right where you answer — `Reply`, `Send`, and `Edit` all take
+the keyboard builder, and render it against the router serving the update:
 
+```swift
+router.command("orders") { _ in
+    Reply("Your orders:").keyboard {
+        Row {
+            TelerouteButton("Next") { OrderPageCallback(orderId: "7", page: 2) }
+            TelerouteButton("Docs", url: "https://example.com")
+        }
+        TelerouteButton.switchInlineQuery("Share", query: "cats")
+    }
+}
+```
+
+A button can also carry its handler directly (opt in with
+`configuration: .init(inlineActions: .enabled())`):
+
+```swift
+router.command("orders") { _ in
+    Reply("Order 7").keyboard {
+        Row {
+            TelerouteButton("Approve") { press in
+                try await orders.approve(7)
+                return .edit("Order 7 approved")
+            }
+            // Clears itself once the handler returns cleanly.
+            TelerouteButton("Snooze", onSuccess: .removeButton) { _ in
+                .answerCallback("Snoozed")
+            }
+        }
+    }
+}
+```
+
+Inline handlers are closures, so they live in memory: they expire (30 min by
+default), do not survive a restart, and do not work across replicas — a dead
+press gets the configured `expired` response. By default only the user the
+keyboard was rendered for can press them.
+
+`context.keyboard { … }` returns the markup directly when a handler sends its
+own messages, and `router.keyboard { … }` still builds one ahead of time.
+
+Laying out longer menus:
+
+```swift
+Reply("Pick an order:").keyboard {
+    orders.map { route.button(Open(id: $0.id), $0.title) }.grid(columns: 2)
+    Row {
+        TeleroutePagination.pageStrip(route, page: page, pageCount: pages) {
+            OrderPageCallback(orderId: id, page: $0)
+        }
+    }
+    Row { TelerouteConfirm.row(confirm, confirm: .yes, cancel: .no) }
+}
+```
+
+```swift
 let replyKeyboard = ReplyKeyboardMarkup(resize: true) {
     KeyRow {
         KeyButton("Share contact").requestContact()
+        KeyButton("Pick a chat").requestChat(id: 1, isChannel: false)
         "Cancel"
     }
 }
 ```
 
-Typed callback buttons are validated against the scope that renders them, so a
-button for an unregistered route fails fast. `TelegramText` provides
-`escapeHTML`/`escapeMarkdownV2` and `bold`/`italic`/`code`/`link`/`mention`
-fragment builders.
+Typed callback buttons are validated when the keyboard renders, so a button
+for an unregistered route fails fast — and `callback_data` over Telegram's
+64-byte limit is rejected at render time rather than by the API. A callback
+registered inside a group resolves from anywhere, so a handler at the root can
+still build a button for it.
+`TelegramText` provides `escapeHTML`/`escapeMarkdownV2` and
+`bold`/`italic`/`code`/`link`/`mention` fragment builders.
 
 ## Flows
 
@@ -316,8 +369,17 @@ struct SignupFlow: TelerouteFlow {
 router.flow(SignupFlow())
 ```
 
-Flow contexts conform to `TelerouteRequestContext`, so every helper (media,
-admin, …) is available inside steps.
+Flow contexts are their own type, not a `TelerouteRequestContext`. They carry
+the common helpers directly — `reply`, `send`, `edit`, `answerCallbackQuery`,
+`keyboard { }` — plus the flow ones (`transition`, `finish`, `values`).
+Everything else is one hop away through `context.context`, which is the
+underlying `TelerouteContext`:
+
+```swift
+flow.message(at: .photo) { context in
+    try await context.context.sendPhoto(.fileID(id), caption: "Saved")
+}
+```
 
 ## Lifecycle and Webhooks
 
@@ -330,12 +392,7 @@ shutdown stops intake, drains in-flight handlers (bounded by
 try await bot.runService()
 
 // Composed with other services:
-let group = ServiceGroup(
-    services: [database, bot],
-    gracefulShutdownSignals: [.sigterm, .sigint],
-    logger: logger
-)
-try await group.run()
+try await bot.runService(with: [database, worker])
 ```
 
 Webhooks via the `TelerouteHummingbird` product:
@@ -344,29 +401,44 @@ Webhooks via the `TelerouteHummingbird` product:
 import Hummingbird
 import TelerouteHummingbird
 
-let bot = try TelerouteBot(token: token, router: router, logger: logger, mode: .webhook)
-let hbRouter = Router()
-hbRouter.registerTelegramWebhook(bot: bot, path: "/telegram", secretToken: secret)
-let app = Application(router: hbRouter, configuration: .init(address: .hostname("0.0.0.0", port: 8080)))
-
-let group = ServiceGroup(
-    services: [
-        app,
-        bot,
-        TelegramWebhookService(bot: bot, configuration: .init(
-            url: "https://bot.example.com/telegram",
-            secretToken: secret
-        )),
-    ],
-    gracefulShutdownSignals: [.sigterm, .sigint],
-    logger: logger
+let webhook = TelegramWebhookConfiguration(
+    url: "https://bot.example.com/telegram",
+    secretToken: .randomSecret()
 )
-try await group.run()
+let bot = try TelerouteBot(token: token, router: router, mode: .webhook)
+
+let app = Application.teleroute(
+    bot: bot,
+    webhook: webhook,
+    configuration: .init(address: .hostname("0.0.0.0", port: 8080))
+) { router in
+    router.get("/health") { _, _ in "ok" }
+}
+try await app.runService()
 ```
 
-The webhook handler verifies `X-Telegram-Bot-Api-Secret-Token` in constant
-time and feeds decoded updates into the same pipeline (`bot.process(_:)` is
-the seam for any custom server).
+One configuration drives everything: the endpoint path comes from the URL, so
+there is no second string to keep in sync, and the bot plus its `setWebhook`
+registration are attached as services in the right order.
+
+With a router of your own, register and collect the services in one call:
+
+```swift
+let hbRouter = Router()
+hbRouter.get("/health") { _, _ in "ok" }
+
+let app = Application(
+    router: hbRouter,
+    configuration: .init(address: .hostname("0.0.0.0", port: 8080)),
+    services: hbRouter.addTeleroute(bot, webhook: webhook)
+)
+try await app.runService()
+```
+
+`app.addTeleroute(bot, webhook:)` covers the case where the application
+already exists. The webhook handler verifies
+`X-Telegram-Bot-Api-Secret-Token` in constant time and feeds decoded updates
+into the same pipeline (`bot.process(_:)` is the seam for any custom server).
 
 ## Observability
 
@@ -411,16 +483,6 @@ a custom context, and command-menu publishing:
 ```bash
 TELEGRAM_BOT_TOKEN=<token> swift run TelerouteExample
 ```
-
-## Migrating
-
-See [docs/MIGRATION-3.0.md](docs/MIGRATION-3.0.md) for the 2.x → 3.0 table
-(types under their own names, `_type` → `type`, typed value enums, the
-`TelegramTransport` protocol).
-
-See [docs/MIGRATION-2.0.md](docs/MIGRATION-2.0.md) for the 1.x → 2.0 table
-(single handler style, `TG`-free naming, `ChatId` targets, Int64 identifiers,
-Service lifecycle).
 
 ## Agent Skill Installation
 

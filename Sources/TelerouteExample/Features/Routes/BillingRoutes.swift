@@ -22,27 +22,25 @@ struct BillingRoutes: TelerouteRouteCollection {
             description: "Open an invoice",
             visibility: [.allPrivateChats]
         ) { context in
-            try await self.openInvoice(context, routes: routes, callbacks: callbacks)
+            try await self.openInvoice(context)
         }
 
         return callbacks
     }
 
     private func openInvoice(
-        _ context: ExampleRequestContext,
-        routes: ExampleRoutes,
-        callbacks: Routes
+        _ context: ExampleRequestContext
     ) async throws -> TelerouteResponse {
         let invoiceID = context.command?.get("invoiceID") ?? "unknown"
-        let keyboard = try routes.keyboard([[
-            callbacks.pay.button(PayInvoiceCallback(invoiceID: invoiceID), "Mark paid"),
-            callbacks.fail.button(FailInvoiceCallback(invoiceID: invoiceID), "Mark failed"),
-        ]])
-
-        return .reply(
-            "Invoice \(invoiceID)",
-            replyMarkup: .inline(keyboard)
-        )
+        return Reply("Invoice \(invoiceID)").keyboard {
+            Row {
+                TelerouteButton("Mark paid") { PayInvoiceCallback(invoiceID: invoiceID) }
+                    .style(.success)
+                TelerouteButton("Mark failed") { FailInvoiceCallback(invoiceID: invoiceID) }
+                    .style(.danger)
+            }
+        }
+        .makeResponse()
     }
 
     private func markInvoicePaid(

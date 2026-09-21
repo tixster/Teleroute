@@ -15,14 +15,27 @@ in-flight handlers (bounded by
 `ServiceGroup` and converts `SIGTERM`/`SIGINT` into a graceful shutdown:
 
 ```swift
-let bot = try TelerouteBot(token: token, router: router, logger: logger)
+let bot = try TelerouteBot(token: TelerouteEnvironment.token(), router: router)
 try await bot.runService()
 ```
+
+``TelerouteEnvironment/token(_:)`` reads `TELEGRAM_BOT_TOKEN` and fails at
+startup — naming the variable — rather than at the first Telegram call with a
+401. `logger:` defaults to `Logger(label: "teleroute")`.
 
 ### Composed with Other Services
 
 In a real deployment the bot usually runs next to a database, an HTTP server,
-or background workers — compose them in one `ServiceGroup`:
+or background workers. ``TelerouteBot/runService(with:gracefulShutdownSignals:)``
+composes them into one `ServiceGroup`, starting the bot first so services that
+depend on it observe a running runtime:
+
+```swift
+try await bot.runService(with: [database, worker])
+```
+
+Build the group by hand when the order or the group's own configuration
+matters:
 
 ```swift
 let group = ServiceGroup(
@@ -66,29 +79,27 @@ serve the endpoint with the `TelerouteHummingbird` product:
 import Hummingbird
 import TelerouteHummingbird
 
-let bot = try TelerouteBot(token: token, router: router, logger: logger, mode: .webhook)
+let webhook = TelegramWebhookConfiguration(
+    url: "https://bot.example.com/telegram",
+    secretToken: .randomSecret()
+)
+let bot = try TelerouteBot(token: token, router: router, mode: .webhook)
 
-let hbRouter = Router()
-hbRouter.registerTelegramWebhook(bot: bot, path: "/telegram", secretToken: secret)
-let app = Application(
-    router: hbRouter,
+let app = Application.teleroute(
+    bot: bot,
+    webhook: webhook,
     configuration: .init(address: .hostname("0.0.0.0", port: 8080))
-)
-
-let group = ServiceGroup(
-    services: [
-        app,                                     // serves the endpoint
-        bot,                                     // routes the updates
-        TelegramWebhookService(bot: bot, configuration: .init(
-            url: "https://bot.example.com/telegram",
-            secretToken: secret
-        )),                                      // registers the webhook with Telegram
-    ],
-    gracefulShutdownSignals: [.sigterm, .sigint],
-    logger: logger
-)
-try await group.run()
+) { router in
+    router.get("/health") { _, _ in "ok" }
+}
+try await app.runService()
 ```
+
+One configuration value drives the whole wiring: the endpoint path is taken
+from the URL, the secret is shared between the endpoint and `setWebhook`, and
+the bot and its registration are attached as services in the right order. The
+`TelerouteHummingbird` documentation covers wiring into a router you already
+own.
 
 The webhook handler verifies `X-Telegram-Bot-Api-Secret-Token` in constant
 time, decodes the update, and feeds it into the same routing pipeline that
@@ -101,7 +112,7 @@ the route-derived `allowed_updates`.
 raw NIO, a queue consumer, or tests:
 
 ```swift
-let bot = try TelerouteBot(token: token, router: router, logger: logger, mode: .manual)
+let bot = try TelerouteBot(token: token, router: router, mode: .manual)
 try await bot.start()
 
 // Wherever your updates come from:
@@ -110,6 +121,12 @@ await bot.process(decodedUpdates)
 
 Use ``TelerouteBot/resolvedAllowedUpdates(_:)`` to obtain the wire strings for
 your own `setWebhook` call.
+
+``TelerouteBot/process(_:)`` submits each update to the bounded update
+executor and returns as soon as a slot is reserved — it does not wait for the
+handler to finish. A webhook server can therefore acknowledge Telegram
+immediately, and the only backpressure is
+``TelerouteConfiguration/maximumConcurrentUpdates`` being exhausted.
 
 ### Graceful Shutdown Semantics
 

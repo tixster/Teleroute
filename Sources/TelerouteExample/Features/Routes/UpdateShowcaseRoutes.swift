@@ -56,16 +56,37 @@ struct UpdateShowcaseRoutes: TelerouteRouteCollection {
             )
         }
 
-        // Keyboard DSL with mixed destinations.
-        routes.command("links", description: "Show useful links") { context in
-            let keyboard = try routes.keyboard {
+        // Keyboard DSL with mixed destinations, described inline in the
+        // response: the buttons are rendered when it executes.
+        routes.command("links", description: "Show useful links") { _ in
+            Reply("Useful links:").keyboard {
                 Row {
-                    TelerouteButton.url("Documentation", "https://core.telegram.org/bots/api")
+                    TelerouteButton("Documentation", url: "https://core.telegram.org/bots/api")
                     TelerouteButton.switchInlineQuery("Share", query: "hello")
                 }
-                TelerouteButton.copyText("Copy token format", copy: "123456:ABC-DEF")
+                TelerouteButton("Copy token format", copy: "123456:ABC-DEF")
             }
-            return Reply("Useful links:").keyboard(keyboard)
+        }
+
+        // Handlers written straight into the buttons. Enabled by
+        // `inlineActions` in ExampleBootstrap; the handlers live in memory,
+        // so these buttons stop working when the process restarts.
+        routes.command("confirm", description: "Inline button handlers") { _ in
+            Reply("Publish the draft?").keyboard {
+                Row {
+                    TelerouteButton("Publish") { press in
+                        try await press.answerCallbackQuery("Published")
+                        return Edit("Draft published ✅")
+                    }
+                    .style(.success)
+                    TelerouteButton("Discard") { Edit("Draft discarded") }
+                        .style(.danger)
+                    // Clears itself after a clean run, leaving the other two.
+                    TelerouteButton("Snooze", onSuccess: .removeButton) { _ in
+                        AnswerCallback(text: "Snoozed for an hour")
+                    }
+                }
+            }
         }
     }
 }

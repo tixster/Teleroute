@@ -36,6 +36,10 @@ public struct TelerouteConfiguration: Sendable {
     /// How long a graceful shutdown waits for in-flight handlers to finish
     /// before cancelling them.
     public var shutdownGracePeriod: Duration
+    /// Whether buttons may carry inline handlers, and how long those handlers
+    /// stay pressable. Disabled by default: enabling it registers a callback
+    /// route, which in turn puts `callback_query` in `allowed_updates`.
+    public var inlineActions: TelerouteInlineActionPolicy
 
     public init(
         flowStorage: any TelerouteFlowStorage = TelerouteInMemoryFlowStorage(),
@@ -50,7 +54,8 @@ public struct TelerouteConfiguration: Sendable {
         defaultParseMode: ParseMode? = nil,
         autoAnswerCallbackQueries: Bool = true,
         errorRenderer: TelerouteErrorRenderer? = nil,
-        shutdownGracePeriod: Duration = .seconds(15)
+        shutdownGracePeriod: Duration = .seconds(15),
+        inlineActions: TelerouteInlineActionPolicy = .disabled
     ) {
         self.flowStorage = flowStorage
         self.replayProtectionStorage = replayProtectionStorage
@@ -65,5 +70,6 @@ public struct TelerouteConfiguration: Sendable {
         self.autoAnswerCallbackQueries = autoAnswerCallbackQueries
         self.errorRenderer = errorRenderer
         self.shutdownGracePeriod = shutdownGracePeriod
+        self.inlineActions = inlineActions
     }
 }

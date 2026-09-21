@@ -50,6 +50,48 @@ try await context.withChatAction(.uploadPhoto) {
 }
 ```
 
+### What an Edit Targets
+
+`edit`, `editCaption`, `editReplyMarkup`, and the ``Edit`` response all target
+the message the update carries, so a button press edits the message the button
+is attached to:
+
+```swift
+router.callback(ApproveOrder.self) { callback, _ in
+    .edit("Order \(callback.id) approved")
+}
+```
+
+Telegram addresses editable messages two different ways, and a callback query
+can arrive in either form. ``TelerouteRequestContext/resolvedEditTarget(messageId:in:)``
+picks whichever the update actually carries, so the same call works for all of
+them:
+
+| The update carries | Edit goes to |
+|---|---|
+| An ordinary message | `chat_id` + `message_id` |
+| A message sent through inline mode | `inline_message_id` (it has no chat at all) |
+| A message the bot can no longer read (`InaccessibleMessage`) | `chat_id` + `message_id` — the ids survive, so the edit is attempted and Telegram decides |
+| Neither | throws ``TelerouteError/messageTargetMissing`` |
+
+Reach for `resolvedEditTarget` directly when calling an operation the helpers
+do not wrap:
+
+```swift
+switch try context.resolvedEditTarget() {
+case let .message(chatId, messageId):
+    try await context.bot.editMessageMedia(chatId: chatId, messageId: messageId, media: media)
+case let .inline(inlineMessageId):
+    try await context.bot.editMessageMedia(inlineMessageId: inlineMessageId, media: media)
+}
+```
+
+Pass `messageId:`/`in:` to target a different message; explicit values always
+win over the update's own.
+
+> Note: `deleteMessage` and `react` have no inline-mode equivalent in the Bot
+> API, so they still require an ordinary message.
+
 Media helpers accept a `FileInput` (`.fileID`, `.url`, or
 `.upload(filename:data:)`):
 

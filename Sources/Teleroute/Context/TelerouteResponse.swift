@@ -41,6 +41,23 @@ public indirect enum TelerouteResponse: Sendable {
         if case .unhandled = self { return true }
         return false
     }
+
+    /// Whether executing this response decides the message's inline keyboard
+    /// itself.
+    ///
+    /// `editMessageText` always replaces the markup — omitting `reply_markup`
+    /// clears it — so a handler that edits has already said what the keyboard
+    /// should be, and automatic button removal must stay out of the way.
+    var decidesReplyMarkup: Bool {
+        switch self {
+        case .edit:
+            true
+        case let .sequence(responses):
+            responses.contains(where: \.decidesReplyMarkup)
+        default:
+            false
+        }
+    }
 }
 
 extension TelerouteResponse: TelerouteResponseGenerator {
@@ -144,6 +161,10 @@ public struct Reply: TelerouteResponseGenerator, Sendable {
     public var text: String
     public var parseMode: ParseMode?
     public var replyMarkup: ReplyMarkup?
+    /// Buttons rendered against the serving router when the response executes.
+    /// Set by the keyboard-builder form of `keyboard(_:)`; takes precedence
+    /// over ``replyMarkup``.
+    public var buttons: [[TelerouteButton]]?
     /// Optional exact passage of the original message to quote.
     public var quote: String?
     public var options = TelerouteSendOptions()
@@ -155,6 +176,42 @@ public struct Reply: TelerouteResponseGenerator, Sendable {
     public func parseMode(_ mode: ParseMode) -> Self { var copy = self; copy.parseMode = mode; return copy }
     public func keyboard(_ markup: ReplyMarkup) -> Self { var copy = self; copy.replyMarkup = markup; return copy }
     public func keyboard(_ markup: InlineKeyboardMarkup) -> Self { var copy = self; copy.replyMarkup = .inline(markup); return copy }
+    /// Attaches an inline keyboard built with the result-builder DSL.
+    ///
+    /// Typed callback buttons are validated against the router serving the
+    /// update when the response executes, so the markup can be described
+    /// inline in the handler body:
+    ///
+    /// ```swift
+    /// router.command("orders") { _ in
+    ///     Reply("Your orders:").keyboard {
+    ///         Row { page.button(OrderPage(id: "7", page: 1), "Next") }
+    ///     }
+    /// }
+    /// ```
+    public func keyboard(
+        @TelerouteKeyboardBuilder _ content: () -> [[TelerouteButton]]
+    ) -> Self {
+        var copy = self
+        copy.buttons = content()
+        return copy
+    }
+    /// Removes the user's reply keyboard.
+    public func removeKeyboard(selective: Bool? = nil) -> Self {
+        var copy = self
+        copy.replyMarkup = .remove(.init(removeKeyboard: true, selective: selective))
+        return copy
+    }
+    /// Shows the user a forced reply prompt.
+    public func forceReply(placeholder: String? = nil, selective: Bool? = nil) -> Self {
+        var copy = self
+        copy.replyMarkup = .forceReply(.init(
+            forceReply: true,
+            inputFieldPlaceholder: placeholder,
+            selective: selective
+        ))
+        return copy
+    }
     /// Quotes a specific passage of the original message in the reply.
     public func quoting(_ passage: String) -> Self {
         var copy = self
@@ -175,6 +232,8 @@ public struct Send: TelerouteResponseGenerator, Sendable {
     public var chatId: ChatId?
     public var parseMode: ParseMode?
     public var replyMarkup: ReplyMarkup?
+    /// Buttons rendered against the serving router when the response executes.
+    public var buttons: [[TelerouteButton]]?
     public var options = TelerouteSendOptions()
 
     public init(_ text: String, to chatId: ChatId? = nil) {
@@ -185,6 +244,31 @@ public struct Send: TelerouteResponseGenerator, Sendable {
     public func parseMode(_ mode: ParseMode) -> Self { var copy = self; copy.parseMode = mode; return copy }
     public func keyboard(_ markup: ReplyMarkup) -> Self { var copy = self; copy.replyMarkup = markup; return copy }
     public func keyboard(_ markup: InlineKeyboardMarkup) -> Self { var copy = self; copy.replyMarkup = .inline(markup); return copy }
+    /// Attaches an inline keyboard built with the result-builder DSL, rendered
+    /// against the serving router when the response executes.
+    public func keyboard(
+        @TelerouteKeyboardBuilder _ content: () -> [[TelerouteButton]]
+    ) -> Self {
+        var copy = self
+        copy.buttons = content()
+        return copy
+    }
+    /// Removes the user's reply keyboard.
+    public func removeKeyboard(selective: Bool? = nil) -> Self {
+        var copy = self
+        copy.replyMarkup = .remove(.init(removeKeyboard: true, selective: selective))
+        return copy
+    }
+    /// Shows the user a forced reply prompt.
+    public func forceReply(placeholder: String? = nil, selective: Bool? = nil) -> Self {
+        var copy = self
+        copy.replyMarkup = .forceReply(.init(
+            forceReply: true,
+            inputFieldPlaceholder: placeholder,
+            selective: selective
+        ))
+        return copy
+    }
     public func silent(_ on: Bool = true) -> Self { var copy = self; copy.options.disableNotification = on; return copy }
     public func protected(_ on: Bool = true) -> Self { var copy = self; copy.options.protectContent = on; return copy }
     public func effect(_ id: String) -> Self { var copy = self; copy.options.messageEffectId = id; return copy }
@@ -199,6 +283,8 @@ public struct Edit: TelerouteResponseGenerator, Sendable {
     public var text: String
     public var parseMode: ParseMode?
     public var replyMarkup: InlineKeyboardMarkup?
+    /// Buttons rendered against the serving router when the response executes.
+    public var buttons: [[TelerouteButton]]?
     public var messageId: Int64?
     public var chatId: ChatId?
 
@@ -208,6 +294,15 @@ public struct Edit: TelerouteResponseGenerator, Sendable {
 
     public func parseMode(_ mode: ParseMode) -> Self { var copy = self; copy.parseMode = mode; return copy }
     public func keyboard(_ markup: InlineKeyboardMarkup) -> Self { var copy = self; copy.replyMarkup = markup; return copy }
+    /// Attaches an inline keyboard built with the result-builder DSL, rendered
+    /// against the serving router when the response executes.
+    public func keyboard(
+        @TelerouteKeyboardBuilder _ content: () -> [[TelerouteButton]]
+    ) -> Self {
+        var copy = self
+        copy.buttons = content()
+        return copy
+    }
     public func message(_ id: Int64, in chat: ChatId? = nil) -> Self {
         var copy = self
         copy.messageId = id

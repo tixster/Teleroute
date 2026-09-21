@@ -167,6 +167,40 @@ asserts a wire format per method**: `editMessageText`, `sendPoll`,
 Within a multipart request, arrays and objects are still sent as a single
 JSON-serialized part.
 
+## `TelerouteError` gained new cases
+
+`TelerouteError` is not frozen, and 3.0 adds five cases. An exhaustive `switch`
+over it in your own code needs the new branches (or a `default`):
+
+| Case | Thrown when |
+|---|---|
+| `callbackDataTooLong(String, bytes: Int)` | Rendered `callback_data` exceeds Telegram's 64-byte limit. Previously the value went out and the API rejected the message with a 400. |
+| `keyboardScopeMissing` | `context.keyboard { … }` is called on a context built directly rather than by a running router. |
+| `ambiguousCallbackRoute(String, matches: [String])` | A bare callback value matches more than one registered route, so the one to link cannot be inferred. Render it from a route handle instead. |
+| `inlineActionContextMissing` | A button with an inline handler is rendered outside a request context (for example from `router.keyboard { … }` at registration time). |
+| `inlineActionsDisabled` | A button with an inline handler is rendered while `TelerouteConfiguration.inlineActions` is `.disabled`. |
+
+Note that the 64-byte limit counts **bytes**, and route parameters are
+percent-encoded: one Cyrillic character becomes six bytes, so callback data
+that fits in 64 characters can still be over the limit. If a route of yours was
+silently producing oversized data, it now fails at render time instead of at
+send time.
+
+## New, nothing to change
+
+These are additive; existing code keeps compiling.
+
+| Area | What is new |
+|---|---|
+| Keyboards | `Reply`/`Send`/`Edit` take the keyboard builder directly (`Reply("…").keyboard { … }`), rendered against the serving router when the response executes. `context.keyboard { … }` returns a markup from inside a handler. |
+| Buttons | `TelerouteButton` gained initializers (`TelerouteButton("Next") { OrderPage(…) }`, `TelerouteButton("Docs", url: …)`, `TelerouteButton("3 / 10", .disabled)`) and the chainable `style(_:)` / `icon(_:)`. A bare callback value now resolves to a route registered in any group, not only the rendering scope. |
+| Edit targeting | `edit`, `editCaption`, `editReplyMarkup`, and the `Edit` response now reach inline-mode messages (`inline_message_id`) and messages the bot can no longer read, instead of throwing `messageTargetMissing`. `context.resolvedEditTarget(messageId:in:)` exposes the same resolution for operations the helpers do not wrap. |
+| Inline handlers | A button can carry its handler (`TelerouteButton("Approve") { press in … }`) once `TelerouteConfiguration.inlineActions` is `.enabled(…)`. Handlers are in-memory: they expire, do not survive a restart, and do not work across replicas. `onSuccess: .removeButton` / `.removeKeyboard` clears the button after a clean return; `context.removePressedButton()` does the same by hand from any callback handler. |
+| Buttons | `Array<TelerouteButton>.grid(columns:)`, `TeleroutePagination.pageStrip(…)`, `navigationRow(…, counter: true)`, `TelerouteConfirm.row(…)`; `TelerouteButton.disabled/callbackGame/switchInlineQuery(chosenChat:)`; the full `KeyButton` surface (`requestUsers`, `requestChat`, `requestPoll`, `webApp`, `requestManagedBot`, `icon`, `style`). A `for` loop now compiles inside `KeyRow { }`. |
+| Responses | `Reply`/`Send` gained `removeKeyboard()` and `forceReply(placeholder:selective:)`. |
+| Bootstrap | `logger:` defaults to `Logger(label: "teleroute")`; `TelerouteEnvironment.token()` reads `TELEGRAM_BOT_TOKEN`; `bot.mode` is public; `bot.runService(with:)` composes the bot with other services. |
+| Hummingbird | `registerTelegramWebhook(bot:webhook:)` derives the path and secret from one `TelegramWebhookConfiguration`; `Router.addTeleroute(_:webhook:)` registers the endpoint and returns the services; `Application.addTeleroute(_:webhook:)` and `Application.teleroute(bot:webhook:…)` wire the rest. `TelegramWebhookConfiguration.randomSecret()` generates a valid secret. |
+
 ## Requirements
 
 Swift 6.4 (was 6.3).
@@ -174,7 +208,8 @@ Swift 6.4 (was 6.3).
 ## Not changed
 
 Routing, handlers, guards, middleware, flows, contexts, macros, the command
-menu, the `Service` lifecycle, `TelerouteHummingbird`, `ParseMode`,
-`ChatAction`, `FileInput`, `TelegramAPIError`, `TelegramRateLimit`,
-`TelegramFloodWaitPolicy`, `TelegramSendPacing`, and every one of the 185
-client method signatures apart from the parameter types noted above.
+menu, the `Service` lifecycle, the existing `TelerouteHummingbird` API,
+`ParseMode`, `ChatAction`, `FileInput`, `TelegramAPIError`,
+`TelegramRateLimit`, `TelegramFloodWaitPolicy`, `TelegramSendPacing`, and
+every one of the 185 client method signatures apart from the parameter types
+noted above.

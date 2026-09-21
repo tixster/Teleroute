@@ -42,6 +42,12 @@ public struct TelerouteContext: Sendable {
     let flowStorage: (any TelerouteFlowStorage)?
     let flowSession: TelerouteFlowSession?
     let responderState: TelerouteResponderState
+    /// Route scope used to render keyboards and callback data from a handler.
+    /// `nil` for contexts built directly by the public initializer.
+    let routeScope: TelerouteRoutes?
+    /// Registry backing buttons that carry an inline handler. `nil` when the
+    /// feature is disabled or the context was built directly.
+    let inlineActions: TelerouteInlineActionStore?
 
     /// Creates a context for a matched route.
     public init(
@@ -59,6 +65,8 @@ public struct TelerouteContext: Sendable {
         self.flowStorage = nil
         self.flowSession = nil
         self.responderState = .init()
+        self.routeScope = nil
+        self.inlineActions = nil
     }
 
     init(
@@ -69,7 +77,9 @@ public struct TelerouteContext: Sendable {
         defaultParseMode: ParseMode? = nil,
         flowStorage: (any TelerouteFlowStorage)?,
         flowSession: TelerouteFlowSession?,
-        responderState: TelerouteResponderState = .init()
+        responderState: TelerouteResponderState = .init(),
+        routeScope: TelerouteRoutes? = nil,
+        inlineActions: TelerouteInlineActionStore? = nil
     ) {
         self.bot = bot
         self.parameters = parameters
@@ -79,6 +89,8 @@ public struct TelerouteContext: Sendable {
         self.flowStorage = flowStorage
         self.flowSession = flowSession
         self.responderState = responderState
+        self.routeScope = routeScope
+        self.inlineActions = inlineActions
     }
 
     /// Raw Telegram update currently being processed.
@@ -164,7 +176,10 @@ extension TelerouteContext {
             protectContent: reply.options.protectContent,
             messageEffectId: reply.options.messageEffectId,
             replyParameters: replyParameters,
-            replyMarkup: reply.replyMarkup
+            replyMarkup: try self.resolvedReplyMarkup(
+                reply.replyMarkup,
+                buttons: reply.buttons
+            )
         )
     }
 
@@ -181,32 +196,71 @@ extension TelerouteContext {
             disableNotification: send.options.disableNotification,
             protectContent: send.options.protectContent,
             messageEffectId: send.options.messageEffectId,
-            replyMarkup: send.replyMarkup
+            replyMarkup: try self.resolvedReplyMarkup(
+                send.replyMarkup,
+                buttons: send.buttons
+            )
         )
     }
 
     func execute(edit: Edit) async throws {
-        let chatId: ChatId
-        let messageId: Int64
-        if let explicitMessageId = edit.messageId {
-            messageId = explicitMessageId
-            guard let chat = edit.chatId ?? self.chatId.map(ChatId.id) else {
-                throw TelerouteError.chatTargetMissing
-            }
-            chatId = chat
-        } else {
-            guard let message = self.message else {
-                throw TelerouteError.messageTargetMissing
-            }
-            chatId = .id(message.chat.id)
-            messageId = message.messageId
+        let replyMarkup = try self.resolvedInlineMarkup(
+            edit.replyMarkup,
+            buttons: edit.buttons
+        )
+        switch try self.resolvedEditTarget(messageId: edit.messageId, in: edit.chatId) {
+        case let .message(chatId, messageId):
+            try await self.bot.editMessageText(
+                chatId: chatId,
+                messageId: messageId,
+                text: edit.text,
+                parseMode: edit.parseMode ?? self.defaultParseMode,
+                replyMarkup: replyMarkup
+            )
+        case let .inline(inlineMessageId):
+            try await self.bot.editMessageText(
+                inlineMessageId: inlineMessageId,
+                text: edit.text,
+                parseMode: edit.parseMode ?? self.defaultParseMode,
+                replyMarkup: replyMarkup
+            )
         }
-        try await self.bot.editMessageText(
-            chatId: chatId,
-            messageId: messageId,
-            text: edit.text,
-            parseMode: edit.parseMode ?? self.defaultParseMode,
-            replyMarkup: edit.replyMarkup
+    }
+
+    /// Renders buttons declared with the deferred keyboard builder against the
+    /// router serving this update, falling back to an explicit markup.
+    private func resolvedReplyMarkup(
+        _ markup: ReplyMarkup?,
+        buttons: [[TelerouteButton]]?
+    ) throws -> ReplyMarkup? {
+        guard let buttons else { return markup }
+        return .inline(try self.renderKeyboard(buttons))
+    }
+
+    private func resolvedInlineMarkup(
+        _ markup: InlineKeyboardMarkup?,
+        buttons: [[TelerouteButton]]?
+    ) throws -> InlineKeyboardMarkup? {
+        guard let buttons else { return markup }
+        return try self.renderKeyboard(buttons)
+    }
+
+    private func renderKeyboard(
+        _ buttons: [[TelerouteButton]]
+    ) throws -> InlineKeyboardMarkup {
+        guard let routeScope = self.routeScope else {
+            throw TelerouteError.keyboardScopeMissing
+        }
+        return try routeScope.keyboard(buttons, in: self.renderContext)
+    }
+
+    /// Everything a button needs beyond the route scope: where to park an
+    /// inline handler, and who the keyboard is being rendered for.
+    var renderContext: TelerouteRenderContext {
+        .init(
+            inlineActions: self.inlineActions,
+            chatId: self.chatId,
+            userId: self.userId
         )
     }
 }

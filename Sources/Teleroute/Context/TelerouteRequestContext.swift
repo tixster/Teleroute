@@ -108,6 +108,65 @@ public extension TelerouteRequestContext {
         }
         return resolved
     }
+
+    /// Resolves what an edit should be applied to.
+    ///
+    /// Telegram addresses editable messages two different ways, and a callback
+    /// query can arrive in either form: an ordinary message has a chat and a
+    /// message id, while a message sent through inline mode has only an
+    /// `inline_message_id`. This picks whichever the update actually carries,
+    /// so one call site handles both:
+    ///
+    /// ```swift
+    /// switch try context.resolvedEditTarget() {
+    /// case let .message(chatId, messageId):
+    ///     try await context.bot.editMessageMedia(chatId: chatId, messageId: messageId, media: media)
+    /// case let .inline(inlineMessageId):
+    ///     try await context.bot.editMessageMedia(inlineMessageId: inlineMessageId, media: media)
+    /// }
+    /// ```
+    ///
+    /// A message the bot can no longer read still resolves: an
+    /// `InaccessibleMessage` carries its chat and id, so the edit is attempted
+    /// and Telegram decides whether it is still allowed.
+    ///
+    /// - Parameters:
+    ///   - messageId: Targets this message instead of the update's own.
+    ///   - chat: Targets this chat instead of the resolved one.
+    func resolvedEditTarget(
+        messageId: Int64? = nil,
+        in chat: ChatId? = nil
+    ) throws -> TelerouteEditTarget {
+        if let messageId {
+            return .message(chatId: try self.resolvedChat(chat), messageId: messageId)
+        }
+        if let message = self.message {
+            return .message(
+                chatId: chat ?? .id(message.chat.id),
+                messageId: message.messageId
+            )
+        }
+        // No accessible message: an inline-mode message has no chat at all,
+        // and an inaccessible one still has a usable chat and id.
+        if let inlineMessageId = self.callbackQuery?.inlineMessageId {
+            return .inline(messageId: inlineMessageId)
+        }
+        if let hosted = self.callbackQuery?.message {
+            return .message(
+                chatId: chat ?? .id(hosted.chat.id),
+                messageId: hosted.messageId
+            )
+        }
+        throw TelerouteError.messageTargetMissing
+    }
+}
+
+/// What an edit applies to: an ordinary chat message, or a message sent
+/// through inline mode, which Telegram addresses by `inline_message_id` and
+/// which has no chat or message id at all.
+public enum TelerouteEditTarget: Sendable, Equatable {
+    case message(chatId: ChatId, messageId: Int64)
+    case inline(messageId: String)
 }
 
 // MARK: - Flow control

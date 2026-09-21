@@ -27,6 +27,8 @@ public final class TelerouteRuntime: Sendable {
     private let eventHub = TelerouteEventHub()
     private let updateExecutor: TelerouteUpdateExecutor
     private let replayProtectionCleanupTask: Task<Void, Never>?
+    let inlineActions: TelerouteInlineActionStore?
+    private let inlineActionCleanupTask: Task<Void, Never>?
 
     /// Creates a router with one explicit configuration object for advanced dependencies.
     public convenience init(
@@ -59,7 +61,8 @@ public final class TelerouteRuntime: Sendable {
             bot: bot,
             flowStorage: configuration.flowStorage,
             queue: storage.flowQueue,
-            cancellationPolicy: configuration.flowCancellationPolicy
+            cancellationPolicy: configuration.flowCancellationPolicy,
+            routeScope: self.routeScope
         )
         self.onError = configuration.onError
         self.errorRenderer = configuration.errorRenderer
@@ -72,6 +75,10 @@ public final class TelerouteRuntime: Sendable {
         self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
             storage: configuration.replayProtectionStorage
         )
+
+        let inlineActions = Self.makeInlineActionStore(configuration.inlineActions)
+        self.inlineActions = inlineActions
+        self.inlineActionCleanupTask = Self.makeInlineActionCleanupTask(store: inlineActions)
     }
 
     deinit {
@@ -98,6 +105,7 @@ public final class TelerouteRuntime: Sendable {
     public func shutdown() {
         self.updateExecutor.shutdown()
         self.replayProtectionCleanupTask?.cancel()
+        self.inlineActionCleanupTask?.cancel()
         self.eventHub.finish()
     }
 
@@ -423,7 +431,9 @@ public final class TelerouteRuntime: Sendable {
                 defaultParseMode: self.defaultParseMode,
                 flowStorage: self.flowStorage,
                 flowSession: nil,
-                responderState: responderState
+                responderState: responderState,
+                routeScope: self.routeScope,
+                inlineActions: self.inlineActions
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -469,7 +479,9 @@ public final class TelerouteRuntime: Sendable {
                 defaultParseMode: self.defaultParseMode,
                 flowStorage: self.flowStorage,
                 flowSession: nil,
-                responderState: responderState
+                responderState: responderState,
+                routeScope: self.routeScope,
+                inlineActions: self.inlineActions
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -516,7 +528,9 @@ public final class TelerouteRuntime: Sendable {
                 defaultParseMode: self.defaultParseMode,
                 flowStorage: self.flowStorage,
                 flowSession: nil,
-                responderState: responderState
+                responderState: responderState,
+                routeScope: self.routeScope,
+                inlineActions: self.inlineActions
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -558,7 +572,9 @@ public final class TelerouteRuntime: Sendable {
                 defaultParseMode: self.defaultParseMode,
                 flowStorage: self.flowStorage,
                 flowSession: nil,
-                responderState: responderState
+                responderState: responderState,
+                routeScope: self.routeScope,
+                inlineActions: self.inlineActions
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -599,7 +615,9 @@ public final class TelerouteRuntime: Sendable {
                 defaultParseMode: self.defaultParseMode,
                 flowStorage: self.flowStorage,
                 flowSession: nil,
-                responderState: responderState
+                responderState: responderState,
+                routeScope: self.routeScope,
+                inlineActions: self.inlineActions
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -641,7 +659,9 @@ public final class TelerouteRuntime: Sendable {
             defaultParseMode: self.defaultParseMode,
             flowStorage: self.flowStorage,
             flowSession: nil,
-            responderState: responderState
+            responderState: responderState,
+            routeScope: self.routeScope,
+            inlineActions: self.inlineActions
         )
 
         // An abort is a controlled outcome: render its response and report
@@ -759,6 +779,26 @@ public final class TelerouteRuntime: Sendable {
             userId: parsedUpdate.userId,
             duration: duration
         )
+    }
+
+    private static func makeInlineActionStore(
+        _ policy: TelerouteInlineActionPolicy
+    ) -> TelerouteInlineActionStore? {
+        guard case let .enabled(ttl, capacity, expired) = policy else { return nil }
+        return .init(ttl: ttl, capacity: capacity, expired: expired)
+    }
+
+    private static func makeInlineActionCleanupTask(
+        store: TelerouteInlineActionStore?,
+        interval: Duration = .seconds(60)
+    ) -> Task<Void, Never>? {
+        guard let store else { return nil }
+        return Task {
+            let timer = AsyncTimerSequence.repeating(every: interval)
+            for await _ in timer {
+                store.removeExpired()
+            }
+        }
     }
 
     private static func makeReplayProtectionCleanupTask(

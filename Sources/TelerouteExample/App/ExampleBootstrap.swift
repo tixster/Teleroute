@@ -32,12 +32,16 @@ enum ExampleBootstrap {
                 // The example exposes explicit `/cancel_signup` and `/resume_signup`
                 // commands, so unrelated commands do not tear down the flow.
                 flowCancellationPolicy: .manual,
-                syncPublishedCommandsOnStart: true
+                syncPublishedCommandsOnStart: true,
+                // Required by the `/confirm` buttons, which carry their
+                // handlers rather than dispatching to a callback route.
+                inlineActions: .enabled()
             )
         )
     }
 
-    /// Logs the generated command menus and runs long polling until cancelled.
+    /// Logs the generated command menus and runs long polling until the
+    /// process is asked to stop.
     static func run(
         bot: TelerouteBot,
         router: Teleroute<ExampleRequestContext>
@@ -49,6 +53,8 @@ enum ExampleBootstrap {
         }
 
         bot.logger.info("Starting TelerouteExample")
-        try await bot.run()
+        // `runService` turns SIGTERM/SIGINT into a graceful drain; `run()`
+        // would rely on the surrounding task being cancelled instead.
+        try await bot.runService()
     }
 }

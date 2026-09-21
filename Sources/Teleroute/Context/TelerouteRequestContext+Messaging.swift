@@ -58,23 +58,31 @@ public extension TelerouteRequestContext {
 
     /// Edits the current message.
     ///
-    /// This helper requires a concrete accessible `Message` and will throw
-    /// ``TelerouteError/messageTargetMissing`` when the update does not carry one.
+    /// Targets whatever the update carries — an ordinary message, an inline
+    /// one, or one the bot can no longer read — via
+    /// ``TelerouteRequestContext/resolvedEditTarget(messageId:in:)``.
     func edit(
         _ text: String,
         parseMode: ParseMode? = nil,
         replyMarkup: InlineKeyboardMarkup? = nil
     ) async throws {
-        guard let message = self.message else {
-            throw TelerouteError.messageTargetMissing
+        switch try self.resolvedEditTarget() {
+        case let .message(chatId, messageId):
+            try await self.bot.editMessageText(
+                chatId: chatId,
+                messageId: messageId,
+                text: text,
+                parseMode: parseMode ?? self.defaultParseMode,
+                replyMarkup: replyMarkup
+            )
+        case let .inline(inlineMessageId):
+            try await self.bot.editMessageText(
+                inlineMessageId: inlineMessageId,
+                text: text,
+                parseMode: parseMode ?? self.defaultParseMode,
+                replyMarkup: replyMarkup
+            )
         }
-        try await self.bot.editMessageText(
-            chatId: .id(message.chat.id),
-            messageId: message.messageId,
-            text: text,
-            parseMode: parseMode ?? self.defaultParseMode,
-            replyMarkup: replyMarkup
-        )
     }
 
     /// Edits the caption of the current (or an explicit) message.
@@ -84,12 +92,21 @@ public extension TelerouteRequestContext {
         messageId: Int64? = nil,
         in chat: ChatId? = nil
     ) async throws {
-        try await self.bot.editMessageCaption(
-            chatId: try self.resolvedChat(chat),
-            messageId: try self.resolvedMessageId(messageId),
-            caption: caption,
-            parseMode: parseMode ?? self.defaultParseMode
-        )
+        switch try self.resolvedEditTarget(messageId: messageId, in: chat) {
+        case let .message(chatId, messageId):
+            try await self.bot.editMessageCaption(
+                chatId: chatId,
+                messageId: messageId,
+                caption: caption,
+                parseMode: parseMode ?? self.defaultParseMode
+            )
+        case let .inline(inlineMessageId):
+            try await self.bot.editMessageCaption(
+                inlineMessageId: inlineMessageId,
+                caption: caption,
+                parseMode: parseMode ?? self.defaultParseMode
+            )
+        }
     }
 
     /// Edits only the inline keyboard of a message without resending its text.
@@ -98,11 +115,52 @@ public extension TelerouteRequestContext {
         messageId: Int64? = nil,
         in chat: ChatId? = nil
     ) async throws {
-        try await self.bot.editMessageReplyMarkup(
-            chatId: try self.resolvedChat(chat),
-            messageId: try self.resolvedMessageId(messageId),
-            replyMarkup: markup
-        )
+        switch try self.resolvedEditTarget(messageId: messageId, in: chat) {
+        case let .message(chatId, messageId):
+            try await self.bot.editMessageReplyMarkup(
+                chatId: chatId,
+                messageId: messageId,
+                replyMarkup: markup
+            )
+        case let .inline(inlineMessageId):
+            try await self.bot.editMessageReplyMarkup(
+                inlineMessageId: inlineMessageId,
+                replyMarkup: markup
+            )
+        }
+    }
+
+    /// Removes the button that produced the current callback query, leaving
+    /// the rest of the keyboard in place.
+    ///
+    /// ```swift
+    /// router.callback(ClaimOrder.self) { callback, context in
+    ///     try await orders.claim(callback.id)
+    ///     try await context.removePressedButton()
+    ///     return .answerCallback("Claimed")
+    /// }
+    /// ```
+    ///
+    /// A row left empty is dropped, and a keyboard left empty is removed
+    /// entirely. Buttons are matched by `callback_data`, so two buttons
+    /// carrying identical data both disappear — they would have been
+    /// indistinguishable to the bot anyway.
+    ///
+    /// - Throws: ``TelerouteError/callbackQueryMissing`` outside a callback,
+    ///   and ``TelerouteError/messageTargetMissing`` when the keyboard cannot
+    ///   be read — an inline-mode message, or one the bot may no longer
+    ///   access. Use ``editReplyMarkup(_:messageId:in:)`` with `nil` there.
+    func removePressedButton() async throws {
+        guard let data = self.callbackData else {
+            throw TelerouteError.callbackQueryMissing
+        }
+        guard let markup = self.callbackQuery?.message?.accessibleMessage?.replyMarkup else {
+            throw TelerouteError.messageTargetMissing
+        }
+        let rows = markup.inlineKeyboard
+            .map { row in row.filter { $0.callbackData != data } }
+            .filter { $0.isEmpty == false }
+        try await self.editReplyMarkup(rows.isEmpty ? nil : InlineKeyboardMarkup(rows: rows))
     }
 
     /// Deletes a message, defaulting to the message carried by the current update.

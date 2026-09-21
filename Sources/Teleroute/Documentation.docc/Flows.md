@@ -75,9 +75,22 @@ flow.message(at: .amount) { context in
 }
 ```
 
-Flow contexts conform to ``TelerouteRequestContext``, so the entire helper
-surface — media, moderation, keyboards, `context.bot` — is available inside
-steps.
+``TelerouteFlowContext`` is its own type rather than a
+``TelerouteRequestContext``. It carries the helpers a step usually needs —
+`reply`, `send`, `edit`, `answerCallbackQuery`, `keyboard { }` — alongside the
+flow ones (`transition`, `finish`, `values`).
+
+The rest of the surface is one hop away through
+``TelerouteFlowContext/context``, the underlying ``TelerouteContext``:
+
+```swift
+flow.message(at: .photo) { context in
+    try await context.context.sendPhoto(.fileID(id), caption: "Saved")
+    try await context.context.react("👍")
+}
+```
+
+`context.context.bot` reaches any Bot API operation from a step.
 
 Values are `String`-keyed and `String`-valued; read them with
 ``TelerouteFlowValues/get(_:)``, ``TelerouteFlowValues/require(_:)``, or

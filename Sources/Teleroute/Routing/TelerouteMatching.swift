@@ -8,6 +8,7 @@ final class TelerouteStorage: Sendable {
         var publishedCommands: [TeleroutePublishedCommand] = []
         var registeredCallbackPaths: Set<String> = []
         var routeSignatures: OrderedSet<TelerouteRouteSignature> = []
+        var hasInlineActionRoute = false
         var duplicateRouteSignatures: OrderedSet<TelerouteRouteSignature> = []
     }
 
@@ -86,8 +87,34 @@ final class TelerouteStorage: Sendable {
         }
     }
 
+    /// Claims the right to mount the inline-action route, returning `false`
+    /// when it is already mounted — two bots may share one router.
+    func claimInlineActionRoute() -> Bool {
+        self.state.withLock { state in
+            guard state.hasInlineActionRoute == false else { return false }
+            state.hasInlineActionRoute = true
+            return true
+        }
+    }
+
     func containsCallbackRoute(_ path: String) -> Bool {
         self.state.withLock { $0.registeredCallbackPaths.contains(path) }
+    }
+
+    /// Finds registered callback routes whose full path ends in `description`.
+    ///
+    /// A callback value only knows its own type's path (`orders/{id}/delete`);
+    /// the route it was registered on may carry a group prefix
+    /// (`admin/orders/{id}/delete`). This resolves the second from the first
+    /// so a button built from a bare value works from any rendering scope.
+    /// The result is sorted so an ambiguity reports the same way every time.
+    func resolveCallbackRoutes(matching description: String) -> [String] {
+        let suffix = "/" + description
+        return self.state.withLock { state in
+            state.registeredCallbackPaths
+                .filter { $0 == description || $0.hasSuffix(suffix) }
+                .sorted()
+        }
     }
 
     func appendPublishedCommand(_ command: TeleroutePublishedCommand) {
@@ -459,8 +486,13 @@ struct TelerouteCallbackPattern: Sendable {
         return .init(parameters)
     }
 
+    /// Telegram accepts `callback_data` of 1-64 bytes; longer values are
+    /// rejected by the API with a 400 at send time, so they are caught here
+    /// instead, where the failure names the route that produced them.
+    static let maximumCallbackDataBytes = 64
+
     func render(parameters: [String: String]) throws -> String {
-        try self.segments.map { segment in
+        let data = try self.segments.map { segment in
             switch segment {
             case let .literal(value):
                 return value
@@ -472,6 +504,12 @@ struct TelerouteCallbackPattern: Sendable {
             }
         }
         .joined(separator: "/")
+
+        let bytes = data.utf8.count
+        guard bytes <= Self.maximumCallbackDataBytes else {
+            throw TelerouteError.callbackDataTooLong(data, bytes: bytes)
+        }
+        return data
     }
 }
 

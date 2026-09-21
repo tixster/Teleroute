@@ -33,6 +33,40 @@ public struct TelegramWebhookConfiguration: Sendable {
     }
 }
 
+public extension TelegramWebhookConfiguration {
+    /// Path Telegram posts updates to, derived from ``url``.
+    ///
+    /// Returns `nil` when the URL carries no path, in which case the
+    /// endpoint helpers fall back to their default path.
+    var derivedPath: String? {
+        guard let path = URLComponents(string: self.url)?.path, path.isEmpty == false, path != "/" else {
+            return nil
+        }
+        return path
+    }
+
+    /// Generates a cryptographically random secret token.
+    ///
+    /// Telegram accepts 1-256 characters from `A-Z`, `a-z`, `0-9`, `_` and
+    /// `-`; the generated value uses exactly that alphabet, so it can be
+    /// passed straight to `setWebhook`.
+    ///
+    /// ```swift
+    /// let webhook = TelegramWebhookConfiguration(
+    ///     url: "https://bot.example.com/telegram",
+    ///     secretToken: .randomSecret()
+    /// )
+    /// ```
+    static func randomSecret(length: Int = 32) -> String {
+        let alphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+        let count = min(max(length, 1), 256)
+        var generator = SystemRandomNumberGenerator()
+        return String((0..<count).map { _ in
+            alphabet[Int.random(in: 0..<alphabet.count, using: &generator)]
+        })
+    }
+}
+
 extension HTTPField.Name {
     static let telegramSecretToken = HTTPField.Name("X-Telegram-Bot-Api-Secret-Token")!
 }

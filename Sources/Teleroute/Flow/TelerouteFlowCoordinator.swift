@@ -11,17 +11,20 @@ final class TelerouteFlowCoordinator: Sendable {
     private let flowStorage: any TelerouteFlowStorage
     private let queue: TelerouteCommandQueue
     private let cancellationPolicy: TelerouteFlowCancellationPolicy
+    private let routeScope: TelerouteRoutes?
 
     init(
         bot: TelegramBotClient,
         flowStorage: any TelerouteFlowStorage,
         queue: TelerouteCommandQueue,
-        cancellationPolicy: TelerouteFlowCancellationPolicy
+        cancellationPolicy: TelerouteFlowCancellationPolicy,
+        routeScope: TelerouteRoutes? = nil
     ) {
         self.bot = bot
         self.flowStorage = flowStorage
         self.queue = queue
         self.cancellationPolicy = cancellationPolicy
+        self.routeScope = routeScope
     }
 
     func process(
@@ -142,7 +145,8 @@ final class TelerouteFlowCoordinator: Sendable {
             defaultParseMode: defaultParseMode,
             flowStorage: self.flowStorage,
             flowSession: session,
-            responderState: responderState
+            responderState: responderState,
+            routeScope: self.routeScope
         )
     }
 }

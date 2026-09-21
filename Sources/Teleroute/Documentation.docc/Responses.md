@@ -46,6 +46,7 @@ Reply("Saved ✅")
     .silent()                  // disable the notification
     .protected()               // forbid forwarding/saving
     .withoutLinkPreview()
+    .removeKeyboard()          // or .forceReply(placeholder: "Name")
 
 Send("Deploy finished", to: "@releases")
     .thread(42)                // post into a forum topic
@@ -78,6 +79,26 @@ router.callback("orders/{id}/approve") { context in
     ])
 }
 ```
+
+### Keyboards Inside a Response
+
+``Reply``, ``Send``, and ``Edit`` also take the keyboard result builder, so the
+markup is written where the response is:
+
+```swift
+router.command("orders") { _ in
+    Reply("Your orders:").keyboard {
+        Row { route.button(OrderPage(id: "7", page: 1), "Next ▶︎") }
+    }
+}
+```
+
+The buttons are rendered when the response executes, against the router serving
+the update — typed callbacks are validated exactly as they are by
+`router.keyboard { … }`, and a button for an unregistered route (or one whose
+`callback_data` exceeds Telegram's 64-byte limit) surfaces through
+``TelerouteConfiguration/errorRenderer`` like any other handler error. See
+<doc:Keyboards>.
 
 Arrays of any generator work too, so `[Reply("one"), Reply("two")]` sends two
 replies.

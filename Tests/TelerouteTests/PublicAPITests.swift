@@ -1,3 +1,5 @@
+import Foundation
+import ServiceLifecycle
 import Testing
 import Teleroute
 import TelerouteMacros
@@ -87,15 +89,13 @@ import TelerouteTestSupport
     ) { _, _ in }
     #expect(try router.render(callback.button("Registered")).callbackData == "public/42")
 
-    #expect {
-        try router.group("nested").render(callback.button("Wrong scope"))
-    } throws: { error in
-        guard let error = error as? TelerouteError,
-              case let .callbackRouteNotRegistered(path) = error else {
-            return false
-        }
-        return path == "nested/public/{value}"
-    }
+    // Rendering from a scope that did not register the route resolves to the
+    // route that did: the value's own path is matched against every
+    // registered callback route.
+    #expect(
+        try router.group("nested").render(callback.button("Other scope")).callbackData
+            == "public/42"
+    )
 
     let otherRouter = Teleroute()
     #expect {
@@ -399,4 +399,92 @@ private struct PublicV2Routes: TelerouteRouteCollection {
 
     // The sources say which Bot API revision they were generated from.
     #expect(!BotAPIVersion.version.isEmpty)
+}
+
+// MARK: - Bootstrap conveniences
+
+@Test func publicBotBootstrapWorksWithoutAnExplicitLogger() throws {
+    let router = Teleroute()
+    router.command("start") { _ in "hi" }
+
+    // `logger:` and `mode:` both have defaults, so the shortest useful
+    // bootstrap is a single expression.
+    let bot = try TelerouteBot(
+        token: TelerouteTestSupport.testToken,
+        router: router,
+        transport: TelerouteStubTransport(),
+        rateLimit: nil
+    )
+    #expect(bot.mode == .polling)
+
+    let webhookBot = try TelerouteBot(
+        token: TelerouteTestSupport.testToken,
+        router: router,
+        mode: .webhook,
+        transport: TelerouteStubTransport(),
+        rateLimit: nil
+    )
+    #expect(webhookBot.mode == .webhook)
+}
+
+@Test func publicEnvironmentHelperReadsAndValidatesTheToken() throws {
+    let key = "TELEROUTE_PUBLIC_API_TEST_TOKEN"
+    setenv(key, "  123456:abc  ", 1)
+    defer { unsetenv(key) }
+
+    #expect(try TelerouteEnvironment.token(key) == "123456:abc")
+    #expect(TelerouteEnvironment.value(key) == "123456:abc")
+
+    // A blank value is treated as absent rather than handed to Telegram.
+    setenv(key, "   ", 1)
+    #expect(TelerouteEnvironment.value(key) == nil)
+    #expect(throws: TelerouteEnvironment.Error.missingVariable(key)) {
+        _ = try TelerouteEnvironment.token(key)
+    }
+
+    unsetenv(key)
+    #expect(throws: TelerouteEnvironment.Error.missingVariable(key)) {
+        _ = try TelerouteEnvironment.require(key)
+    }
+}
+
+@Test func publicRunServiceAcceptsCompanionServices() async throws {
+    let router = Teleroute()
+    router.command("start") { _ in "hi" }
+    let (bot, _) = try TelerouteTestSupport.makeTelerouteBot(router: router)
+
+    let companion = PublicProbeService()
+    try await withThrowingTaskGroup(of: Void.self) { tasks in
+        tasks.addTask {
+            // Runs the bot next to another service in one ServiceGroup; the
+            // group is torn down by cancelling this task.
+            try? await bot.runService(with: [companion], gracefulShutdownSignals: [])
+        }
+        #expect(await companion.waitUntilStarted())
+        tasks.cancelAll()
+    }
+    await bot.shutdown()
+}
+
+/// Minimal companion service that records when it was started.
+private actor PublicProbeServiceState {
+    var started = false
+    func markStarted() { self.started = true }
+}
+
+private struct PublicProbeService: Service {
+    let state = PublicProbeServiceState()
+
+    func run() async throws {
+        await self.state.markStarted()
+        try await Task.sleep(for: .seconds(60))
+    }
+
+    func waitUntilStarted(retries: Int = 100) async -> Bool {
+        for _ in 0..<retries {
+            if await self.state.started { return true }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return false
+    }
 }

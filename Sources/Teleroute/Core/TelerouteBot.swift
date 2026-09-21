@@ -27,7 +27,8 @@ public final class TelerouteBot: Sendable {
 
     let runtime: TelerouteRuntime
     private let configuration: Configuration
-    private let mode: TelerouteBotMode
+    /// How this bot receives its updates.
+    public let mode: TelerouteBotMode
     private let lifecycle = TelerouteBotLifecycle()
     private let pollingTask = Mutex<Task<Void, Never>?>(nil)
 
@@ -56,7 +57,7 @@ public final class TelerouteBot: Sendable {
     public convenience init<Context: TelerouteRequestContext>(
         token: String,
         router: Teleroute<Context>,
-        logger: Logger,
+        logger: Logger = Logger(label: "teleroute"),
         configuration: Configuration = .init(),
         mode: TelerouteBotMode = .polling,
         transport: (any TelegramTransport)? = nil,
@@ -91,18 +92,82 @@ public final class TelerouteBot: Sendable {
     public init<Context: TelerouteRequestContext>(
         client: TelegramBotClient,
         router: Teleroute<Context>,
-        logger: Logger,
+        logger: Logger = Logger(label: "teleroute"),
         configuration: Configuration = .init(),
         mode: TelerouteBotMode = .polling
     ) {
         self.configuration = configuration
         self.mode = mode
+        // Mounted through the router, not the runtime, so the route inherits
+        // the router's middleware — and mounted at construction rather than at
+        // the first render, because `allowed_updates` is derived once at start
+        // and only asks for `callback_query` when a callback route exists.
+        if configuration.inlineActions.isEnabled, router.storage.claimInlineActionRoute() {
+            router.callback(telerouteInlineActionPath) { context -> TelerouteResponse in
+                let core = context.coreContext
+                guard let store = core.inlineActions else { return .none }
+                guard let id = core.parameters["id"],
+                      let entry = store.entry(
+                          for: id,
+                          pressedBy: (chatId: core.chatId, userId: core.userId)
+                      )
+                else {
+                    return store.expired
+                }
+                let response = try await entry.action(core)
+                await Self.completeInlineAction(
+                    entry.completion,
+                    response: response,
+                    context: core,
+                    logger: logger
+                )
+                return response
+            }
+        }
         self.runtime = TelerouteRuntime(
             bot: client,
             logger: logger,
             configuration: configuration,
             storage: router.storage
         )
+    }
+
+    /// Applies a button's `onSuccess` behavior after its handler returned
+    /// without throwing.
+    ///
+    /// Failures here are logged rather than thrown: the handler already did
+    /// the user's work, so turning a tidy-up problem into a failed update
+    /// would report the wrong outcome and may show the user an error for
+    /// something that succeeded.
+    private static func completeInlineAction(
+        _ completion: TelerouteButtonCompletion,
+        response: TelerouteResponse,
+        context: TelerouteContext,
+        logger: Logger
+    ) async {
+        guard completion != .keep else { return }
+        // An editing response already decides the keyboard; rewriting it here
+        // would fight the handler and could resurrect removed buttons.
+        guard response.decidesReplyMarkup == false else { return }
+
+        do {
+            switch completion {
+            case .keep:
+                break
+            case .removeButton:
+                try await context.removePressedButton()
+            case .removeKeyboard:
+                try await context.editReplyMarkup(nil)
+            }
+        } catch {
+            logger.warning(
+                "Could not apply a button's onSuccess behavior",
+                metadata: [
+                    "completion": .string(String(describing: completion)),
+                    "error": .string(String(reflecting: error)),
+                ]
+            )
+        }
     }
 
     /// Optionally synchronizes registered command menus and, in
@@ -156,8 +221,28 @@ public final class TelerouteBot: Sendable {
     public func runService(
         gracefulShutdownSignals: [UnixSignal] = [.sigterm, .sigint]
     ) async throws {
+        try await self.runService(
+            with: [],
+            gracefulShutdownSignals: gracefulShutdownSignals
+        )
+    }
+
+    /// Runs the bot alongside other services in one `ServiceGroup`, so a
+    /// database, an HTTP server, or background workers share the bot's
+    /// graceful shutdown:
+    ///
+    /// ```swift
+    /// try await bot.runService(with: [database, worker])
+    /// ```
+    ///
+    /// The bot is started first, so services that depend on it observe a
+    /// running runtime.
+    public func runService(
+        with services: [any Service],
+        gracefulShutdownSignals: [UnixSignal] = [.sigterm, .sigint]
+    ) async throws {
         let group = ServiceGroup(
-            services: [self],
+            services: [self] + services,
             gracefulShutdownSignals: gracefulShutdownSignals,
             logger: self.logger
         )

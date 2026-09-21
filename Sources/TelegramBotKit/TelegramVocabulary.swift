@@ -133,6 +133,17 @@ public extension MaybeInaccessibleMessage {
         case let .InaccessibleMessage(message): message.chat
         }
     }
+
+    /// The message identifier, available for both variants.
+    ///
+    /// An inaccessible message still carries its chat and id, so it remains a
+    /// valid edit target even though the bot cannot read its contents.
+    var messageId: Int64 {
+        switch self {
+        case let .Message(message): message.messageId
+        case let .InaccessibleMessage(message): message.messageId
+        }
+    }
 }
 
 public extension MessageEntity {
