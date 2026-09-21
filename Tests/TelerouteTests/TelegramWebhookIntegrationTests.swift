@@ -163,7 +163,7 @@ import TelerouteTestSupport
         let (bot, _, _) = try Self.makeBot(
             mode: .polling,
             logger: Logger(label: "tests.mode") { _ in
-                TelerouteTestLogHandler { warnings.record($0) }
+                WebhookWarningLogHandler { warnings.record($0) }
             }
         )
 
@@ -179,7 +179,7 @@ import TelerouteTestSupport
         let quiet = TelerouteTestCallLog()
         let (webhookBot, _, _) = try Self.makeBot(
             logger: Logger(label: "tests.mode.quiet") { _ in
-                TelerouteTestLogHandler { quiet.record($0) }
+                WebhookWarningLogHandler { quiet.record($0) }
             }
         )
         _ = Router().addTeleroute(
@@ -321,7 +321,12 @@ import TelerouteTestSupport
 }
 
 /// Minimal log handler that forwards warning-level messages to a recorder.
-struct TelerouteTestLogHandler: LogHandler {
+///
+/// Named for what it does rather than `TelerouteTestLogHandler`, which is the
+/// general-purpose capturing handler in `TelerouteTestSupport` — two types with
+/// one name in the same module resolve to whichever is local, which is exactly
+/// the kind of surprise a test should not carry.
+struct WebhookWarningLogHandler: LogHandler {
     let onWarning: @Sendable (String) -> Void
     var metadata: Logger.Metadata = [:]
     var logLevel: Logger.Level = .trace
@@ -335,17 +340,9 @@ struct TelerouteTestLogHandler: LogHandler {
         set { self.metadata[key] = newValue }
     }
 
-    func log(
-        level: Logger.Level,
-        message: Logger.Message,
-        metadata: Logger.Metadata?,
-        source: String,
-        file: String,
-        function: String,
-        line: UInt
-    ) {
-        guard level >= .warning else { return }
-        self.onWarning(message.description)
+    func log(event: LogEvent) {
+        guard event.level >= .warning else { return }
+        self.onWarning(event.message.description)
     }
 }
 

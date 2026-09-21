@@ -44,8 +44,21 @@ public extension TelerouteFlowStorage {
     }
 }
 
+/// Flow storage that can compact expired sessions proactively.
+///
+/// Conforming is optional and never affects correctness: the router checks
+/// ``TelerouteFlowSession/isExpired(at:)`` whenever it reads a session, so an
+/// expired session never routes. Implement this when a sweep is cheap and you
+/// do not want dead sessions occupying the store — and skip it when the
+/// backend expires keys natively (set the deadline from
+/// ``TelerouteFlowSession/timeToLive(at:)`` on write instead).
+public protocol TelerouteFlowStorageCleanup: TelerouteFlowStorage {
+    /// Removes every session that has expired at the supplied instant.
+    func removeExpiredSessions(at now: Date) async
+}
+
 /// Default in-memory flow storage.
-public actor TelerouteInMemoryFlowStorage: TelerouteFlowStorage {
+public actor TelerouteInMemoryFlowStorage: TelerouteFlowStorage, TelerouteFlowStorageCleanup {
     private var sessions: [TelerouteFlowKey: TelerouteFlowSession] = [:]
 
     public init() {}
@@ -67,8 +80,15 @@ public actor TelerouteInMemoryFlowStorage: TelerouteFlowStorage {
         for key: TelerouteFlowKey,
         _ mutation: TelerouteFlowSessionMutation
     ) rethrows -> TelerouteFlowSession? {
+        // A throwing mutation must not write, so the session stays exactly as
+        // it was. Flow steps rely on this to refuse advancing a session that
+        // has ended.
         let updated = try mutation(self.sessions[key])
         self.sessions[key] = updated
         return updated
+    }
+
+    public func removeExpiredSessions(at now: Date = Date()) {
+        self.sessions = self.sessions.filter { $0.value.isExpired(at: now) == false }
     }
 }

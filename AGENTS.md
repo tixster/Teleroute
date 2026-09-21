@@ -52,7 +52,8 @@ Use `swift test --filter <test-name>` for focused regression checks.
 - Middleware that intentionally consumes an update returns a response (e.g. `.none`) without calling `next`; returning `.unhandled` falls through to the next candidate route.
 - Do not add network-dependent tests. Existing tests fake `TelegramTransport` and use synthetic `Update` values; that seam is deliberate, and `TelerouteTestSupport` ships two ready-made transports.
 - Requests go out as JSON unless a call actually uploads bytes, in which case the whole request becomes `multipart/form-data`. Test doubles must not assume a fixed wire format per method.
-- Handlers return `TelerouteResponseGenerator` values; `.unhandled` falls through to the next candidate route. When a test closure is side-effect-only and overload resolution is ambiguous, annotate it `(_: TelerouteContext) -> Void in`.
+- Handlers return `TelerouteResponseGenerator` values; `.unhandled` falls through to the next candidate route.
+- Route registration has three `use:` overloads (generic `Response`, concrete `TelerouteResponse`, `Void`). They go ambiguous for exactly one shape: a **multi-statement** closure that **does not use its context parameter** (`{ _ in … }`). A single-statement closure, or a multi-statement one that references `context`, infers fine. For the ambiguous shape annotate `(_: TelerouteContext) -> Void in`. `@_disfavoredOverload` on the generic overload was tried and does **not** fix it — the remaining ambiguity is against the concrete `TelerouteResponse` overload, which exists so `.reply(…)` member syntax infers. A real fix means a distinct argument label (`perform:`) and is a 4.0 change.
 - Keep examples in `Sources/TelerouteExample` aligned with README claims when changing public API behavior.
 
 ## Git Hygiene

@@ -38,9 +38,19 @@ public struct TelerouteContext: Sendable {
     public let command: TelerouteCommandMatch?
     /// Default parse mode applied by text helpers when none is passed.
     public let defaultParseMode: ParseMode?
+    /// Request-scoped logger, pre-populated with this update's metadata
+    /// (`update_id`, `chat_id`, `user_id`, `route_kind`, and the matched
+    /// command or callback data). Inside a flow step it also carries
+    /// `flow_id` and `flow_step`.
+    public internal(set) var logger: Logger
     let parsedUpdate: TelerouteParsedUpdate
     let flowStorage: (any TelerouteFlowStorage)?
     let flowSession: TelerouteFlowSession?
+    /// Configured flow-session TTL, applied when a flow declares no override.
+    let flowSessionTTL: Duration?
+    /// Sink notified when a flow session ends. `nil` for contexts built
+    /// directly by the public initializer.
+    let metricsSink: (any TelerouteMetricsSink)?
     let responderState: TelerouteResponderState
     /// Route scope used to render keyboards and callback data from a handler.
     /// `nil` for contexts built directly by the public initializer.
@@ -49,34 +59,46 @@ public struct TelerouteContext: Sendable {
     /// feature is disabled or the context was built directly.
     let inlineActions: TelerouteInlineActionStore?
 
+    /// Logger used by contexts built outside a running router.
+    public static let defaultLogger = Logger(label: "teleroute.context")
+
     /// Creates a context for a matched route.
     public init(
         bot: TelegramBotClient,
         update: Update,
         parameters: TelerouteParameters = .init(),
         command: TelerouteCommandMatch? = nil,
-        defaultParseMode: ParseMode? = nil
+        defaultParseMode: ParseMode? = nil,
+        logger: Logger = TelerouteContext.defaultLogger
     ) {
         self.bot = bot
         self.parameters = parameters
         self.command = command
         self.defaultParseMode = defaultParseMode
+        self.logger = logger
         self.parsedUpdate = .init(update)
         self.flowStorage = nil
         self.flowSession = nil
+        self.flowSessionTTL = nil
+        self.metricsSink = nil
         self.responderState = .init()
         self.routeScope = nil
         self.inlineActions = nil
     }
 
+    /// Internal initializer used by the running router. `logger` is deliberately
+    /// non-defaulted so any new construction site has to decide what to pass.
     init(
         bot: TelegramBotClient,
         parsedUpdate: TelerouteParsedUpdate,
         parameters: TelerouteParameters = .init(),
         command: TelerouteCommandMatch? = nil,
         defaultParseMode: ParseMode? = nil,
+        logger: Logger,
         flowStorage: (any TelerouteFlowStorage)?,
         flowSession: TelerouteFlowSession?,
+        flowSessionTTL: Duration? = nil,
+        metricsSink: (any TelerouteMetricsSink)? = nil,
         responderState: TelerouteResponderState = .init(),
         routeScope: TelerouteRoutes? = nil,
         inlineActions: TelerouteInlineActionStore? = nil
@@ -85,9 +107,12 @@ public struct TelerouteContext: Sendable {
         self.parameters = parameters
         self.command = command
         self.defaultParseMode = defaultParseMode
+        self.logger = logger
         self.parsedUpdate = parsedUpdate
         self.flowStorage = flowStorage
         self.flowSession = flowSession
+        self.flowSessionTTL = flowSessionTTL
+        self.metricsSink = metricsSink
         self.responderState = responderState
         self.routeScope = routeScope
         self.inlineActions = inlineActions
@@ -131,6 +156,21 @@ public struct TelerouteContext: Sendable {
         self.parsedUpdate.userId
     }
 
+    /// The Telegram user behind the current update.
+    ///
+    /// Resolved for every update kind that carries one — messages, callback
+    /// queries, inline queries, join requests, reactions, pre-checkout
+    /// queries, and the rest — so handlers rarely need
+    /// `message?.from` and its optional chain.
+    public var user: User? {
+        self.parsedUpdate.user
+    }
+
+    /// The chat the current update belongs to, when it has one.
+    public var chat: Chat? {
+        self.message?.chat ?? self.callbackQuery?.message?.chat
+    }
+
     /// Active flow session for the current chat/user scope, if one exists.
     public var activeFlow: TelerouteFlowSession? {
         self.flowSession
@@ -139,6 +179,33 @@ public struct TelerouteContext: Sendable {
     /// Flow scope derived from the current update.
     public var flowKey: TelerouteFlowKey? {
         self.parsedUpdate.flowKey
+    }
+
+    /// Returns a copy of this context whose logger carries additional metadata.
+    public func logging(metadata: Logger.Metadata) -> TelerouteContext {
+        var copy = self
+        for (key, value) in metadata {
+            copy.logger[metadataKey: key] = value
+        }
+        return copy
+    }
+
+    /// Reports a finished flow session to the configured metrics sink.
+    func reportFlowEnded(
+        _ session: TelerouteFlowSession,
+        outcome: TelerouteFlowOutcome,
+        key: TelerouteFlowKey
+    ) async {
+        guard let metricsSink = self.metricsSink else { return }
+        let age = Date().timeIntervalSince(session.createdAt)
+        await metricsSink.recordFlowEnded(
+            flowID: session.id,
+            step: session.step,
+            outcome: outcome,
+            age: .seconds(max(age, 0)),
+            chatId: key.chatId,
+            userId: key.userId
+        )
     }
 
     func requireFlowStorage() throws -> any TelerouteFlowStorage {
@@ -208,23 +275,15 @@ extension TelerouteContext {
             edit.replyMarkup,
             buttons: edit.buttons
         )
-        switch try self.resolvedEditTarget(messageId: edit.messageId, in: edit.chatId) {
-        case let .message(chatId, messageId):
-            try await self.bot.editMessageText(
-                chatId: chatId,
-                messageId: messageId,
-                text: edit.text,
-                parseMode: edit.parseMode ?? self.defaultParseMode,
-                replyMarkup: replyMarkup
-            )
-        case let .inline(inlineMessageId):
-            try await self.bot.editMessageText(
-                inlineMessageId: inlineMessageId,
-                text: edit.text,
-                parseMode: edit.parseMode ?? self.defaultParseMode,
-                replyMarkup: replyMarkup
-            )
-        }
+        let target = try self.resolvedEditTarget(messageId: edit.messageId, in: edit.chatId)
+        try await self.bot.editMessageText(
+            chatId: target.chatId,
+            messageId: target.messageId,
+            inlineMessageId: target.inlineMessageId,
+            text: edit.text,
+            parseMode: edit.parseMode ?? self.defaultParseMode,
+            replyMarkup: replyMarkup
+        )
     }
 
     /// Renders buttons declared with the deferred keyboard builder against the

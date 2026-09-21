@@ -21,6 +21,13 @@ public extension TelerouteRequestContext {
     /// Prefer the deferred form — `Reply("…").keyboard { … }` — when the
     /// handler returns a response instead of sending it itself.
     ///
+    /// This is also what a flow step gets, since ``TelerouteFlowContext``
+    /// is a request context. Inside a flow, a button made from a route handle
+    /// (`route.button(_:_:)`) carries its full pattern and renders correctly,
+    /// while a button made from a bare callback value (`callback.button(_:)`)
+    /// resolves against the router root rather than the flow's prefix — use
+    /// ``TelerouteFlowGroup/keyboard(_:)`` for those.
+    ///
     /// - Throws: ``TelerouteError/keyboardScopeMissing`` when the context was
     ///   built directly rather than by a running router.
     func keyboard(
@@ -46,55 +53,6 @@ public extension TelerouteRequestContext {
 
     private func requireRouteScope() throws -> TelerouteRoutes {
         guard let routeScope = self.coreContext.routeScope else {
-            throw TelerouteError.keyboardScopeMissing
-        }
-        return routeScope
-    }
-}
-
-// MARK: - Rendering keyboards from inside a flow step
-
-public extension TelerouteFlowContext {
-    /// Renders a keyboard described with the result-builder DSL from inside a
-    /// flow step:
-    ///
-    /// ```swift
-    /// flow.message(at: .name) { context in
-    ///     try await context.reply(
-    ///         "Confirm?",
-    ///         replyMarkup: .inline(context.keyboard {
-    ///             Row { decisions.button(Decision(choice: "yes"), "Yes") }
-    ///         })
-    ///     )
-    /// }
-    /// ```
-    ///
-    /// Buttons made from a route handle (`route.button(_:_:)`) carry their
-    /// full pattern, so they render correctly here. A button made from a bare
-    /// callback value (`callback.button(_:)`) is resolved against the router
-    /// root, not the flow's prefix — use
-    /// ``TelerouteFlowGroup/keyboard(_:)`` for those.
-    ///
-    /// - Throws: ``TelerouteError/keyboardScopeMissing`` when the context was
-    ///   built directly rather than by a running router.
-    func keyboard(
-        @TelerouteKeyboardBuilder _ content: () -> [[TelerouteButton]]
-    ) throws -> InlineKeyboardMarkup {
-        try self.keyboard(content())
-    }
-
-    /// Renders callback button descriptions into Telegram keyboard rows.
-    func keyboard(_ rows: [[TelerouteButton]]) throws -> InlineKeyboardMarkup {
-        try self.requireRouteScope().keyboard(rows, in: self.context.renderContext)
-    }
-
-    /// Renders one typed button description.
-    func render(_ button: TelerouteButton) throws -> InlineKeyboardButton {
-        try self.requireRouteScope().render(button, in: self.context.renderContext)
-    }
-
-    private func requireRouteScope() throws -> TelerouteRoutes {
-        guard let routeScope = self.context.routeScope else {
             throw TelerouteError.keyboardScopeMissing
         }
         return routeScope

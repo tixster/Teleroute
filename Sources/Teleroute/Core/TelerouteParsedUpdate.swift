@@ -37,6 +37,8 @@ struct TelerouteParsedUpdate: Sendable {
     let chatId: Int64?
     let chatType: ChatType?
     let userId: Int64?
+    /// The Telegram user behind this update, for every kind that carries one.
+    let user: User?
     let flowKey: TelerouteFlowKey?
     let routeKind: TelerouteEvent.RouteKind
 
@@ -62,9 +64,10 @@ struct TelerouteParsedUpdate: Sendable {
         self.command = command
         self.chatId = identity.chatId
         self.chatType = identity.chatType
-        self.userId = identity.userId
+        self.user = identity.user
+        self.userId = identity.user?.id
         self.flowKey = identity.chatId.map {
-            TelerouteFlowKey(chatId: $0, userId: identity.userId)
+            TelerouteFlowKey(chatId: $0, userId: identity.user?.id)
         }
         self.routeKind = if command != nil {
             .command
@@ -100,22 +103,22 @@ struct TelerouteParsedUpdate: Sendable {
         from update: Update,
         message: Message?,
         callbackQuery: CallbackQuery?
-    ) -> (chatId: Int64?, chatType: ChatType?, userId: Int64?) {
+    ) -> (chatId: Int64?, chatType: ChatType?, user: User?) {
         if let callbackQuery {
             let chat = callbackQuery.message?.chat
-            return (chat?.id, chat?.type, callbackQuery.from.id)
+            return (chat?.id, chat?.type, callbackQuery.from)
         }
         if let message {
-            return (message.chat.id, message.chat.type, message.from?.id)
+            return (message.chat.id, message.chat.type, message.from)
         }
         if let updated = update.chatMember ?? update.myChatMember {
-            return (updated.chat.id, updated.chat.type, updated.from.id)
+            return (updated.chat.id, updated.chat.type, updated.from)
         }
         if let request = update.chatJoinRequest {
-            return (request.chat.id, request.chat.type, request.from.id)
+            return (request.chat.id, request.chat.type, request.from)
         }
         if let reaction = update.messageReaction {
-            return (reaction.chat.id, reaction.chat.type, reaction.user?.id)
+            return (reaction.chat.id, reaction.chat.type, reaction.user)
         }
         if let reactionCount = update.messageReactionCount {
             return (reactionCount.chat.id, reactionCount.chat.type, nil)
@@ -130,26 +133,67 @@ struct TelerouteParsedUpdate: Sendable {
             return (deleted.chat.id, deleted.chat.type, nil)
         }
         if let query = update.inlineQuery {
-            return (nil, nil, query.from.id)
+            return (nil, nil, query.from)
         }
         if let chosen = update.chosenInlineResult {
-            return (nil, nil, chosen.from.id)
+            return (nil, nil, chosen.from)
         }
         if let shipping = update.shippingQuery {
-            return (nil, nil, shipping.from.id)
+            return (nil, nil, shipping.from)
         }
         if let preCheckout = update.preCheckoutQuery {
-            return (nil, nil, preCheckout.from.id)
+            return (nil, nil, preCheckout.from)
         }
         if let paidMedia = update.purchasedPaidMedia {
-            return (nil, nil, paidMedia.from.id)
+            return (nil, nil, paidMedia.from)
         }
         if let pollAnswer = update.pollAnswer {
-            return (pollAnswer.voterChat?.id, pollAnswer.voterChat?.type, pollAnswer.user?.id)
+            return (pollAnswer.voterChat?.id, pollAnswer.voterChat?.type, pollAnswer.user)
         }
         if let connection = update.businessConnection {
-            return (nil, nil, connection.user.id)
+            return (nil, nil, connection.user)
         }
         return (nil, nil, nil)
+    }
+}
+
+// MARK: - Logging
+
+extension TelerouteParsedUpdate {
+    /// Request-scoped logger metadata describing this update.
+    ///
+    /// Built here rather than in the runtime so that every context construction
+    /// site — the runtime's own and the flow coordinator's — describes an update
+    /// the same way.
+    var loggerMetadata: Logger.Metadata {
+        var metadata: Logger.Metadata = [
+            "update_id": .stringConvertible(self.update.updateId),
+            "chat_id": .string(self.chatId.map(String.init) ?? "none"),
+            "user_id": .string(self.userId.map(String.init) ?? "none"),
+        ]
+
+        if let command = self.command {
+            metadata["route_kind"] = .string("command")
+            metadata["command"] = .string(command.name)
+        } else if let callbackData = self.callbackData {
+            metadata["route_kind"] = .string("callback")
+            metadata["callback_data"] = .string(callbackData)
+        } else if let text = self.message?.text, text.isEmpty == false {
+            metadata["route_kind"] = .string("message")
+            metadata["message_text"] = .string(text)
+        } else {
+            metadata["route_kind"] = .string("unknown")
+        }
+
+        return metadata
+    }
+
+    /// A logger carrying this update's metadata.
+    func logger(from base: Logger) -> Logger {
+        var logger = base
+        for (key, value) in self.loggerMetadata {
+            logger[metadataKey: key] = value
+        }
+        return logger
     }
 }

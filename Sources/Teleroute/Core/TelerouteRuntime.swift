@@ -16,6 +16,7 @@ public final class TelerouteRuntime: Sendable {
     let storage: TelerouteStorage
     let routeScope: TelerouteRoutes
     private let flowStorage: any TelerouteFlowStorage
+    private let flowSessionTTL: Duration?
     private let replayProtectionStorage: (any TelerouteReplayProtectionStorage)?
     private let replayProtectionTTL: Duration
     private let flowCoordinator: TelerouteFlowCoordinator
@@ -27,6 +28,7 @@ public final class TelerouteRuntime: Sendable {
     private let eventHub = TelerouteEventHub()
     private let updateExecutor: TelerouteUpdateExecutor
     private let replayProtectionCleanupTask: Task<Void, Never>?
+    private let flowSessionCleanupTask: Task<Void, Never>?
     let inlineActions: TelerouteInlineActionStore?
     private let inlineActionCleanupTask: Task<Void, Never>?
 
@@ -55,14 +57,26 @@ public final class TelerouteRuntime: Sendable {
         self.storage = storage
         self.routeScope = TelerouteRoutes(storage: storage)
         self.flowStorage = configuration.flowStorage
+        self.flowSessionTTL = configuration.flowSessionTTL
         self.replayProtectionStorage = configuration.replayProtectionStorage
         self.replayProtectionTTL = configuration.replayProtectionTTL
+
+        // Built before the flow coordinator: flow steps render keyboards like
+        // any other handler, so the coordinator needs this store to park a
+        // button's inline handler.
+        let inlineActions = Self.makeInlineActionStore(configuration.inlineActions)
+        self.inlineActions = inlineActions
+        self.inlineActionCleanupTask = Self.makeInlineActionCleanupTask(store: inlineActions)
+
         self.flowCoordinator = .init(
             bot: bot,
             flowStorage: configuration.flowStorage,
             queue: storage.flowQueue,
             cancellationPolicy: configuration.flowCancellationPolicy,
-            routeScope: self.routeScope
+            routeScope: self.routeScope,
+            inlineActions: inlineActions,
+            sessionTTL: configuration.flowSessionTTL,
+            metricsSink: configuration.metricsSink
         )
         self.onError = configuration.onError
         self.errorRenderer = configuration.errorRenderer
@@ -75,10 +89,10 @@ public final class TelerouteRuntime: Sendable {
         self.replayProtectionCleanupTask = Self.makeReplayProtectionCleanupTask(
             storage: configuration.replayProtectionStorage
         )
-
-        let inlineActions = Self.makeInlineActionStore(configuration.inlineActions)
-        self.inlineActions = inlineActions
-        self.inlineActionCleanupTask = Self.makeInlineActionCleanupTask(store: inlineActions)
+        self.flowSessionCleanupTask = Self.makeFlowSessionCleanupTask(
+            storage: configuration.flowStorage,
+            ttl: configuration.flowSessionTTL
+        )
     }
 
     deinit {
@@ -105,6 +119,7 @@ public final class TelerouteRuntime: Sendable {
     public func shutdown() {
         self.updateExecutor.shutdown()
         self.replayProtectionCleanupTask?.cancel()
+        self.flowSessionCleanupTask?.cancel()
         self.inlineActionCleanupTask?.cancel()
         self.eventHub.finish()
     }
@@ -268,26 +283,7 @@ public final class TelerouteRuntime: Sendable {
     }
 
     private func updateMetadata(for parsedUpdate: TelerouteParsedUpdate) -> Logger.Metadata {
-        var metadata: Logger.Metadata = [
-            "update_id": .stringConvertible(parsedUpdate.update.updateId),
-            "chat_id": .string(parsedUpdate.chatId.map(String.init) ?? "none"),
-            "user_id": .string(parsedUpdate.userId.map(String.init) ?? "none"),
-        ]
-
-        if let command = parsedUpdate.command {
-            metadata["route_kind"] = .string("command")
-            metadata["command"] = .string(command.name)
-        } else if let callbackData = parsedUpdate.callbackData {
-            metadata["route_kind"] = .string("callback")
-            metadata["callback_data"] = .string(callbackData)
-        } else if let text = parsedUpdate.message?.text, text.isEmpty == false {
-            metadata["route_kind"] = .string("message")
-            metadata["message_text"] = .string(text)
-        } else {
-            metadata["route_kind"] = .string("unknown")
-        }
-
-        return metadata
+        parsedUpdate.loggerMetadata
     }
 
     private func logProcessingError(
@@ -389,7 +385,8 @@ public final class TelerouteRuntime: Sendable {
             parsedUpdate,
             routeGraph: routeGraph,
             defaultParseMode: self.defaultParseMode,
-            responderState: responderState
+            responderState: responderState,
+            logger: self.log
         ) { route, context, routeName in
             try await Self.run(
                 executor: route.executor,
@@ -429,8 +426,11 @@ public final class TelerouteRuntime: Sendable {
                 parameters: .init(),
                 command: command,
                 defaultParseMode: self.defaultParseMode,
+                logger: parsedUpdate.logger(from: self.log),
                 flowStorage: self.flowStorage,
                 flowSession: nil,
+                flowSessionTTL: self.flowSessionTTL,
+                metricsSink: self.metricsSink,
                 responderState: responderState,
                 routeScope: self.routeScope,
                 inlineActions: self.inlineActions
@@ -477,8 +477,11 @@ public final class TelerouteRuntime: Sendable {
                 parameters: parameters,
                 command: nil,
                 defaultParseMode: self.defaultParseMode,
+                logger: parsedUpdate.logger(from: self.log),
                 flowStorage: self.flowStorage,
                 flowSession: nil,
+                flowSessionTTL: self.flowSessionTTL,
+                metricsSink: self.metricsSink,
                 responderState: responderState,
                 routeScope: self.routeScope,
                 inlineActions: self.inlineActions
@@ -526,8 +529,11 @@ public final class TelerouteRuntime: Sendable {
                 parameters: .init(),
                 command: nil,
                 defaultParseMode: self.defaultParseMode,
+                logger: parsedUpdate.logger(from: self.log),
                 flowStorage: self.flowStorage,
                 flowSession: nil,
+                flowSessionTTL: self.flowSessionTTL,
+                metricsSink: self.metricsSink,
                 responderState: responderState,
                 routeScope: self.routeScope,
                 inlineActions: self.inlineActions
@@ -570,8 +576,11 @@ public final class TelerouteRuntime: Sendable {
                 parameters: .init(),
                 command: parsedUpdate.command,
                 defaultParseMode: self.defaultParseMode,
+                logger: parsedUpdate.logger(from: self.log),
                 flowStorage: self.flowStorage,
                 flowSession: nil,
+                flowSessionTTL: self.flowSessionTTL,
+                metricsSink: self.metricsSink,
                 responderState: responderState,
                 routeScope: self.routeScope,
                 inlineActions: self.inlineActions
@@ -613,8 +622,11 @@ public final class TelerouteRuntime: Sendable {
                 parameters: .init(),
                 command: parsedUpdate.command,
                 defaultParseMode: self.defaultParseMode,
+                logger: parsedUpdate.logger(from: self.log),
                 flowStorage: self.flowStorage,
                 flowSession: nil,
+                flowSessionTTL: self.flowSessionTTL,
+                metricsSink: self.metricsSink,
                 responderState: responderState,
                 routeScope: self.routeScope,
                 inlineActions: self.inlineActions
@@ -657,8 +669,11 @@ public final class TelerouteRuntime: Sendable {
             bot: self.bot,
             parsedUpdate: parsedUpdate,
             defaultParseMode: self.defaultParseMode,
+            logger: parsedUpdate.logger(from: self.log),
             flowStorage: self.flowStorage,
             flowSession: nil,
+            flowSessionTTL: self.flowSessionTTL,
+            metricsSink: self.metricsSink,
             responderState: responderState,
             routeScope: self.routeScope,
             inlineActions: self.inlineActions
@@ -812,6 +827,27 @@ public final class TelerouteRuntime: Sendable {
             let timer = AsyncTimerSequence.repeating(every: interval)
             for await _ in timer {
                 await storage.removeExpired()
+            }
+        }
+    }
+
+    /// Compacts expired flow sessions in the background.
+    ///
+    /// Purely housekeeping: an expired session never routes regardless, because
+    /// the coordinator checks expiry when it reads one. This only stops dead
+    /// sessions from accumulating in a store that cannot expire them itself.
+    private static func makeFlowSessionCleanupTask(
+        storage: any TelerouteFlowStorage,
+        ttl: Duration?,
+        interval: Duration = .seconds(60)
+    ) -> Task<Void, Never>? {
+        guard ttl != nil, let storage = storage as? any TelerouteFlowStorageCleanup else {
+            return nil
+        }
+        return Task {
+            let timer = AsyncTimerSequence.repeating(every: interval)
+            for await _ in timer {
+                await storage.removeExpiredSessions(at: Date())
             }
         }
     }

@@ -17,6 +17,14 @@ public struct TelerouteConfiguration: Sendable {
     /// be positive.
     public var maximumConcurrentUpdates: Int
     public var flowCancellationPolicy: TelerouteFlowCancellationPolicy
+    /// How long a flow session survives without activity.
+    ///
+    /// `nil` (the default) keeps sessions alive until a handler ends them,
+    /// which means an abandoned conversation captures its chat indefinitely.
+    /// Setting a TTL makes an idle session expire: the next update falls
+    /// through to normal routing and the session is dropped. Every write to a
+    /// session — start, transition, update, restart — refreshes the deadline.
+    public var flowSessionTTL: Duration?
     public var metricsSink: any TelerouteMetricsSink
     public var onError: TelerouteErrorHandler?
     /// Whether ``TelerouteBot/start()`` publishes all registered
@@ -47,6 +55,7 @@ public struct TelerouteConfiguration: Sendable {
         replayProtectionTTL: Duration = .seconds(2),
         maximumConcurrentUpdates: Int = 64,
         flowCancellationPolicy: TelerouteFlowCancellationPolicy = .cancelOnAnyUnmatchedCommand,
+        flowSessionTTL: Duration? = nil,
         metricsSink: any TelerouteMetricsSink = TelerouteNoOpMetricsSink(),
         onError: TelerouteErrorHandler? = nil,
         syncPublishedCommandsOnStart: Bool = false,
@@ -62,6 +71,7 @@ public struct TelerouteConfiguration: Sendable {
         self.replayProtectionTTL = replayProtectionTTL
         self.maximumConcurrentUpdates = maximumConcurrentUpdates
         self.flowCancellationPolicy = flowCancellationPolicy
+        self.flowSessionTTL = flowSessionTTL
         self.metricsSink = metricsSink
         self.onError = onError
         self.syncPublishedCommandsOnStart = syncPublishedCommandsOnStart

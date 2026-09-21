@@ -34,6 +34,30 @@ public protocol TelerouteMetricsSink: Sendable {
         duration: Duration,
         error: any Error
     ) async
+
+    /// Called when a flow session ends, however it ended.
+    ///
+    /// `age` is measured from ``TelerouteFlowSession/createdAt``, so it
+    /// reports how long the conversation actually lasted — the number that
+    /// tells you whether users complete a wizard or abandon it.
+    func recordFlowEnded(
+        flowID: String,
+        step: String,
+        outcome: TelerouteFlowOutcome,
+        age: Duration,
+        chatId: Int64?,
+        userId: Int64?
+    ) async
+}
+
+/// How a flow session ended.
+public enum TelerouteFlowOutcome: String, Sendable, Equatable, CaseIterable {
+    /// A step called `finish()`.
+    case finished
+    /// A handler called `cancelFlow()`, or an unmatched command cancelled it.
+    case cancelled
+    /// The session passed its TTL without activity.
+    case expired
 }
 
 public extension TelerouteMetricsSink {
@@ -42,6 +66,7 @@ public extension TelerouteMetricsSink {
     func recordHandled(routeKind: TelerouteEvent.RouteKind, routeName: String?, chatId: Int64?, userId: Int64?, duration: Duration) async {}
     func recordUnmatched(routeKind: TelerouteEvent.RouteKind, chatId: Int64?, userId: Int64?) async {}
     func recordFailed(routeKind: TelerouteEvent.RouteKind, routeName: String?, chatId: Int64?, userId: Int64?, duration: Duration, error: any Error) async {}
+    func recordFlowEnded(flowID: String, step: String, outcome: TelerouteFlowOutcome, age: Duration, chatId: Int64?, userId: Int64?) async {}
 }
 
 /// A metrics sink that ignores every callback. Used as the default.

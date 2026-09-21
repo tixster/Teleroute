@@ -3,6 +3,35 @@ import Foundation
 // MARK: - Media helpers available on every request context
 
 public extension TelerouteRequestContext {
+    /// Runs any Bot API operation against the chat resolved from this update.
+    ///
+    /// The media helpers below cover the common arguments. When you need one
+    /// they do not expose — `hasSpoiler`, `replyParameters`, `captionEntities`,
+    /// `showCaptionAboveMedia`, and the rest of the generated surface — reach
+    /// for the full client without hand-rolling chat resolution:
+    ///
+    /// ```swift
+    /// try await context.withResolvedChat { bot, chatId in
+    ///     try await bot.sendPhoto(
+    ///         chatId: chatId,
+    ///         photo: .upload(filename: "spoiler.png", data: png),
+    ///         caption: "Careful",
+    ///         hasSpoiler: true,
+    ///         replyParameters: .init(messageId: try context.resolvedMessageId())
+    ///     )
+    /// }
+    /// ```
+    ///
+    /// - Throws: ``TelerouteError/chatTargetMissing`` when the update carries
+    ///   no chat and no override is supplied.
+    @discardableResult
+    func withResolvedChat<Result>(
+        _ chat: ChatId? = nil,
+        _ body: (TelegramBotClient, ChatId) async throws -> Result
+    ) async throws -> Result {
+        try await body(self.bot, try self.resolvedChat(chat))
+    }
+
     /// Sends a photo to the resolved chat.
     @discardableResult
     func sendPhoto(

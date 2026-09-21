@@ -414,17 +414,17 @@ public extension TelerouteRouterGroup {
 // MARK: - Context payload accessors
 
 public extension TelerouteContext {
-    var inlineQuery: InlineQuery? { self.update.inlineQuery }
-    var chosenInlineResult: ChosenInlineResult? { self.update.chosenInlineResult }
-    var shippingQuery: ShippingQuery? { self.update.shippingQuery }
-    var preCheckoutQuery: PreCheckoutQuery? { self.update.preCheckoutQuery }
-    var chatMemberUpdated: ChatMemberUpdated? {
-        self.update.chatMember ?? self.update.myChatMember
-    }
-    var chatJoinRequest: ChatJoinRequest? { self.update.chatJoinRequest }
-    var messageReaction: MessageReactionUpdated? { self.update.messageReaction }
-    var poll: Poll? { self.update.poll }
-    var pollAnswer: PollAnswer? { self.update.pollAnswer }
+    // The typed payload accessors (`inlineQuery`, `pollAnswer`, …) used to be
+    // repeated here verbatim. They now come from the `TelerouteRequestContext`
+    // extension, which `TelerouteContext` conforms to.
+    //
+    // These two must NOT follow them. The protocol extension reads them as
+    // `self.coreContext.updateKind` / `.messageSource`, and `coreContext` is
+    // `self` for `TelerouteContext` — so deleting these overrides produces
+    // infinite recursion at runtime rather than a compile error. They read
+    // `parsedUpdate` directly, which is what breaks the cycle.
+    // Covered by `contextUpdateKindDoesNotRecurse`.
+
     /// The update's kind, when it carries a known payload.
     var updateKind: UpdateKind? { self.parsedUpdate.kind }
     /// Which update field produced ``message``.

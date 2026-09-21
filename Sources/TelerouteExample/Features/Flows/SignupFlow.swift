@@ -10,6 +10,7 @@ import TelerouteMacros
 /// - persisted flow values
 /// - restart and finish transitions
 /// - flow-local callback keyboard generation
+/// - the flow context's full request-context surface (`react`, `logger`)
 struct SignupFlow: TelerouteFlow {
     /// Stable flow steps stored in the session payload.
     enum Step: String, Sendable {
@@ -35,7 +36,9 @@ struct SignupFlow: TelerouteFlow {
         }
 
         flow.message(at: .name) { context in
-            let name = context.message?.text ?? "Anonymous"
+            // A flow step is an ordinary request context: `user`, `react`, and
+            // `logger` come from the same surface every handler has.
+            let name = context.message?.text ?? context.user?.firstName ?? "Anonymous"
             let keyboard = try flow.keyboard([[
                 decisions.button(
                     SignupDecisionCallback(decision: "approve"),
@@ -49,7 +52,9 @@ struct SignupFlow: TelerouteFlow {
                 ),
             ]])
 
+            context.logger.info("signup name captured")
             try await context.transition(to: .confirm, merging: ["name": name])
+            try await context.react("👍")
             try await context.reply(
                 "Confirm signup for \(name)?",
                 replyMarkup: .inline(keyboard)
@@ -57,7 +62,9 @@ struct SignupFlow: TelerouteFlow {
         }
 
         flow.command("cancel", at: .confirm) { context in
-            try await context.finish()
+            // `cancel()` rather than `finish()`: the metrics sink records this
+            // as abandonment, not completion.
+            try await context.cancel()
             try await context.reply("Signup cancelled.")
         }
     }
@@ -74,6 +81,7 @@ struct SignupFlow: TelerouteFlow {
         }
 
         let name = try context.values.require("name")
+        // End the session only after everything that needs it has run.
         try await context.finish()
         try await context.answerCallbackQuery("Signup complete")
         try await context.edit("Signup complete for \(name).")

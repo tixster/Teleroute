@@ -32,6 +32,10 @@ enum ExampleBootstrap {
                 // The example exposes explicit `/cancel_signup` and `/resume_signup`
                 // commands, so unrelated commands do not tear down the flow.
                 flowCancellationPolicy: .manual,
+                // With `.manual` cancellation nothing else ends an abandoned
+                // session, so a TTL is what keeps it from capturing the chat
+                // forever. Slides forward on every step.
+                flowSessionTTL: .seconds(30 * 60),
                 syncPublishedCommandsOnStart: true,
                 // Required by the `/confirm` buttons, which carry their
                 // handlers rather than dispatching to a callback route.

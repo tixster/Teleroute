@@ -7,7 +7,10 @@ import Metrics
 /// - `teleroute.updates.received`, `.handled`, `.unmatched`, `.failed`,
 ///   `.duplicate` — counters dimensioned by `route_kind` (and `route` where
 ///   one matched);
-/// - `teleroute.handler.duration` — a timer for handled and failed routes.
+/// - `teleroute.handler.duration` — a timer for handled and failed routes;
+/// - `teleroute.flows.ended` — a counter dimensioned by `flow` and `outcome`
+///   (`finished`, `cancelled`, `expired`), with `teleroute.flow.age` timing how
+///   long each session lasted.
 public struct TelerouteSwiftMetricsSink: TelerouteMetricsSink {
     private let prefix: String
 
@@ -44,6 +47,23 @@ public struct TelerouteSwiftMetricsSink: TelerouteMetricsSink {
         Counter(label: "\(self.prefix).updates.handled", dimensions: dimensions).increment()
         Timer(label: "\(self.prefix).handler.duration", dimensions: dimensions)
             .recordNanoseconds(Self.nanoseconds(duration))
+    }
+
+    public func recordFlowEnded(
+        flowID: String,
+        step: String,
+        outcome: TelerouteFlowOutcome,
+        age: Duration,
+        chatId: Int64?,
+        userId: Int64?
+    ) async {
+        let dimensions = [
+            ("flow", flowID),
+            ("outcome", outcome.rawValue),
+        ]
+        Counter(label: "\(self.prefix).flows.ended", dimensions: dimensions).increment()
+        Timer(label: "\(self.prefix).flow.age", dimensions: dimensions)
+            .recordNanoseconds(Self.nanoseconds(age))
     }
 
     public func recordUnmatched(

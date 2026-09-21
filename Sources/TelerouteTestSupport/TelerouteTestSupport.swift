@@ -734,3 +734,116 @@ public extension TelerouteBotTestClient {
         )
     }
 }
+
+// MARK: - Log capture
+
+/// One log entry captured by ``TelerouteTestLogHandler``.
+public struct TelerouteRecordedLog: Sendable {
+    public let level: Logger.Level
+    public let message: String
+    public let metadata: Logger.Metadata
+
+    public init(level: Logger.Level, message: String, metadata: Logger.Metadata) {
+        self.level = level
+        self.message = message
+        self.metadata = metadata
+    }
+
+    /// Returns the string form of a metadata value, if the entry carries it.
+    public func metadataValue(_ key: String) -> String? {
+        self.metadata[key].map { "\($0)" }
+    }
+}
+
+/// Collects log entries emitted through a ``TelerouteTestLogHandler``.
+public final class TelerouteTestLogStore: Sendable {
+    private let entries = Mutex<[TelerouteRecordedLog]>([])
+
+    public init() {}
+
+    /// Every entry captured so far, oldest first.
+    public var all: [TelerouteRecordedLog] {
+        self.entries.withLock { $0 }
+    }
+
+    /// Entries whose message equals the supplied text.
+    public func entries(message: String) -> [TelerouteRecordedLog] {
+        self.all.filter { $0.message == message }
+    }
+
+    /// The first entry whose message equals the supplied text.
+    public func first(message: String) -> TelerouteRecordedLog? {
+        self.entries(message: message).first
+    }
+
+    public func removeAll() {
+        self.entries.withLock { $0.removeAll() }
+    }
+
+    func append(_ entry: TelerouteRecordedLog) {
+        self.entries.withLock { $0.append(entry) }
+    }
+}
+
+/// A `LogHandler` that records everything into a ``TelerouteTestLogStore``
+/// instead of writing it out, so tests can assert on request-scoped metadata.
+///
+/// ```swift
+/// let logs = TelerouteTestLogStore()
+/// var logger = Logger(label: "test") { _ in TelerouteTestLogHandler(store: logs) }
+/// logger.logLevel = .trace
+/// ```
+public struct TelerouteTestLogHandler: LogHandler {
+    private let store: TelerouteTestLogStore
+    public var metadata: Logger.Metadata = [:]
+    public var logLevel: Logger.Level = .trace
+
+    public init(store: TelerouteTestLogStore) {
+        self.store = store
+    }
+
+    public subscript(metadataKey key: String) -> Logger.Metadata.Value? {
+        get { self.metadata[key] }
+        set { self.metadata[key] = newValue }
+    }
+
+    public func log(event: LogEvent) {
+        var merged = self.metadata
+        for (key, value) in event.metadata ?? [:] {
+            merged[key] = value
+        }
+        self.store.append(
+            .init(level: event.level, message: "\(event.message)", metadata: merged)
+        )
+    }
+}
+
+public extension TelerouteTestSupport {
+    /// Creates a routed bot whose logger records into the returned store.
+    static func makeTelerouteBotCapturingLogs<Context: TelerouteRequestContext>(
+        router: Teleroute<Context>,
+        configuration: TelerouteBot.Configuration = .init(
+            replayProtectionStorage: nil
+        )
+    ) throws -> (
+        bot: TelerouteBot,
+        telegram: TelerouteRecordingTransport,
+        logs: TelerouteTestLogStore
+    ) {
+        let logs = TelerouteTestLogStore()
+        let telegram = TelerouteRecordingTransport()
+        var logger = Logger(label: "teleroute.tests.logging") { _ in
+            TelerouteTestLogHandler(store: logs)
+        }
+        logger.logLevel = .trace
+        let bot = try TelerouteBot(
+            token: self.testToken,
+            router: router,
+            logger: logger,
+            configuration: configuration,
+            transport: telegram,
+            rateLimit: nil
+        )
+        return (bot, telegram, logs)
+    }
+}

@@ -11,9 +11,16 @@ public enum TelerouteError: LocalizedError, Sendable {
     /// Rendered callback data exceeds Telegram's 64-byte limit.
     case callbackDataTooLong(String, bytes: Int)
     case chatTargetMissing
+    /// The update carries no Telegram user, so a user-scoped operation has no
+    /// target.
+    case userTargetMissing
     case commandMatchMissing
     case flowControllerMissing
     case flowScopeMissing
+    /// A flow step tried to advance a session that has already ended.
+    case flowSessionEnded(flowID: String)
+    /// A flow step tried to advance a session that another flow now owns.
+    case flowSessionReplaced(expected: String, found: String)
     case invalidFlowStep(flowID: String, step: String)
     /// A button carrying an inline handler was rendered without a request
     /// context, so there is nowhere to park the handler.
@@ -51,12 +58,25 @@ public enum TelerouteError: LocalizedError, Sendable {
             """
         case .chatTargetMissing:
             "Unable to determine the target chat for this update."
+        case .userTargetMissing:
+            "This update carries no Telegram user."
         case .commandMatchMissing:
             "The matched command is missing from the route context."
         case .flowControllerMissing:
             "Flow support is unavailable for this context."
         case .flowScopeMissing:
             "Unable to determine the flow scope for this update."
+        case let .flowSessionEnded(flowID):
+            """
+            Flow '\(flowID)' has no active session for this chat and user, so \
+            it cannot advance. A handler that ends a session with finish() or \
+            cancelFlow() must not transition afterwards.
+            """
+        case let .flowSessionReplaced(expected, found):
+            """
+            Flow '\(expected)' cannot advance this scope: flow '\(found)' is \
+            active here now.
+            """
         case let .invalidFlowStep(flowID, step):
             "Flow '\(flowID)' does not define a step named '\(step)'."
         case .inlineActionContextMissing:

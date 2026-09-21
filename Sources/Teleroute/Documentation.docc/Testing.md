@@ -137,3 +137,20 @@ state for flow assertions.
 > Note: The project convention (see the repository's testing guidelines) is
 > Swift Testing (`import Testing`) and no network-dependent tests — the
 > in-process approach above covers routing behavior deterministically.
+
+### Asserting on Logs
+
+`TelerouteTestLogHandler` captures log entries into a
+`TelerouteTestLogStore` instead of writing them out, which is how you assert
+that a handler logged with the right request-scoped metadata:
+
+```swift
+let (bot, telegram, logs) = try TelerouteTestSupport.makeTelerouteBotCapturingLogs(
+    router: router
+)
+try await bot.test { client in
+    _ = await client.sendCommand("start")
+}
+let entry = try #require(logs.first(message: "handler ran"))
+#expect(entry.metadataValue("chat_id") == "1")
+```

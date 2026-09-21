@@ -6,3 +6,10 @@ DerivedData/
 .swiftpm/
 .netrc
 docs-out/
+.repowise
+.vscode
+.mcp.json
+.claude
+.githooks
+.serena
+.codex

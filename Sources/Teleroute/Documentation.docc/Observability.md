@@ -111,9 +111,42 @@ available through ``TelerouteErrorHandlingMiddleware``; see
 ### Logging
 
 The `Logger` passed to ``TelerouteBot`` is used by the polling connection and
-runtime. Add per-route request logging with
-``TelerouteAccessLogMiddleware``:
+runtime, and is also the basis for the per-update
+``TelerouteRequestContext/logger`` every handler receives. That one arrives
+pre-populated with the update's metadata — `update_id`, `chat_id`, `user_id`,
+`route_kind`, plus the matched command or callback data, and `flow_id` /
+`flow_step` inside a flow step:
+
+```swift
+router.command("checkout") { context in
+    context.logger.info("starting checkout")
+    try await process(context)
+}
+```
+
+Because the metadata is already attached, handler logs correlate with the
+runtime's own without threading identifiers through your call stack. Use
+``TelerouteContext/logging(metadata:)`` to add more for a subtree of work.
+
+Add per-route request logging with ``TelerouteAccessLogMiddleware``:
 
 ```swift
 router.middlewares.add(core: TelerouteAccessLogMiddleware(label: "bot.access"))
 ```
+
+### Flow Outcomes
+
+``TelerouteMetricsSink/recordFlowEnded(flowID:step:outcome:age:chatId:userId:)``
+reports every session that ends, tagged with a ``TelerouteFlowOutcome``:
+
+| Outcome | Meaning |
+|---|---|
+| `finished` | a step called `finish()` |
+| `cancelled` | `cancelFlow()`/`cancel()`, or an unmatched command cancelled it |
+| `expired` | the session passed its TTL without activity |
+
+`age` is measured from the session's `createdAt`, so it reports how long the
+conversation actually lasted. Together these answer the question a wizard
+always raises: do users complete it, abandon it, or simply stop replying?
+``TelerouteSwiftMetricsSink`` exports them as `teleroute.flows.ended`
+(dimensioned by `flow` and `outcome`) and the `teleroute.flow.age` timer.

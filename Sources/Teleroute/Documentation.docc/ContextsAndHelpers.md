@@ -16,18 +16,67 @@ helpers.
 router.command("whoami") { context in
     """
     chat: \(context.chatId ?? 0) (\(context.chatType?.rawValue ?? "?"))
-    user: \(context.userId ?? 0)
+    user: \(context.user?.firstName ?? "unknown")
     kind: \(context.updateKind?.rawValue ?? "?")
     """
 }
 ```
 
+``TelerouteRequestContext/user`` resolves the Telegram user for *every* update
+kind that carries one — messages, callback queries, inline queries, join
+requests, reactions, pre-checkout queries — so a handler rarely needs
+`message?.from` and its optional chain. It is also correct where that chain is
+wrong: on a callback query, `message?.from` is whoever sent the message the
+button is attached to, usually the bot, while `user` is the person who pressed
+it.
+
 Available on every context: `update` (the raw `Update`), `message`
 (best-effort resolved from regular, edited, business, and callback-carried
-messages), `chatId`, `chatType`, `userId`, `updateKind`, `messageSource`,
-`callbackQuery`, `callbackData`, `command` (``TelerouteCommandMatch``),
-`parameters` (``TelerouteParameters``), plus typed payload accessors such as
-`inlineQuery`, `preCheckoutQuery`, `chatJoinRequest`, and `messageReaction`.
+messages), `user`, `chat`, `chatId`, `chatType`, `userId`, `updateKind`,
+`messageSource`, `callbackQuery`, `callbackData`, `command`
+(``TelerouteCommandMatch``), `parameters` (``TelerouteParameters``), `logger`,
+plus typed payload accessors such as `inlineQuery`, `preCheckoutQuery`,
+`chatJoinRequest`, and `messageReaction`.
+
+### Requiring What Must Be There
+
+Optionality is real: an inline query has no chat, a poll update has no user.
+When a handler cannot proceed without one, the `require*` family throws instead
+of forcing a `guard` in every handler — and the thrown error travels the
+router's normal error path, so it reaches `onError`, the `errorRenderer`,
+events, and metrics like any other failure:
+
+```swift
+router.command("promote") { context in
+    let admin = try context.requireUser()          // TelerouteError.userTargetMissing
+    let message = try context.requireMessage()     // .messageTargetMissing
+    return "\(admin.firstName) promoted \(message.messageId)"
+}
+```
+
+Available: ``TelerouteRequestContext/requireMessage()``,
+``TelerouteRequestContext/requireChatId()``,
+``TelerouteRequestContext/requireUser()``,
+``TelerouteRequestContext/requireUserId()``,
+``TelerouteRequestContext/requireCallbackQuery()``, and
+``TelerouteRequestContext/requireCommand()``.
+
+### Logging
+
+Every context carries a request-scoped ``TelerouteRequestContext/logger``,
+pre-populated with this update's metadata — `update_id`, `chat_id`, `user_id`,
+`route_kind`, and the matched command or callback data. Inside a flow step it
+also carries `flow_id` and `flow_step`:
+
+```swift
+router.command("checkout") { context in
+    context.logger.info("starting checkout")      // carries chat_id, user_id, …
+    try await process(context)
+}
+```
+
+Add your own metadata for a subtree of work with
+``TelerouteContext/logging(metadata:)``.
 
 ### Messaging Helpers
 
@@ -78,13 +127,18 @@ Reach for `resolvedEditTarget` directly when calling an operation the helpers
 do not wrap:
 
 ```swift
-switch try context.resolvedEditTarget() {
-case let .message(chatId, messageId):
-    try await context.bot.editMessageMedia(chatId: chatId, messageId: messageId, media: media)
-case let .inline(inlineMessageId):
-    try await context.bot.editMessageMedia(inlineMessageId: inlineMessageId, media: media)
-}
+let target = try context.resolvedEditTarget()
+try await context.bot.editMessageMedia(
+    chatId: target.chatId,
+    messageId: target.messageId,
+    inlineMessageId: target.inlineMessageId,
+    media: media
+)
 ```
+
+Every Bot API edit operation takes all three addresses as optionals and uses
+whichever pair is present, so destructuring the target covers both forms in one
+call. Switch over the cases when the two need different handling.
 
 Pass `messageId:`/`in:` to target a different message; explicit values always
 win over the update's own.
@@ -118,8 +172,35 @@ let member = try await context.getChatMember(userId: 42)
 ```
 
 Helpers resolve their target from the update — an explicit `to:`/`in:`
-argument always wins. Anything not covered by a helper is one call away on
-the full typed client: `context.bot.<operation>(...)` (185 operations).
+argument always wins.
+
+The helpers cover the common arguments, not all 18 that a generated `sendPhoto`
+accepts. For the rest, ``TelerouteRequestContext/withResolvedChat(_:_:)`` gives
+you the full client without hand-rolling chat resolution:
+
+```swift
+try await context.withResolvedChat { bot, chatId in
+    try await bot.sendPhoto(
+        chatId: chatId,
+        photo: .upload(filename: "spoiler.png", data: png),
+        hasSpoiler: true,
+        replyParameters: .init(messageId: try context.resolvedMessageId())
+    )
+}
+```
+
+Anything else is one call away on the full typed client:
+`context.bot.<operation>(...)` (185 operations).
+
+> Note: two helpers behave asymmetrically, and both are documented at the call
+> site. ``TelerouteRequestContext/unpinMessage(messageId:in:)`` with no
+> `messageId` unpins the chat's most recent pin (Telegram's own behavior), while
+> ``TelerouteRequestContext/pinMessage(messageId:in:silent:)`` targets the
+> update's message — use ``TelerouteRequestContext/unpinCurrentMessage(in:)``
+> for the symmetric form. ``TelerouteRequestContext/isAdmin(userId:in:)``
+> returns `false` when the update carries no user at all; use
+> ``TelerouteRequestContext/requireAdmin(userId:in:)`` when "not an admin" and
+> "no user" must be told apart.
 
 ### Custom Contexts
 

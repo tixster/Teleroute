@@ -11,6 +11,11 @@ public protocol TelerouteFlow: Sendable {
     /// Stable flow identifier stored in the session.
     static var id: String { get }
 
+    /// Overrides ``TelerouteConfiguration/flowSessionTTL`` for this flow.
+    ///
+    /// `nil` (the default) uses the configured value.
+    static var sessionTTL: Duration? { get }
+
     /// Registers the flow's step handlers.
     func boot(flow: TelerouteFlowGroup<Self>)
 }
@@ -19,6 +24,8 @@ public extension TelerouteFlow {
     static var id: String {
         String(reflecting: Self.self)
     }
+
+    static var sessionTTL: Duration? { nil }
 }
 
 /// Async handler invoked for a matched flow step.
@@ -275,102 +282,6 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
         self.session.values
     }
 
-    /// Best-effort resolved Telegram message for the current update.
-    public var message: Message? {
-        self.context.message
-    }
-
-    /// Current callback query, if any.
-    public var callbackQuery: CallbackQuery? {
-        self.context.callbackQuery
-    }
-
-    /// Raw callback data attached to the current callback query.
-    public var callbackData: String? {
-        self.context.callbackData
-    }
-
-    /// Parsed command metadata when the current step matched a command route.
-    public var command: TelerouteCommandMatch? {
-        self.context.command
-    }
-
-    /// Route parameters extracted from a callback pattern.
-    public var parameters: TelerouteParameters {
-        self.context.parameters
-    }
-
-    /// Bot instance associated with the router.
-    public var bot: TelegramBotClient {
-        self.context.bot
-    }
-
-    /// Target chat identifier inferred from the current update.
-    public var chatId: Int64? {
-        self.context.chatId
-    }
-
-    /// Best-effort resolved user identifier for the current update.
-    public var userId: Int64? {
-        self.context.userId
-    }
-
-    /// Replies to the current message when available, otherwise sends to the resolved chat.
-    public func reply(
-        _ text: String,
-        parseMode: ParseMode? = nil,
-        replyMarkup: ReplyMarkup? = nil
-    ) async throws {
-        try await self.context.reply(
-            text,
-            parseMode: parseMode,
-            replyMarkup: replyMarkup
-        )
-    }
-
-    /// Sends a message to the supplied chat or to the chat inferred from the current update.
-    public func send(
-        _ text: String,
-        to chat: ChatId? = nil,
-        parseMode: ParseMode? = nil,
-        replyMarkup: ReplyMarkup? = nil
-    ) async throws {
-        try await self.context.send(
-            text,
-            to: chat,
-            parseMode: parseMode,
-            replyMarkup: replyMarkup
-        )
-    }
-
-    /// Edits the current message.
-    public func edit(
-        _ text: String,
-        parseMode: ParseMode? = nil,
-        replyMarkup: InlineKeyboardMarkup? = nil
-    ) async throws {
-        try await self.context.edit(
-            text,
-            parseMode: parseMode,
-            replyMarkup: replyMarkup
-        )
-    }
-
-    /// Answers the current callback query.
-    public func answerCallbackQuery(
-        _ text: String? = nil,
-        showAlert: Bool? = nil,
-        url: String? = nil,
-        cacheTime: Int64? = nil
-    ) async throws {
-        try await self.context.answerCallbackQuery(
-            text,
-            showAlert: showAlert,
-            url: url,
-            cacheTime: cacheTime
-        )
-    }
-
     /// Replaces the current flow session with a new step and values.
     public func restart(
         at step: Flow.Step,
@@ -380,42 +291,93 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
     }
 
     /// Moves the current flow to another step, merging new values into the session.
+    ///
+    /// - Throws: ``TelerouteError/flowSessionEnded(flowID:)`` when the session
+    ///   has already ended, and
+    ///   ``TelerouteError/flowSessionReplaced(expected:found:)`` when another
+    ///   flow has taken over this chat/user scope.
     public func transition(
         to step: Flow.Step,
         merging values: [String: String] = [:]
     ) async throws {
-        let storage = try self.context.requireFlowStorage()
-        let key = try self.context.requireFlowKey()
-        await storage.updateSession(for: key) { current in
-            let current = current ?? self.session
-            return .init(
-                id: Flow.id,
+        let ttl = self.resolvedSessionTTL
+        try await self.mutateSession { current in
+            current.advanced(
                 step: step.rawValue,
-                values: current.values.merging(values)
+                values: current.values.merging(values),
+                ttl: ttl
             )
         }
     }
 
     /// Updates the current step values without changing the active step.
+    ///
+    /// - Throws: the same errors as ``transition(to:merging:)``.
     public func update(
         merging values: [String: String]
     ) async throws {
-        let storage = try self.context.requireFlowStorage()
-        let key = try self.context.requireFlowKey()
-        await storage.updateSession(for: key) { current in
-            let current = current ?? self.session
-            return .init(
-                id: Flow.id,
-                step: current.step,
-                values: current.values.merging(values)
-            )
+        let ttl = self.resolvedSessionTTL
+        try await self.mutateSession { current in
+            current.advanced(values: current.values.merging(values), ttl: ttl)
         }
     }
 
-    /// Finishes the current flow session.
-    public func finish() async throws {
-        try await self.context.cancelFlow()
+    /// The TTL governing this flow's sessions: the flow's own override, or the
+    /// router's configured default.
+    private var resolvedSessionTTL: Duration? {
+        Flow.sessionTTL ?? self.context.flowSessionTTL
     }
+
+    /// Applies a transformation to the live session, refusing to write when the
+    /// session has ended or been taken over.
+    ///
+    /// The previous implementation fell back to this context's own session
+    /// snapshot (`current ?? self.session`), which silently **recreated** a
+    /// session a handler had just finished. Validating instead means a write
+    /// only ever advances a session that is genuinely still active — and
+    /// because the closure throws before returning a value, neither the default
+    /// `updateSession` implementation nor an atomic backend performs a write.
+    private func mutateSession(
+        _ transform: @Sendable (TelerouteFlowSession) -> TelerouteFlowSession
+    ) async throws {
+        let storage = try self.context.requireFlowStorage()
+        let key = try self.context.requireFlowKey()
+        try await storage.updateSession(for: key) { current in
+            guard let current else {
+                throw TelerouteError.flowSessionEnded(flowID: Flow.id)
+            }
+            guard current.id == Flow.id else {
+                throw TelerouteError.flowSessionReplaced(
+                    expected: Flow.id,
+                    found: current.id
+                )
+            }
+            return transform(current)
+        }
+    }
+
+    /// Completes the current flow session successfully.
+    ///
+    /// Ends the session exactly as ``TelerouteRequestContext/cancelFlow()``
+    /// does, but reports the outcome as ``TelerouteFlowOutcome/finished`` to
+    /// the metrics sink — so completion and abandonment are distinguishable.
+    public func finish() async throws {
+        try await self.context.endFlow(outcome: .finished)
+    }
+
+    /// Abandons the current flow session, reported as
+    /// ``TelerouteFlowOutcome/cancelled``.
+    public func cancel() async throws {
+        try await self.context.endFlow(outcome: .cancelled)
+    }
+}
+
+/// A flow step context is an ordinary request context, so every Telegram
+/// helper — media, moderation, reactions, pinning, edit-target resolution,
+/// keyboards — is available directly on it. ``TelerouteFlowContext/context``
+/// remains public for code that reaches the core context explicitly.
+extension TelerouteFlowContext: TelerouteRequestContext {
+    public var coreContext: TelerouteContext { self.context }
 }
 
 public extension TelerouteRoutes {

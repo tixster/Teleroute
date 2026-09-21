@@ -75,26 +75,33 @@ flow.message(at: .amount) { context in
 }
 ```
 
-``TelerouteFlowContext`` is its own type rather than a
-``TelerouteRequestContext``. It carries the helpers a step usually needs —
-`reply`, `send`, `edit`, `answerCallbackQuery`, `keyboard { }` — alongside the
-flow ones (`transition`, `finish`, `values`).
-
-The rest of the surface is one hop away through
-``TelerouteFlowContext/context``, the underlying ``TelerouteContext``:
+``TelerouteFlowContext`` **is** a ``TelerouteRequestContext``, so every helper
+a handler has, a step has too — `reply`, `send`, `edit`, media, moderation,
+reactions, pinning, `keyboard { }`, `resolvedEditTarget`, `logger` — alongside
+the flow-specific ones (`transition`, `finish`, `cancel`, `values`):
 
 ```swift
 flow.message(at: .photo) { context in
-    try await context.context.sendPhoto(.fileID(id), caption: "Saved")
-    try await context.context.react("👍")
+    try await context.sendPhoto(.fileID(id), caption: "Saved")
+    try await context.react("👍")
 }
 ```
 
-`context.context.bot` reaches any Bot API operation from a step.
+``TelerouteFlowContext/context`` still exposes the underlying
+``TelerouteContext`` for code that wants it explicitly, and `context.bot`
+reaches any Bot API operation.
 
-Values are `String`-keyed and `String`-valued; read them with
+Values are `String`-keyed and `String`-valued. Read them with
 ``TelerouteFlowValues/get(_:)``, ``TelerouteFlowValues/require(_:)``, or
-subscripting.
+subscripting, and decode them in place when they are not really strings:
+
+```swift
+let amount = try context.values.require("amount", as: Double.self)
+let page = context.values.get("page", as: Int.self) ?? 1
+```
+
+A malformed value throws ``TelerouteError/invalidParameter(name:value:)``
+rather than silently coercing.
 
 ### Starting Flows from Outside
 
@@ -113,6 +120,43 @@ router.command("cancel") { context in
 }
 ```
 
+### Ending a Session
+
+``TelerouteFlowContext/finish()`` completes a flow and
+``TelerouteFlowContext/cancel()`` abandons it. Both end the session; they
+differ in the ``TelerouteFlowOutcome`` reported to the metrics sink, which is
+what lets you measure whether users finish a wizard or drop out of it.
+
+A step must not advance a session it has already ended — `transition` and
+`update` throw ``TelerouteError/flowSessionEnded(flowID:)`` rather than
+silently recreating it:
+
+```swift
+flow.command("done", at: .confirm) { context in
+    try await context.reply("All set!")   // reply first…
+    try await context.finish()            // …then end the session
+}
+```
+
+### Session Lifetime
+
+By default a session lives until a handler ends it — so an abandoned
+conversation keeps capturing its chat indefinitely. Set a TTL to make idle
+sessions expire:
+
+```swift
+let configuration = TelerouteConfiguration(flowSessionTTL: .seconds(30 * 60))
+
+// Or per flow:
+struct SignupFlow: TelerouteFlow {
+    static let sessionTTL: Duration? = .seconds(10 * 60)
+}
+```
+
+Expiry is sliding: every write — start, transition, update, restart —
+refreshes the deadline. When an expired session is next read, it is dropped and
+the update falls through to normal routing, so the user is not stuck.
+
 ### Cancellation Policy
 
 By default an unrelated command arriving mid-flow (say `/help`) cancels the
@@ -130,17 +174,75 @@ let configuration = TelerouteConfiguration(
   and the flow keeps capturing;
 - `manual` — only `context.cancelFlow()` / `finish()` end a session.
 
+### Observability
+
+``TelerouteMetricsSink/recordFlowEnded(flowID:step:outcome:age:chatId:userId:)``
+fires whenever a session ends, with the outcome (`finished`, `cancelled`,
+`expired`) and the session's age measured from `createdAt`.
+``TelerouteSwiftMetricsSink`` exports these as `teleroute.flows.ended`
+(dimensioned by `flow` and `outcome`) and `teleroute.flow.age`.
+
 ### Storage
 
 Sessions live in the configured ``TelerouteFlowStorage``. The default
 ``TelerouteInMemoryFlowStorage`` is process-local; multi-instance deployments
 implement the four-method protocol over a shared store (Redis, Postgres, …).
-The ``TelerouteFlowStorage/updateSession(for:_:)`` requirement enables atomic
-read-modify-write for backends that support it.
 
 ```swift
 let configuration = TelerouteConfiguration(flowStorage: RedisFlowStorage(pool: pool))
 ```
+
+Use ``TelerouteFlowSessionCoding`` and ``TelerouteFlowKey/storageKey`` rather
+than inventing a format — they pin the date strategy and carry a schema
+version, so records stay readable across deployments:
+
+```swift
+actor RedisFlowStorage: TelerouteFlowStorage {
+    let redis: RedisClient
+
+    func session(for key: TelerouteFlowKey) async -> TelerouteFlowSession? {
+        guard let raw: String = try? await redis.get(key.storageKey) else { return nil }
+        return try? TelerouteFlowSessionCoding.decode(raw)
+    }
+
+    func setSession(_ session: TelerouteFlowSession, for key: TelerouteFlowKey) async {
+        guard let payload = try? TelerouteFlowSessionCoding.encodeToString(session) else { return }
+        // Native expiry is an optimization; the router re-checks on read.
+        try? await redis.set(key.storageKey, to: payload, expiring: session.timeToLive())
+    }
+
+    func removeSession(for key: TelerouteFlowKey) async {
+        try? await redis.delete(key.storageKey)
+    }
+
+    func updateSession(
+        for key: TelerouteFlowKey,
+        _ mutation: TelerouteFlowSessionMutation
+    ) async rethrows -> TelerouteFlowSession? {
+        // Apply atomically where you can (Lua, WATCH, SELECT … FOR UPDATE).
+        // A mutation that throws must leave the stored session untouched.
+        ...
+    }
+}
+```
+
+Checklist for an implementation:
+
+- Persist all six fields. `createdAt` is never rewritten — the router owns
+  `updatedAt` and `expiresAt`.
+- If the store expires keys natively, set the deadline from
+  ``TelerouteFlowSession/timeToLive(at:)`` on every write. This is an
+  optimization, never a correctness requirement: the router checks
+  ``TelerouteFlowSession/isExpired(at:)`` whenever it reads a session, so
+  returning an expired one is fine — it will be removed.
+- Implement ``TelerouteFlowStorage/updateSession(for:_:)`` atomically if the
+  backend supports it, and **propagate a thrown mutation without writing** —
+  that is what stops a finished session from being resurrected.
+- Conform to ``TelerouteFlowStorageCleanup`` only when a sweep is cheap.
+
+> Note: expiry uses wall-clock `Date` rather than a monotonic clock, precisely
+> because sessions outlive a process. Clock skew between instances can make a
+> session expire a little early or late; it can never lose one mid-step.
 
 ### Middleware, Guards, and Keyboards in Flows
 

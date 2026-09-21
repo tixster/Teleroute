@@ -22,6 +22,14 @@ public extension TelerouteRequestContext {
         quote: String? = nil
     ) async throws {
         guard let message = self.message else {
+            // There is nothing to attach `reply_parameters` to, so this
+            // degrades to a plain send. A caller who asked for a quote does
+            // not get one — say so rather than dropping it silently.
+            if quote != nil {
+                self.logger.warning(
+                    "reply(quote:) fell back to send: this update carries no message, so the quote was dropped"
+                )
+            }
             try await self.send(text, parseMode: parseMode, replyMarkup: replyMarkup)
             return
         }
@@ -66,23 +74,15 @@ public extension TelerouteRequestContext {
         parseMode: ParseMode? = nil,
         replyMarkup: InlineKeyboardMarkup? = nil
     ) async throws {
-        switch try self.resolvedEditTarget() {
-        case let .message(chatId, messageId):
-            try await self.bot.editMessageText(
-                chatId: chatId,
-                messageId: messageId,
-                text: text,
-                parseMode: parseMode ?? self.defaultParseMode,
-                replyMarkup: replyMarkup
-            )
-        case let .inline(inlineMessageId):
-            try await self.bot.editMessageText(
-                inlineMessageId: inlineMessageId,
-                text: text,
-                parseMode: parseMode ?? self.defaultParseMode,
-                replyMarkup: replyMarkup
-            )
-        }
+        let target = try self.resolvedEditTarget()
+        try await self.bot.editMessageText(
+            chatId: target.chatId,
+            messageId: target.messageId,
+            inlineMessageId: target.inlineMessageId,
+            text: text,
+            parseMode: parseMode ?? self.defaultParseMode,
+            replyMarkup: replyMarkup
+        )
     }
 
     /// Edits the caption of the current (or an explicit) message.
@@ -92,21 +92,14 @@ public extension TelerouteRequestContext {
         messageId: Int64? = nil,
         in chat: ChatId? = nil
     ) async throws {
-        switch try self.resolvedEditTarget(messageId: messageId, in: chat) {
-        case let .message(chatId, messageId):
-            try await self.bot.editMessageCaption(
-                chatId: chatId,
-                messageId: messageId,
-                caption: caption,
-                parseMode: parseMode ?? self.defaultParseMode
-            )
-        case let .inline(inlineMessageId):
-            try await self.bot.editMessageCaption(
-                inlineMessageId: inlineMessageId,
-                caption: caption,
-                parseMode: parseMode ?? self.defaultParseMode
-            )
-        }
+        let target = try self.resolvedEditTarget(messageId: messageId, in: chat)
+        try await self.bot.editMessageCaption(
+            chatId: target.chatId,
+            messageId: target.messageId,
+            inlineMessageId: target.inlineMessageId,
+            caption: caption,
+            parseMode: parseMode ?? self.defaultParseMode
+        )
     }
 
     /// Edits only the inline keyboard of a message without resending its text.
@@ -115,19 +108,13 @@ public extension TelerouteRequestContext {
         messageId: Int64? = nil,
         in chat: ChatId? = nil
     ) async throws {
-        switch try self.resolvedEditTarget(messageId: messageId, in: chat) {
-        case let .message(chatId, messageId):
-            try await self.bot.editMessageReplyMarkup(
-                chatId: chatId,
-                messageId: messageId,
-                replyMarkup: markup
-            )
-        case let .inline(inlineMessageId):
-            try await self.bot.editMessageReplyMarkup(
-                inlineMessageId: inlineMessageId,
-                replyMarkup: markup
-            )
-        }
+        let target = try self.resolvedEditTarget(messageId: messageId, in: chat)
+        try await self.bot.editMessageReplyMarkup(
+            chatId: target.chatId,
+            messageId: target.messageId,
+            inlineMessageId: target.inlineMessageId,
+            replyMarkup: markup
+        )
     }
 
     /// Removes the button that produced the current callback query, leaving
@@ -227,11 +214,26 @@ public extension TelerouteRequestContext {
         )
     }
 
-    /// Unpins a message (or the most recent pin) in the resolved chat.
+    /// Unpins a message in the resolved chat.
+    ///
+    /// > Important: unlike ``pinMessage(messageId:in:silent:)``, calling this
+    /// with no `messageId` unpins the chat's **most recent pin** rather than
+    /// the message this update carries — that is what Telegram does when
+    /// `message_id` is omitted. Use ``unpinCurrentMessage(in:)`` for the
+    /// symmetric behavior.
     func unpinMessage(messageId: Int64? = nil, in chat: ChatId? = nil) async throws {
         try await self.bot.unpinChatMessage(
             chatId: try self.resolvedChat(chat),
             messageId: messageId
+        )
+    }
+
+    /// Unpins the message this update carries, mirroring
+    /// ``pinMessage(messageId:in:silent:)``.
+    func unpinCurrentMessage(in chat: ChatId? = nil) async throws {
+        try await self.bot.unpinChatMessage(
+            chatId: try self.resolvedChat(chat),
+            messageId: try self.resolvedMessageId()
         )
     }
 
@@ -301,8 +303,30 @@ public extension TelerouteRequestContext {
     }
 
     /// Whether the given (or current) user administers the resolved chat.
+    ///
+    /// Returns `false` when the update carries no user at all, which is
+    /// indistinguishable from "this user is not an admin". Use
+    /// ``requireAdmin(userId:in:)`` when that difference matters.
     func isAdmin(userId: Int64? = nil, in chat: ChatId? = nil) async throws -> Bool {
-        guard let userId = userId ?? self.userId else { return false }
+        guard let userId = userId ?? self.userId else {
+            self.logger.debug(
+                "isAdmin returned false because this update carries no user; use requireAdmin to tell the two apart"
+            )
+            return false
+        }
+        switch try await self.getChatMember(userId: userId, in: chat) {
+        case .creator, .administrator:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Whether the given (or current) user administers the resolved chat,
+    /// throwing ``TelerouteError/userTargetMissing`` when the update carries no
+    /// user rather than reporting them as a non-admin.
+    func requireAdmin(userId: Int64? = nil, in chat: ChatId? = nil) async throws -> Bool {
+        let userId = try userId ?? self.requireUserId()
         switch try await self.getChatMember(userId: userId, in: chat) {
         case .creator, .administrator:
             return true
@@ -357,7 +381,7 @@ public extension TelerouteRequestContext {
     /// Approves the update's chat join request (or an explicit user's).
     func approveJoinRequest(userId: Int64? = nil, in chat: ChatId? = nil) async throws {
         guard let userId = userId ?? self.update.chatJoinRequest?.from.id else {
-            throw TelerouteError.chatTargetMissing
+            throw TelerouteError.userTargetMissing
         }
         try await self.bot.approveChatJoinRequest(
             chatId: try self.resolvedChat(chat),
@@ -368,7 +392,7 @@ public extension TelerouteRequestContext {
     /// Declines the update's chat join request (or an explicit user's).
     func declineJoinRequest(userId: Int64? = nil, in chat: ChatId? = nil) async throws {
         guard let userId = userId ?? self.update.chatJoinRequest?.from.id else {
-            throw TelerouteError.chatTargetMissing
+            throw TelerouteError.userTargetMissing
         }
         try await self.bot.declineChatJoinRequest(
             chatId: try self.resolvedChat(chat),

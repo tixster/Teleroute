@@ -184,15 +184,37 @@ opt out).
 
 ## Context Helpers
 
-Every `TelerouteRequestContext` — the built-in one and your own — carries the
-full helper surface: `reply`, `send`, `edit`, `editCaption`, `editReplyMarkup`,
+Every `TelerouteRequestContext` — the built-in one, your own, and flow step
+contexts — carries the full helper surface: `reply`, `send`, `edit`,
+`editCaption`, `editReplyMarkup`,
 `removePressedButton`, `deleteMessage`, `forwardMessage`, `copyMessage`,
 `react`, `pinMessage`,
 `sendPhoto`/`Video`/`Audio`/`Voice`/`Sticker`/`MediaGroup`/`Location`/`Contact`/`Dice`,
 `sendChatAction`/`typing()`/`withChatAction`, `banMember`/`unbanMember`/
 `restrictMember`, `getChatMember`/`isAdmin`, `approveJoinRequest`,
 `publishCommands`, `keyboard { }`/`render`, `resolvedEditTarget`, and flow
-control (`start`/`cancelFlow`). Anything else: `context.bot.<operation>`.
+control (`start`/`cancelFlow`).
+
+```swift
+router.command("hi") { context in
+    // `user` resolves for every update kind that carries one — including a
+    // callback query, where `message?.from` is the bot, not the presser.
+    "Hello, \(context.user?.firstName ?? "friend")!"
+}
+
+router.command("promote") { context in
+    let admin = try context.requireUser()   // throws instead of guard-per-handler
+    context.logger.info("promoting")        // carries update_id, chat_id, user_id
+    return "\(admin.firstName) promoted"
+}
+```
+
+`require*` covers `requireMessage`, `requireChatId`, `requireUser`,
+`requireUserId`, `requireCallbackQuery`, and `requireCommand`; each throws a
+`TelerouteError` through the router's normal error pipeline. For Bot API
+arguments the helpers do not expose, `withResolvedChat { bot, chatId in … }`
+hands you the full client without re-deriving the chat. Anything else:
+`context.bot.<operation>`.
 
 ## Groups, Contexts, Middleware, Guards
 
@@ -369,17 +391,30 @@ struct SignupFlow: TelerouteFlow {
 router.flow(SignupFlow())
 ```
 
-Flow contexts are their own type, not a `TelerouteRequestContext`. They carry
-the common helpers directly — `reply`, `send`, `edit`, `answerCallbackQuery`,
-`keyboard { }` — plus the flow ones (`transition`, `finish`, `values`).
-Everything else is one hop away through `context.context`, which is the
-underlying `TelerouteContext`:
+A flow step context **is** a `TelerouteRequestContext`, so every helper above
+works inside a step — media, moderation, reactions, keyboards, `logger` —
+alongside the flow ones (`transition`, `finish`, `cancel`, `values`):
 
 ```swift
 flow.message(at: .photo) { context in
-    try await context.context.sendPhoto(.fileID(id), caption: "Saved")
+    try await context.sendPhoto(.fileID(id), caption: "Saved")
+    try await context.react("👍")
 }
 ```
+
+Sessions can expire, so an abandoned conversation stops capturing its chat.
+Opt in globally or per flow; expiry slides forward on every write:
+
+```swift
+TelerouteConfiguration(flowSessionTTL: .seconds(30 * 60))
+struct SignupFlow: TelerouteFlow { static let sessionTTL: Duration? = .seconds(10 * 60) }
+```
+
+Values decode in place — `try context.values.require("amount", as: Double.self)`
+— and `finish()` vs `cancel()` are reported distinctly to the metrics sink, so
+completion and abandonment are measurable. For a shared store, persist sessions
+with `TelerouteFlowSessionCoding` and key them by `TelerouteFlowKey.storageKey`
+rather than inventing a format.
 
 ## Lifecycle and Webhooks
 
@@ -444,9 +479,12 @@ into the same pipeline (`bot.process(_:)` is the seam for any custom server).
 
 - `bot.eventStream()` — an `AsyncSequence` of routing lifecycle events
   (received / handled / unmatched / duplicate / failed with timings);
+- `context.logger` — a request-scoped `Logger` carrying `update_id`, `chat_id`,
+  `user_id`, `route_kind`, and, inside a flow, `flow_id` / `flow_step`;
 - `TelerouteMetricsSink` — protocol for custom sinks;
 - `TelerouteSwiftMetricsSink` — swift-metrics adapter emitting
-  `teleroute.updates.*` counters and `teleroute.handler.duration` timers.
+  `teleroute.updates.*` counters, `teleroute.handler.duration` timers, and
+  `teleroute.flows.ended` / `teleroute.flow.age` for flow outcomes.
 
 ## In-Process Testing
 

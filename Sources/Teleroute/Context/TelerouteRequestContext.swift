@@ -62,12 +62,19 @@ public extension TelerouteRequestContext {
     var chatType: ChatType? { self.coreContext.chatType }
     /// Resolved Telegram user identifier.
     var userId: Int64? { self.coreContext.userId }
+    /// The Telegram user behind the current update, for every update kind that
+    /// carries one.
+    var user: User? { self.coreContext.user }
+    /// The chat the current update belongs to, when it has one.
+    var chat: Chat? { self.coreContext.chat }
     /// The update's kind, when it carries a known payload.
     var updateKind: UpdateKind? { self.coreContext.updateKind }
     /// Which update field produced ``message``.
     var messageSource: TelerouteMessageSource? { self.coreContext.messageSource }
     /// Default parse mode applied by text helpers.
     var defaultParseMode: ParseMode? { self.coreContext.defaultParseMode }
+    /// Request-scoped logger carrying this update's metadata.
+    var logger: Logger { self.coreContext.logger }
     /// Active flow session, if one exists.
     var activeFlow: TelerouteFlowSession? { self.coreContext.activeFlow }
     /// Flow key derived from the current update.
@@ -107,6 +114,59 @@ public extension TelerouteRequestContext {
             throw TelerouteError.messageTargetMissing
         }
         return resolved
+    }
+
+    /// Returns the update's message or throws when it carries none.
+    ///
+    /// Prefer this over unwrapping ``message`` by hand: the thrown error goes
+    /// through the router's normal error pipeline, so it reaches `onError`,
+    /// the `errorRenderer`, events, and metrics like any other failure.
+    func requireMessage() throws -> Message {
+        guard let message = self.message else {
+            throw TelerouteError.messageTargetMissing
+        }
+        return message
+    }
+
+    /// Returns the resolved chat identifier or throws when the update has none.
+    func requireChatId() throws -> Int64 {
+        guard let chatId = self.chatId else {
+            throw TelerouteError.chatTargetMissing
+        }
+        return chatId
+    }
+
+    /// Returns the Telegram user behind the update or throws when it has none.
+    func requireUser() throws -> User {
+        guard let user = self.user else {
+            throw TelerouteError.userTargetMissing
+        }
+        return user
+    }
+
+    /// Returns the resolved user identifier or throws when the update has none.
+    func requireUserId() throws -> Int64 {
+        guard let userId = self.userId else {
+            throw TelerouteError.userTargetMissing
+        }
+        return userId
+    }
+
+    /// Returns the current callback query or throws when the update is not a
+    /// button press.
+    func requireCallbackQuery() throws -> CallbackQuery {
+        guard let callbackQuery = self.callbackQuery else {
+            throw TelerouteError.callbackQueryMissing
+        }
+        return callbackQuery
+    }
+
+    /// Returns the matched command or throws when this is not a command route.
+    func requireCommand() throws -> TelerouteCommandMatch {
+        guard let command = self.command else {
+            throw TelerouteError.commandMatchMissing
+        }
+        return command
     }
 
     /// Resolves what an edit should be applied to.
@@ -169,6 +229,47 @@ public enum TelerouteEditTarget: Sendable, Equatable {
     case inline(messageId: String)
 }
 
+public extension TelerouteEditTarget {
+    /// The chat to edit in, or `nil` for an inline-mode message.
+    ///
+    /// Every Bot API edit operation takes `chatId`, `messageId`, and
+    /// `inlineMessageId` as three optionals and uses whichever pair is
+    /// present, so destructuring a target through these three properties is
+    /// enough to address either form in one call:
+    ///
+    /// ```swift
+    /// let target = try context.resolvedEditTarget()
+    /// try await context.bot.editMessageMedia(
+    ///     chatId: target.chatId,
+    ///     messageId: target.messageId,
+    ///     inlineMessageId: target.inlineMessageId,
+    ///     media: media
+    /// )
+    /// ```
+    var chatId: ChatId? {
+        switch self {
+        case let .message(chatId, _): chatId
+        case .inline: nil
+        }
+    }
+
+    /// The message to edit, or `nil` for an inline-mode message.
+    var messageId: Int64? {
+        switch self {
+        case let .message(_, messageId): messageId
+        case .inline: nil
+        }
+    }
+
+    /// The inline-mode message to edit, or `nil` for an ordinary message.
+    var inlineMessageId: String? {
+        switch self {
+        case .message: nil
+        case let .inline(messageId): messageId
+        }
+    }
+}
+
 // MARK: - Flow control
 
 public extension TelerouteRequestContext {
@@ -180,17 +281,39 @@ public extension TelerouteRequestContext {
     ) async throws {
         let storage = try self.coreContext.requireFlowStorage()
         let key = try self.coreContext.requireFlowKey()
-        await storage.setSession(
-            .init(id: Flow.id, step: step.rawValue, values: .init(values)),
-            for: key
-        )
+        // Starting replaces whatever was there, but still goes through
+        // updateSession so every flow write takes the same path — and so an
+        // atomic backend applies it as one operation.
+        let ttl = Flow.sessionTTL ?? self.coreContext.flowSessionTTL
+        let now = Date()
+        await storage.updateSession(for: key) { _ in
+            .init(
+                id: Flow.id,
+                step: step.rawValue,
+                values: .init(values),
+                createdAt: now,
+                updatedAt: now,
+                expiresAt: ttl.map {
+                    now.addingTimeInterval(TimeInterval($0.components.seconds))
+                }
+            )
+        }
     }
 
     /// Cancels the active flow session.
     func cancelFlow() async throws {
+        try await self.endFlow(outcome: .cancelled)
+    }
+
+    /// Ends the active flow session and reports how it ended.
+    func endFlow(outcome: TelerouteFlowOutcome) async throws {
         let storage = try self.coreContext.requireFlowStorage()
         let key = try self.coreContext.requireFlowKey()
+        let ended = await storage.session(for: key)
         await storage.removeSession(for: key)
+        if let ended {
+            await self.coreContext.reportFlowEnded(ended, outcome: outcome, key: key)
+        }
     }
 }
 
