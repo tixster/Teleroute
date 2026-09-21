@@ -1,0 +1,67 @@
+// Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
+// Bot API 10.3 (August 24, 2026).
+//
+// Do not edit by hand: re-run Scripts/generate-api.sh instead.
+
+/// This object represents the content of a poll option to be sent. It should be one of
+public enum InputPollOptionMedia: Codable, Hashable, Sendable {
+    case animation(InputMediaAnimation)
+    case link(InputMediaLink)
+    case livePhoto(InputMediaLivePhoto)
+    case location(InputMediaLocation)
+    case photo(InputMediaPhoto)
+    case sticker(InputMediaSticker)
+    case venue(InputMediaVenue)
+    case video(InputMediaVideo)
+
+    public enum CodingKeys: String, CodingKey {
+        case type
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Swift.String.self, forKey: .type) {
+        case "animation":
+            self = .animation(try InputMediaAnimation(from: decoder))
+        case "link":
+            self = .link(try InputMediaLink(from: decoder))
+        case "live_photo":
+            self = .livePhoto(try InputMediaLivePhoto(from: decoder))
+        case "location":
+            self = .location(try InputMediaLocation(from: decoder))
+        case "photo":
+            self = .photo(try InputMediaPhoto(from: decoder))
+        case "sticker":
+            self = .sticker(try InputMediaSticker(from: decoder))
+        case "venue":
+            self = .venue(try InputMediaVenue(from: decoder))
+        case "video":
+            self = .video(try InputMediaVideo(from: decoder))
+        case let other:
+            throw DecodingError.dataCorruptedError(
+                forKey: .type, in: container,
+                debugDescription: "unknown InputPollOptionMedia type '\(other)'")
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        switch self {
+        case let .animation(value):
+            try value.encode(to: encoder)
+        case let .link(value):
+            try value.encode(to: encoder)
+        case let .livePhoto(value):
+            try value.encode(to: encoder)
+        case let .location(value):
+            try value.encode(to: encoder)
+        case let .photo(value):
+            try value.encode(to: encoder)
+        case let .sticker(value):
+            try value.encode(to: encoder)
+        case let .venue(value):
+            try value.encode(to: encoder)
+        case let .video(value):
+            try value.encode(to: encoder)
+        }
+    }
+}

@@ -281,7 +281,7 @@ public extension TelerouteRouterGroup {
     func inlineQuery<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.InlineQuery, Context) async throws -> Response
+        use handler: @escaping @Sendable (InlineQuery, Context) async throws -> Response
     ) {
         self.onPayload(.inlineQuery, \.inlineQuery, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -290,7 +290,7 @@ public extension TelerouteRouterGroup {
     func chosenInlineResult<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.ChosenInlineResult, Context) async throws -> Response
+        use handler: @escaping @Sendable (ChosenInlineResult, Context) async throws -> Response
     ) {
         self.onPayload(.chosenInlineResult, \.chosenInlineResult, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -299,7 +299,7 @@ public extension TelerouteRouterGroup {
     func shippingQuery<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.ShippingQuery, Context) async throws -> Response
+        use handler: @escaping @Sendable (ShippingQuery, Context) async throws -> Response
     ) {
         self.onPayload(.shippingQuery, \.shippingQuery, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -309,7 +309,7 @@ public extension TelerouteRouterGroup {
     func preCheckoutQuery<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.PreCheckoutQuery, Context) async throws -> Response
+        use handler: @escaping @Sendable (PreCheckoutQuery, Context) async throws -> Response
     ) {
         self.onPayload(.preCheckoutQuery, \.preCheckoutQuery, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -318,7 +318,7 @@ public extension TelerouteRouterGroup {
     func chatMember<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.ChatMemberUpdated, Context) async throws -> Response
+        use handler: @escaping @Sendable (ChatMemberUpdated, Context) async throws -> Response
     ) {
         self.onPayload(.chatMember, \.chatMember, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -327,7 +327,7 @@ public extension TelerouteRouterGroup {
     func myChatMember<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.ChatMemberUpdated, Context) async throws -> Response
+        use handler: @escaping @Sendable (ChatMemberUpdated, Context) async throws -> Response
     ) {
         self.onPayload(.myChatMember, \.myChatMember, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -336,7 +336,7 @@ public extension TelerouteRouterGroup {
     func chatJoinRequest<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.ChatJoinRequest, Context) async throws -> Response
+        use handler: @escaping @Sendable (ChatJoinRequest, Context) async throws -> Response
     ) {
         self.onPayload(.chatJoinRequest, \.chatJoinRequest, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -345,7 +345,7 @@ public extension TelerouteRouterGroup {
     func messageReaction<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.MessageReactionUpdated, Context) async throws -> Response
+        use handler: @escaping @Sendable (MessageReactionUpdated, Context) async throws -> Response
     ) {
         self.onPayload(.messageReaction, \.messageReaction, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -354,7 +354,7 @@ public extension TelerouteRouterGroup {
     func messageReactionCount<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.MessageReactionCountUpdated, Context) async throws -> Response
+        use handler: @escaping @Sendable (MessageReactionCountUpdated, Context) async throws -> Response
     ) {
         self.onPayload(.messageReactionCount, \.messageReactionCount, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -363,7 +363,7 @@ public extension TelerouteRouterGroup {
     func poll<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.Poll, Context) async throws -> Response
+        use handler: @escaping @Sendable (Poll, Context) async throws -> Response
     ) {
         self.onPayload(.poll, \.poll, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -372,7 +372,7 @@ public extension TelerouteRouterGroup {
     func pollAnswer<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.PollAnswer, Context) async throws -> Response
+        use handler: @escaping @Sendable (PollAnswer, Context) async throws -> Response
     ) {
         self.onPayload(.pollAnswer, \.pollAnswer, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -381,7 +381,7 @@ public extension TelerouteRouterGroup {
     func businessConnection<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.BusinessConnection, Context) async throws -> Response
+        use handler: @escaping @Sendable (BusinessConnection, Context) async throws -> Response
     ) {
         self.onPayload(.businessConnection, \.businessConnection, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -390,7 +390,7 @@ public extension TelerouteRouterGroup {
     func purchasedPaidMedia<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.PaidMediaPurchased, Context) async throws -> Response
+        use handler: @escaping @Sendable (PaidMediaPurchased, Context) async throws -> Response
     ) {
         self.onPayload(.purchasedPaidMedia, \.purchasedPaidMedia, guards: guards, middlewares: middlewares, use: handler)
     }
@@ -414,17 +414,17 @@ public extension TelerouteRouterGroup {
 // MARK: - Context payload accessors
 
 public extension TelerouteContext {
-    var inlineQuery: Components.Schemas.InlineQuery? { self.update.inlineQuery }
-    var chosenInlineResult: Components.Schemas.ChosenInlineResult? { self.update.chosenInlineResult }
-    var shippingQuery: Components.Schemas.ShippingQuery? { self.update.shippingQuery }
-    var preCheckoutQuery: Components.Schemas.PreCheckoutQuery? { self.update.preCheckoutQuery }
-    var chatMemberUpdated: Components.Schemas.ChatMemberUpdated? {
+    var inlineQuery: InlineQuery? { self.update.inlineQuery }
+    var chosenInlineResult: ChosenInlineResult? { self.update.chosenInlineResult }
+    var shippingQuery: ShippingQuery? { self.update.shippingQuery }
+    var preCheckoutQuery: PreCheckoutQuery? { self.update.preCheckoutQuery }
+    var chatMemberUpdated: ChatMemberUpdated? {
         self.update.chatMember ?? self.update.myChatMember
     }
-    var chatJoinRequest: Components.Schemas.ChatJoinRequest? { self.update.chatJoinRequest }
-    var messageReaction: Components.Schemas.MessageReactionUpdated? { self.update.messageReaction }
-    var poll: Components.Schemas.Poll? { self.update.poll }
-    var pollAnswer: Components.Schemas.PollAnswer? { self.update.pollAnswer }
+    var chatJoinRequest: ChatJoinRequest? { self.update.chatJoinRequest }
+    var messageReaction: MessageReactionUpdated? { self.update.messageReaction }
+    var poll: Poll? { self.update.poll }
+    var pollAnswer: PollAnswer? { self.update.pollAnswer }
     /// The update's kind, when it carries a known payload.
     var updateKind: UpdateKind? { self.parsedUpdate.kind }
     /// Which update field produced ``message``.
@@ -439,9 +439,9 @@ public extension TelerouteRouterGroup {
     func inlineQuery(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.InlineQuery, Context) async throws -> Void
+        use handler: @escaping @Sendable (InlineQuery, Context) async throws -> Void
     ) {
-        self.inlineQuery(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.InlineQuery, context: Context) -> TelerouteResponse in
+        self.inlineQuery(guards: guards, middlewares: middlewares) { (payload: InlineQuery, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -451,9 +451,9 @@ public extension TelerouteRouterGroup {
     func chosenInlineResult(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.ChosenInlineResult, Context) async throws -> Void
+        use handler: @escaping @Sendable (ChosenInlineResult, Context) async throws -> Void
     ) {
-        self.chosenInlineResult(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.ChosenInlineResult, context: Context) -> TelerouteResponse in
+        self.chosenInlineResult(guards: guards, middlewares: middlewares) { (payload: ChosenInlineResult, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -463,9 +463,9 @@ public extension TelerouteRouterGroup {
     func shippingQuery(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.ShippingQuery, Context) async throws -> Void
+        use handler: @escaping @Sendable (ShippingQuery, Context) async throws -> Void
     ) {
-        self.shippingQuery(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.ShippingQuery, context: Context) -> TelerouteResponse in
+        self.shippingQuery(guards: guards, middlewares: middlewares) { (payload: ShippingQuery, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -475,9 +475,9 @@ public extension TelerouteRouterGroup {
     func preCheckoutQuery(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.PreCheckoutQuery, Context) async throws -> Void
+        use handler: @escaping @Sendable (PreCheckoutQuery, Context) async throws -> Void
     ) {
-        self.preCheckoutQuery(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.PreCheckoutQuery, context: Context) -> TelerouteResponse in
+        self.preCheckoutQuery(guards: guards, middlewares: middlewares) { (payload: PreCheckoutQuery, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -487,9 +487,9 @@ public extension TelerouteRouterGroup {
     func chatMember(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.ChatMemberUpdated, Context) async throws -> Void
+        use handler: @escaping @Sendable (ChatMemberUpdated, Context) async throws -> Void
     ) {
-        self.chatMember(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.ChatMemberUpdated, context: Context) -> TelerouteResponse in
+        self.chatMember(guards: guards, middlewares: middlewares) { (payload: ChatMemberUpdated, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -499,9 +499,9 @@ public extension TelerouteRouterGroup {
     func myChatMember(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.ChatMemberUpdated, Context) async throws -> Void
+        use handler: @escaping @Sendable (ChatMemberUpdated, Context) async throws -> Void
     ) {
-        self.myChatMember(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.ChatMemberUpdated, context: Context) -> TelerouteResponse in
+        self.myChatMember(guards: guards, middlewares: middlewares) { (payload: ChatMemberUpdated, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -511,9 +511,9 @@ public extension TelerouteRouterGroup {
     func chatJoinRequest(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.ChatJoinRequest, Context) async throws -> Void
+        use handler: @escaping @Sendable (ChatJoinRequest, Context) async throws -> Void
     ) {
-        self.chatJoinRequest(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.ChatJoinRequest, context: Context) -> TelerouteResponse in
+        self.chatJoinRequest(guards: guards, middlewares: middlewares) { (payload: ChatJoinRequest, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -523,9 +523,9 @@ public extension TelerouteRouterGroup {
     func messageReaction(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.MessageReactionUpdated, Context) async throws -> Void
+        use handler: @escaping @Sendable (MessageReactionUpdated, Context) async throws -> Void
     ) {
-        self.messageReaction(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.MessageReactionUpdated, context: Context) -> TelerouteResponse in
+        self.messageReaction(guards: guards, middlewares: middlewares) { (payload: MessageReactionUpdated, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -535,9 +535,9 @@ public extension TelerouteRouterGroup {
     func messageReactionCount(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.MessageReactionCountUpdated, Context) async throws -> Void
+        use handler: @escaping @Sendable (MessageReactionCountUpdated, Context) async throws -> Void
     ) {
-        self.messageReactionCount(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.MessageReactionCountUpdated, context: Context) -> TelerouteResponse in
+        self.messageReactionCount(guards: guards, middlewares: middlewares) { (payload: MessageReactionCountUpdated, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -547,9 +547,9 @@ public extension TelerouteRouterGroup {
     func poll(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.Poll, Context) async throws -> Void
+        use handler: @escaping @Sendable (Poll, Context) async throws -> Void
     ) {
-        self.poll(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.Poll, context: Context) -> TelerouteResponse in
+        self.poll(guards: guards, middlewares: middlewares) { (payload: Poll, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -559,9 +559,9 @@ public extension TelerouteRouterGroup {
     func pollAnswer(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.PollAnswer, Context) async throws -> Void
+        use handler: @escaping @Sendable (PollAnswer, Context) async throws -> Void
     ) {
-        self.pollAnswer(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.PollAnswer, context: Context) -> TelerouteResponse in
+        self.pollAnswer(guards: guards, middlewares: middlewares) { (payload: PollAnswer, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -571,9 +571,9 @@ public extension TelerouteRouterGroup {
     func businessConnection(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.BusinessConnection, Context) async throws -> Void
+        use handler: @escaping @Sendable (BusinessConnection, Context) async throws -> Void
     ) {
-        self.businessConnection(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.BusinessConnection, context: Context) -> TelerouteResponse in
+        self.businessConnection(guards: guards, middlewares: middlewares) { (payload: BusinessConnection, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }
@@ -583,9 +583,9 @@ public extension TelerouteRouterGroup {
     func purchasedPaidMedia(
         guards: [any TelerouteGuard] = [],
         middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
-        use handler: @escaping @Sendable (Components.Schemas.PaidMediaPurchased, Context) async throws -> Void
+        use handler: @escaping @Sendable (PaidMediaPurchased, Context) async throws -> Void
     ) {
-        self.purchasedPaidMedia(guards: guards, middlewares: middlewares) { (payload: Components.Schemas.PaidMediaPurchased, context: Context) -> TelerouteResponse in
+        self.purchasedPaidMedia(guards: guards, middlewares: middlewares) { (payload: PaidMediaPurchased, context: Context) -> TelerouteResponse in
             try await handler(payload, context)
             return .none
         }

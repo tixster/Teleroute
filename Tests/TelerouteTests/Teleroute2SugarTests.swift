@@ -1,6 +1,5 @@
 import Foundation
 import HTTPTypes
-import OpenAPIRuntime
 import Synchronization
 import Testing
 import Teleroute
@@ -149,7 +148,7 @@ import TelerouteTestSupport
             var response = HTTPResponse(status: .ok)
             response.headerFields[.contentType] = "application/json"
             let body = #"{"ok":true,"result":{"message_id":9,"date":1,"chat":{"id":1,"type":"private"}}}"#
-            return (response, HTTPBody(Data(body.utf8)))
+            return (response, Data(body.utf8))
         })
         let bot = try TelerouteBot(
             token: TelerouteTestSupport.testToken,
@@ -211,7 +210,7 @@ private struct SugarAppContext: TelerouteInitializableRequestContext {
     }
 }
 
-private struct SugarCapturingTransport: ClientTransport {
+private struct SugarCapturingTransport: TelegramTransport {
     let onRequest: @Sendable (String, Data) -> Void
 
     init(onRequest: @escaping @Sendable (String, Data) -> Void) {
@@ -220,14 +219,11 @@ private struct SugarCapturingTransport: ClientTransport {
 
     func send(
         _ request: HTTPRequest,
-        body: HTTPBody?,
+        body: Data?,
         baseURL: URL,
         operationID: String
-    ) async throws -> (HTTPResponse, HTTPBody?) {
-        var data = Data()
-        if let body {
-            data = try await Data(collecting: body, upTo: 10 * 1024 * 1024)
-        }
+    ) async throws -> (HTTPResponse, Data) {
+        let data = body ?? Data()
         self.onRequest(operationID, data)
         var response = HTTPResponse(status: .ok)
         response.headerFields[.contentType] = "application/json"
@@ -238,6 +234,6 @@ private struct SugarCapturingTransport: ClientTransport {
         default:
             json = #"{"ok":true,"result":true}"#
         }
-        return (response, HTTPBody(Data(json.utf8)))
+        return (response, Data(json.utf8))
     }
 }

@@ -40,12 +40,12 @@ struct SignupFlow: TelerouteFlow {
                 decisions.button(
                     SignupDecisionCallback(decision: "approve"),
                     "Approve",
-                    style: "success"
+                    style: .success
                 ),
                 decisions.button(
                     SignupDecisionCallback(decision: "restart"),
                     "Restart",
-                    style: "danger"
+                    style: .danger
                 ),
             ]])
 

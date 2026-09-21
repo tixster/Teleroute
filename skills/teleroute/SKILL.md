@@ -15,7 +15,7 @@ description: >-
 
 ## Overview
 
-Use this skill to modify, test, document, review, or consume the Teleroute library. Teleroute is a Swift 6.3 SwiftPM package that layers route-style command, callback, message, update-kind, middleware, flow, command-menu, observability, and keyboard APIs on top of `TelegramBotKit` — a full typed Telegram Bot API client (185 flat methods) generated from the OpenAPI spec in `openapi/` (regenerate with `Scripts/generate-api.sh`, verify with `Scripts/verify-generated.sh`; never edit `Sources/TelegramBotAPI/Generated` or `Sources/TelegramBotKit/Generated` by hand). Handlers return `TelerouteResponseGenerator` values (String, Reply builders, TelerouteResponse, `.unhandled`); guards return `.allow/.skip/.deny(response)`; `TelerouteBot` is a `Service` with polling/webhook/manual modes.
+Use this skill to modify, test, document, review, or consume the Teleroute library. Teleroute is a Swift 6.4 SwiftPM package that layers route-style command, callback, message, update-kind, middleware, flow, command-menu, observability, and keyboard APIs on top of `TelegramBotKit` — a full typed Telegram Bot API client (185 flat methods) generated from the committed documentation snapshot in `botapi/` (regenerate with `Scripts/generate-api.sh`, verify with `Scripts/verify-generated.sh`; never edit `Sources/TelegramBotAPI/Generated` or `Sources/TelegramBotKit/Generated` by hand). Handlers return `TelerouteResponseGenerator` values (String, Reply builders, TelerouteResponse, `.unhandled`); guards return `.allow/.skip/.deny(response)`; `TelerouteBot` is a `Service` with polling/webhook/manual modes.
 
 ## First Steps
 
@@ -23,8 +23,8 @@ Use this skill to modify, test, document, review, or consume the Teleroute libra
 2. Read the relevant source and tests before changing behavior. Use `references/project-map.md` for the API map, invariants, and test fixture locations.
 3. Map the affected symbols with `rg` before editing when the change touches routing, flows, middleware, or published commands in more than one file.
 4. Keep changes scoped to `Sources/Teleroute`, `Sources/TelerouteExample`, `Tests/TelerouteTests`, README/example docs, or this skill.
-5. Preserve Swift 6 language mode and the package's Swift 6.3 requirement unless the user explicitly asks for a toolchain migration.
-6. Do not add network-dependent tests. Use fake `ClientTransport` implementations and synthetic `Update` values like the existing tests.
+5. Preserve Swift 6 language mode and the package's Swift 6.4 requirement unless the user explicitly asks for a toolchain migration.
+6. Do not add network-dependent tests. Use fake `TelegramTransport` implementations and synthetic `Update` values like the existing tests.
 
 ## Implementation Guidance
 

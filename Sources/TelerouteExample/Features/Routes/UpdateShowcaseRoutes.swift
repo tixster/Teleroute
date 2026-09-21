@@ -45,9 +45,7 @@ struct UpdateShowcaseRoutes: TelerouteRouteCollection {
             try await context.bot.answerInlineQuery(
                 inlineQueryId: query.id,
                 results: [
-                    .InlineQueryResultArticle(.init(
-                        _type: "article",
-                        id: "hello",
+                    .InlineQueryResultArticle(.init(                        id: "hello",
                         title: "Say hello",
                         inputMessageContent: .InputTextMessageContent(.init(
                             messageText: "Hello from inline mode!"

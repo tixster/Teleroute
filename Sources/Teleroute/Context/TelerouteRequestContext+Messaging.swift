@@ -134,7 +134,7 @@ public extension TelerouteRequestContext {
         messageId: Int64,
         to chat: ChatId? = nil,
         caption: String? = nil
-    ) async throws -> Components.Schemas.MessageId {
+    ) async throws -> MessageId {
         try await self.bot.copyMessage(
             chatId: try self.resolvedChat(chat),
             fromChatId: source,
@@ -151,7 +151,7 @@ public extension TelerouteRequestContext {
         try await self.bot.setMessageReaction(
             chatId: .id(message.chat.id),
             messageId: message.messageId,
-            reaction: [.emoji(.init(_type: "emoji", emoji: emoji))],
+            reaction: [.emoji(.init(emoji: emoji))],
             isBig: big
         )
     }
@@ -284,7 +284,7 @@ public extension TelerouteRequestContext {
     /// Restricts a user in the resolved chat.
     func restrictMember(
         _ userId: Int64,
-        permissions: Components.Schemas.ChatPermissions,
+        permissions: ChatPermissions,
         in chat: ChatId? = nil,
         untilDate: Int64? = nil
     ) async throws {

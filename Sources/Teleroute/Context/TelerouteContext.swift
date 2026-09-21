@@ -151,7 +151,7 @@ extension TelerouteContext {
         guard let chatId = self.message?.chat.id ?? self.chatId else {
             throw TelerouteError.chatTargetMissing
         }
-        var replyParameters: Components.Schemas.ReplyParameters?
+        var replyParameters: ReplyParameters?
         if let message = self.message {
             replyParameters = .init(messageId: message.messageId, quote: reply.quote)
         }
@@ -212,7 +212,7 @@ extension TelerouteContext {
 }
 
 extension TelerouteSendOptions {
-    var linkPreviewOptions: Components.Schemas.LinkPreviewOptions? {
+    var linkPreviewOptions: LinkPreviewOptions? {
         guard self.linkPreviewDisabled == true else { return nil }
         return .init(isDisabled: true)
     }

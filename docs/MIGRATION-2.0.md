@@ -26,7 +26,7 @@ or `.unhandled` to fall through to the next candidate route.
 - Chat targets are `ChatId` everywhere: `to: 123`, `to: "@channel"`,
   `.id(x)`, `.username("@x")` — no more `Int64?` chat parameters.
 - `TelegramBotClient` has a typed flat method for **every** operation;
-  `context.bot.api` exposes the raw generated client.
+  `context.bot.call(_:_:as:)` reaches anything newer than the generated surface.
 - `TGFileInfo` → `FileInput` (`.fileID` / `.url` / `.upload(filename:data:)`).
 - `answerCallbackQuery(cacheTime:)` takes `Int64`.
 

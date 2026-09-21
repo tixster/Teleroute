@@ -1,6 +1,5 @@
 import Foundation
 import HTTPTypes
-import OpenAPIRuntime
 import Testing
 @_spi(Testing) @testable import Teleroute
 
@@ -1418,37 +1417,36 @@ private struct SignupFlow: TelerouteFlow {
     }
 }
 
-private struct TestTransport: ClientTransport {
+private struct TestTransport: TelegramTransport {
     func send(
         _ request: HTTPRequest,
-        body: HTTPBody?,
+        body: Data?,
         baseURL: URL,
         operationID: String
-    ) async throws -> (HTTPResponse, HTTPBody?) {
+    ) async throws -> (HTTPResponse, Data) {
         throw TestError.unexpectedNetworkCall
     }
 }
 
-private struct RecordingCommandsTransport: ClientTransport {
+private struct RecordingCommandsTransport: TelegramTransport {
     let recorder: PublishedCommandsRecorder
 
     func send(
         _ request: HTTPRequest,
-        body: HTTPBody?,
+        body: Data?,
         baseURL: URL,
         operationID: String
-    ) async throws -> (HTTPResponse, HTTPBody?) {
+    ) async throws -> (HTTPResponse, Data) {
         guard operationID == "setMyCommands", let body else {
             throw TestError.unexpectedClientCall
         }
 
-        let data = try await Data(collecting: body, upTo: 1024 * 1024)
-        let decoded = try JSONDecoder().decode(DecodedSetMyCommandsParams.self, from: data)
+        let decoded = try JSONDecoder().decode(DecodedSetMyCommandsParams.self, from: body)
         await self.recorder.record(decoded)
 
         var response = HTTPResponse(status: .ok)
         response.headerFields[.contentType] = "application/json"
-        return (response, HTTPBody(Data(#"{"ok":true,"result":true}"#.utf8)))
+        return (response, Data(#"{"ok":true,"result":true}"#.utf8))
     }
 }
 
@@ -1480,7 +1478,7 @@ private func makeBot() async throws -> TelegramBotClient {
     try await makeBot(transport: TestTransport())
 }
 
-private func makeBot(transport: some ClientTransport) async throws -> TelegramBotClient {
+private func makeBot(transport: some TelegramTransport) async throws -> TelegramBotClient {
     try TelegramBotClient(token: "123456:test-token", transport: transport)
 }
 
@@ -1555,7 +1553,7 @@ private func makeUser(id: Int64 = 1, isBot: Bool = false) -> User {
 }
 
 private func makeChat(id: Int64 = 1, type: ChatType = .private) -> Chat {
-    Chat(id: id, _type: type.rawValue, firstName: "Test")
+    Chat(id: id, type: type, firstName: "Test")
 }
 
 private func scopeKey(_ scope: DecodedSetMyCommandsParams.RawScope?) -> String {

@@ -1,6 +1,5 @@
 import Foundation
 import HTTPTypes
-import OpenAPIRuntime
 import Synchronization
 import Teleroute
 import TelegramBotAPI
@@ -13,20 +12,20 @@ import TelegramBotAPI
 /// complete in-process routed bot or ``TelerouteTestSupport/makeClient(transport:)``
 /// with your own `ClientTransport` fake.
 
-/// A no-op `ClientTransport` that throws on every network call.
+/// A no-op ``TelegramTransport`` that throws on every network call.
 ///
 /// Use it for routing/middleware tests that never reach the Telegram API. For
 /// tests that must observe outgoing API calls, use
 /// ``TelerouteRecordingTransport`` instead.
-public struct TelerouteStubTransport: ClientTransport {
+public struct TelerouteStubTransport: TelegramTransport {
     public init() {}
 
     public func send(
         _ request: HTTPRequest,
-        body: HTTPBody?,
+        body: Data?,
         baseURL: URL,
         operationID: String
-    ) async throws -> (HTTPResponse, HTTPBody?) {
+    ) async throws -> (HTTPResponse, Data) {
         throw TelerouteTestNetworkError.unexpectedCall
     }
 }
@@ -75,9 +74,9 @@ public enum TelerouteRecordedEffect: Sendable {
 /// In-memory Telegram transport that records common text, keyboard, callback,
 /// and command-menu operations while returning synthetic successful responses.
 ///
-/// Dispatches on the OpenAPI operation id, so it works with any client built
+/// Dispatches on the Bot API method name, so it works with any client built
 /// over the generated Telegram Bot API.
-public final class TelerouteRecordingTransport: ClientTransport, Sendable {
+public final class TelerouteRecordingTransport: TelegramTransport, Sendable {
     private struct State: Sendable {
         var effects: [TelerouteRecordedEffect] = []
         var nextMessageId: Int64 = 1
@@ -89,7 +88,7 @@ public final class TelerouteRecordingTransport: ClientTransport, Sendable {
     public typealias Fallback = @Sendable (
         _ operationID: String,
         _ body: Data
-    ) throws -> (HTTPResponse, HTTPBody?)
+    ) throws -> (HTTPResponse, Data)
 
     private let state = Mutex(State())
     private let fallback: Fallback?
@@ -113,16 +112,11 @@ public final class TelerouteRecordingTransport: ClientTransport, Sendable {
 
     public func send(
         _ request: HTTPRequest,
-        body: HTTPBody?,
+        body: Data?,
         baseURL: URL,
         operationID: String
-    ) async throws -> (HTTPResponse, HTTPBody?) {
-        let data: Data
-        if let body {
-            data = try await Data(collecting: body, upTo: 10 * 1024 * 1024)
-        } else {
-            data = Data()
-        }
+    ) async throws -> (HTTPResponse, Data) {
+        let data = body ?? Data()
 
         switch operationID {
         case "sendMessage":
@@ -147,25 +141,15 @@ public final class TelerouteRecordingTransport: ClientTransport, Sendable {
             return try Self.okResponse(result: message)
 
         case "editMessageText":
-            let fields = try Self.multipartFields(from: data, request: request)
-            guard let text = fields["text"].map({ String(decoding: $0, as: UTF8.self) }) else {
-                throw TelerouteTestNetworkError.malformedRequest(operationID)
-            }
-            let chatId = fields["chat_id"]
-                .map { String(decoding: $0, as: UTF8.self) }
-                .map { raw in Int64(raw).map(ChatId.id) ?? .username(raw) }
-            let messageId = fields["message_id"]
-                .flatMap { Int64(String(decoding: $0, as: UTF8.self)) }
-            let replyMarkup = try fields["reply_markup"]
-                .map { try JSONDecoder().decode(InlineKeyboardMarkup.self, from: $0) }
+            let value = try Self.decode(RecordedEditMessageTextParams.self, from: data)
             self.state.withLock {
                 $0.effects.append(
                     .editedMessage(
                         .init(
-                            chatId: chatId,
-                            messageId: messageId,
-                            text: text,
-                            replyMarkup: replyMarkup
+                            chatId: value.chatId,
+                            messageId: value.messageId,
+                            text: value.text,
+                            replyMarkup: value.replyMarkup
                         )
                     )
                 )
@@ -214,11 +198,11 @@ public final class TelerouteRecordingTransport: ClientTransport, Sendable {
         try JSONDecoder().decode(type, from: data)
     }
 
-    private static func okResponse(result: some Encodable) throws -> (HTTPResponse, HTTPBody?) {
+    private static func okResponse(result: some Encodable) throws -> (HTTPResponse, Data) {
         let envelope = try JSONEncoder().encode(OkEnvelope(ok: true, result: result))
         var response = HTTPResponse(status: .ok)
         response.headerFields[.contentType] = "application/json; charset=utf-8"
-        return (response, HTTPBody(envelope))
+        return (response, envelope)
     }
 
     private static func makeMessage(
@@ -230,7 +214,7 @@ public final class TelerouteRecordingTransport: ClientTransport, Sendable {
             messageId: messageId,
             from: User(id: 0, isBot: true, firstName: "Teleroute"),
             date: 1,
-            chat: Chat(id: chatId.int64Value ?? 0, _type: ChatType.private.rawValue),
+            chat: Chat(id: chatId.int64Value ?? 0, type: .private),
             text: text
         )
     }
@@ -322,6 +306,26 @@ public enum TelerouteTestMultipart {
 private struct OkEnvelope<Result: Encodable>: Encodable {
     let ok: Bool
     let result: Result
+}
+
+/// `editMessageText` parameters as the client sends them.
+///
+/// The client picks multipart only when a call actually uploads bytes, so every
+/// operation this recorder understands arrives as JSON. A future change that
+/// sent one of them as multipart would fail here loudly rather than silently
+/// recording nothing.
+private struct RecordedEditMessageTextParams: Decodable {
+    let chatId: ChatId?
+    let messageId: Int64?
+    let text: String
+    let replyMarkup: InlineKeyboardMarkup?
+
+    enum CodingKeys: String, CodingKey {
+        case chatId = "chat_id"
+        case messageId = "message_id"
+        case text
+        case replyMarkup = "reply_markup"
+    }
 }
 
 private struct RecordedSendMessageParams: Decodable {
@@ -430,7 +434,7 @@ public enum TelerouteTestSupport {
     /// Creates a Telegram client backed by the supplied transport
     /// (defaults to ``TelerouteStubTransport``).
     public static func makeClient(
-        transport: any ClientTransport = TelerouteStubTransport()
+        transport: any TelegramTransport = TelerouteStubTransport()
     ) throws -> TelegramBotClient {
         try TelegramBotClient(token: self.testToken, transport: transport)
     }
@@ -472,7 +476,7 @@ public enum TelerouteTestSupport {
             messageId: 1,
             from: User(id: userId, isBot: false, firstName: "Test", username: "tester"),
             date: 1,
-            chat: Chat(id: chatId, _type: chatType.rawValue, firstName: "Test"),
+            chat: Chat(id: chatId, type: chatType, firstName: "Test"),
             text: text,
             entities: [entity]
         )
@@ -491,7 +495,7 @@ public enum TelerouteTestSupport {
             messageId: 2,
             from: User(id: userId, isBot: false, firstName: "Test", username: "tester"),
             date: 1,
-            chat: Chat(id: chatId, _type: chatType.rawValue, firstName: "Test"),
+            chat: Chat(id: chatId, type: chatType, firstName: "Test"),
             text: text
         )
         return Update(updateId: updateId, message: message)
@@ -509,7 +513,7 @@ public enum TelerouteTestSupport {
             messageId: 4,
             from: User(id: userId, isBot: false, firstName: "Test", username: "tester"),
             date: 1,
-            chat: Chat(id: chatId, _type: chatType.rawValue, firstName: "Test"),
+            chat: Chat(id: chatId, type: chatType, firstName: "Test"),
             photo: [.init(fileId: "photo-file", fileUniqueId: "photo-unique", width: 1, height: 1)],
             caption: caption
         )
@@ -528,7 +532,7 @@ public enum TelerouteTestSupport {
             messageId: 5,
             from: User(id: userId, isBot: false, firstName: "Test", username: "tester"),
             date: 1,
-            chat: Chat(id: chatId, _type: chatType.rawValue, firstName: "Test"),
+            chat: Chat(id: chatId, type: chatType, firstName: "Test"),
             text: text
         )
         return Update(updateId: updateId, editedMessage: message)
@@ -562,12 +566,12 @@ public enum TelerouteTestSupport {
         Update(
             updateId: updateId,
             messageReaction: .init(
-                chat: Chat(id: chatId, _type: ChatType.private.rawValue),
+                chat: Chat(id: chatId, type: .private),
                 messageId: messageId,
                 user: User(id: userId, isBot: false, firstName: "Test"),
                 date: 1,
                 oldReaction: [],
-                newReaction: [.emoji(.init(_type: "emoji", emoji: emoji))]
+                newReaction: [.emoji(.init(emoji: emoji))]
             )
         )
     }
@@ -579,12 +583,12 @@ public enum TelerouteTestSupport {
         userId: Int64 = 2,
         updateId: Int64 = 8
     ) -> Update {
-        let member = Components.Schemas.ChatMemberUpdated(
-            chat: Chat(id: chatId, _type: ChatType.supergroup.rawValue),
+        let member = ChatMemberUpdated(
+            chat: Chat(id: chatId, type: .supergroup),
             from: User(id: userId, isBot: false, firstName: "Actor"),
             date: 1,
-            oldChatMember: .left(.init(status: "left", user: User(id: 3, isBot: false, firstName: "M"))),
-            newChatMember: .member(.init(status: "member", user: User(id: 3, isBot: false, firstName: "M")))
+            oldChatMember: .left(.init(user: User(id: 3, isBot: false, firstName: "M"))),
+            newChatMember: .member(.init(user: User(id: 3, isBot: false, firstName: "M")))
         )
         return my
             ? Update(updateId: updateId, myChatMember: member)
@@ -618,7 +622,7 @@ public enum TelerouteTestSupport {
         Update(
             updateId: updateId,
             chatJoinRequest: .init(
-                chat: Chat(id: chatId, _type: ChatType.supergroup.rawValue),
+                chat: Chat(id: chatId, type: .supergroup),
                 from: User(id: userId, isBot: false, firstName: "Joiner"),
                 userChatId: userId,
                 date: 1
@@ -657,7 +661,7 @@ public enum TelerouteTestSupport {
             messageId: 1,
             from: User(id: messageUserId, isBot: messageIsBot, firstName: "Test", username: "tester"),
             date: 1,
-            chat: Chat(id: chatId, _type: chatType.rawValue, firstName: "Test"),
+            chat: Chat(id: chatId, type: chatType, firstName: "Test"),
             text: "callback host"
         )
         let callbackQuery = CallbackQuery(

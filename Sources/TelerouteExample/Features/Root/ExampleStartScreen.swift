@@ -28,38 +28,38 @@ struct ExampleStartScreen {
                 callbacks.approveOrder.button(
                     ApproveOrderCallback(orderID: "42"),
                     "Approve order #42",
-                    style: "success"
+                    style: .success
                 ),
                 callbacks.archiveTicket.button(
                     ArchiveTicketCallback(ticketID: "42"),
                     "Archive ticket #42",
-                    style: "danger"
+                    style: .danger
                 ),
             ],
             [
                 callbacks.approveOrder.button(
                     ApproveOrderCallback(orderID: "43"),
                     "Approve #43",
-                    style: "primary"
+                    style: .primary
                 ),
                 callbacks.archiveTicket.button(
                     ArchiveTicketCallback(ticketID: "43"),
                     "Archive #43",
-                    style: "primary"
+                    style: .primary
                 ),
             ],
             [
                 callbacks.adminBan.button(
                     AdminBanCallback(userID: "99"),
                     "Admin ban #99",
-                    style: "danger"
+                    style: .danger
                 ),
             ],
             [
                 callbacks.payInvoice.button(
                     PayInvoiceCallback(invoiceID: "42"),
                     "Pay invoice #42",
-                    style: "success"
+                    style: .success
                 ),
             ],
         ])

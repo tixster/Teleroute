@@ -32,7 +32,7 @@ public struct TelerouteCallbackRoute<Callback: TelerouteCallback>: Sendable {
         _ callback: Callback,
         _ text: String,
         iconCustomEmojiId: String? = nil,
-        style: String? = nil
+        style: KeyboardButtonStyle? = nil
     ) -> TelerouteButton {
         .callback(
             text,

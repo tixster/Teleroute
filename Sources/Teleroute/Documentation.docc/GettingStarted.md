@@ -10,7 +10,7 @@ the framework fits.
 
 ### Add the Package
 
-Teleroute requires Swift 6.3. Add the dependency and pick the products you
+Teleroute requires Swift 6.4. Add the dependency and pick the products you
 need:
 
 ```swift
@@ -46,7 +46,7 @@ The package ships several products:
 | `TelerouteTestSupport` | In-process test transports and synthetic update factories. |
 | `TelerouteHummingbird` | Webhook serving for Hummingbird 2 applications. |
 | `TelegramBotKit` | The standalone Telegram client without the router. |
-| `TelegramBotAPI` | The raw OpenAPI-generated types and client. |
+| `TelegramBotAPI` | Every documented Bot API type, under its own name. |
 
 ### Write Your First Bot
 

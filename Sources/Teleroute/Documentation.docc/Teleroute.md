@@ -16,7 +16,7 @@ lifecycle.
 - Handlers return any ``TelerouteResponseGenerator`` — a `String`, a chainable
   ``Reply``, a full ``TelerouteResponse``, or `.unhandled` to fall through.
 - The entire Bot API ships as typed flat methods (185 operations) on
-  `TelegramBotClient`, generated from an OpenAPI specification.
+  `TelegramBotClient`, generated from Telegram's own documentation.
 
 A complete bot fits on one screen:
 

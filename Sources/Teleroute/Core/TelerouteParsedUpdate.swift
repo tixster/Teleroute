@@ -103,31 +103,31 @@ struct TelerouteParsedUpdate: Sendable {
     ) -> (chatId: Int64?, chatType: ChatType?, userId: Int64?) {
         if let callbackQuery {
             let chat = callbackQuery.message?.chat
-            return (chat?.id, chat?.chatType, callbackQuery.from.id)
+            return (chat?.id, chat?.type, callbackQuery.from.id)
         }
         if let message {
-            return (message.chat.id, message.chat.chatType, message.from?.id)
+            return (message.chat.id, message.chat.type, message.from?.id)
         }
         if let updated = update.chatMember ?? update.myChatMember {
-            return (updated.chat.id, updated.chat.chatType, updated.from.id)
+            return (updated.chat.id, updated.chat.type, updated.from.id)
         }
         if let request = update.chatJoinRequest {
-            return (request.chat.id, request.chat.chatType, request.from.id)
+            return (request.chat.id, request.chat.type, request.from.id)
         }
         if let reaction = update.messageReaction {
-            return (reaction.chat.id, reaction.chat.chatType, reaction.user?.id)
+            return (reaction.chat.id, reaction.chat.type, reaction.user?.id)
         }
         if let reactionCount = update.messageReactionCount {
-            return (reactionCount.chat.id, reactionCount.chat.chatType, nil)
+            return (reactionCount.chat.id, reactionCount.chat.type, nil)
         }
         if let boost = update.chatBoost {
-            return (boost.chat.id, boost.chat.chatType, nil)
+            return (boost.chat.id, boost.chat.type, nil)
         }
         if let removedBoost = update.removedChatBoost {
-            return (removedBoost.chat.id, removedBoost.chat.chatType, nil)
+            return (removedBoost.chat.id, removedBoost.chat.type, nil)
         }
         if let deleted = update.deletedBusinessMessages {
-            return (deleted.chat.id, deleted.chat.chatType, nil)
+            return (deleted.chat.id, deleted.chat.type, nil)
         }
         if let query = update.inlineQuery {
             return (nil, nil, query.from.id)
@@ -145,7 +145,7 @@ struct TelerouteParsedUpdate: Sendable {
             return (nil, nil, paidMedia.from.id)
         }
         if let pollAnswer = update.pollAnswer {
-            return (pollAnswer.voterChat?.id, pollAnswer.voterChat?.chatType, pollAnswer.user?.id)
+            return (pollAnswer.voterChat?.id, pollAnswer.voterChat?.type, pollAnswer.user?.id)
         }
         if let connection = update.businessConnection {
             return (nil, nil, connection.user.id)

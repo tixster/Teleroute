@@ -1,6 +1,5 @@
 import Foundation
 import HTTPTypes
-import OpenAPIRuntime
 
 /// Outbound request throttle applied by the default ``TelegramBotClient``
 /// transport configuration.
@@ -20,9 +19,9 @@ public struct TelegramRateLimit: Sendable, Hashable {
     public static let `default` = TelegramRateLimit(requestsPerSecond: 30)
 }
 
-/// Token-bucket client middleware throttling every operation except
-/// `getUpdates`, so long polling is never starved by outbound sends.
-public struct TelegramRateLimitMiddleware: ClientMiddleware {
+/// Token-bucket middleware throttling every operation except `getUpdates`, so
+/// long polling is never starved by outbound sends.
+public struct TelegramRateLimitMiddleware: TelegramMiddleware {
     private let bucket: TelegramTokenBucket
 
     public init(limit: TelegramRateLimit) {
@@ -34,11 +33,11 @@ public struct TelegramRateLimitMiddleware: ClientMiddleware {
 
     public func intercept(
         _ request: HTTPRequest,
-        body: HTTPBody?,
+        body: Data?,
         baseURL: URL,
         operationID: String,
-        next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
-    ) async throws -> (HTTPResponse, HTTPBody?) {
+        next: @Sendable (HTTPRequest, Data?, URL) async throws -> (HTTPResponse, Data)
+    ) async throws -> (HTTPResponse, Data) {
         if operationID != "getUpdates" {
             try await self.bucket.acquire()
         }

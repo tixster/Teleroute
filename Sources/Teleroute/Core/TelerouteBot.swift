@@ -1,6 +1,5 @@
 import Foundation
 import Logging
-import OpenAPIRuntime
 import ServiceLifecycle
 import UnixSignals
 import Synchronization
@@ -60,12 +59,12 @@ public final class TelerouteBot: Sendable {
         logger: Logger,
         configuration: Configuration = .init(),
         mode: TelerouteBotMode = .polling,
-        transport: (any ClientTransport)? = nil,
+        transport: (any TelegramTransport)? = nil,
         rateLimit: TelegramRateLimit? = .default
     ) throws {
         let client: TelegramBotClient
         if let transport {
-            var middlewares: [any ClientMiddleware] = []
+            var middlewares: [any TelegramMiddleware] = []
             if let rateLimit {
                 middlewares.append(TelegramRateLimitMiddleware(limit: rateLimit))
             }

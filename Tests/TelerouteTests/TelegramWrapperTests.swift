@@ -1,14 +1,16 @@
 import Foundation
 import HTTPTypes
-import OpenAPIRuntime
 import Synchronization
 import Testing
 @_spi(Testing) @testable import Teleroute
 @testable import TelegramBotKit
 import TelerouteTestSupport
 
-/// Wire-level tests for the generated flat client wrappers — one per
-/// generation template (query, JSON body, multipart scalar/file/array parts).
+/// Wire-level tests for the generated flat client wrappers.
+///
+/// The client sends JSON unless a call actually uploads bytes, so these cover
+/// both sides of that one rule: the JSON body every ordinary call produces, and
+/// the multipart body an upload produces.
 @Suite struct TelegramWrapperTests {
     @Test func formerQueryOperationsPostJSONBodies() async throws {
         let capture = CapturingTransport(respond: { _, _ in
@@ -81,22 +83,42 @@ import TelerouteTestSupport
         #expect(String(decoding: parts["parse_mode"]!.body, as: UTF8.self) == "MarkdownV2")
     }
 
-    @Test func multipartTemplateSendsFileIDAsText() async throws {
+    @Test func fileIDArgumentGoesAsJSONWhenNothingIsUploaded() async throws {
         let capture = CapturingTransport(respond: { _, _ in
             try CapturingTransport.okJSON(Self.messageResultJSON)
         })
         let client = try TelegramBotClient(token: "1:test", transport: capture)
         try await client.sendPhoto(chatId: .id(1), photo: .fileID("AgAC-file"))
         let (request, body) = capture.captured.withLock { ($0!.request, $0!.body) }
+        // No bytes to upload, so multipart buys nothing and the file reference
+        // travels as an ordinary JSON string.
+        #expect(request.headerFields[.contentType] == "application/json")
+        let json = try JSONSerialization.jsonObject(with: body) as! [String: Any]
+        #expect(json["photo"] as? String == "AgAC-file")
+        #expect(json["chat_id"] as? Int == 1)
+    }
+
+    @Test func fileIDBecomesATextPartAlongsideAnUpload() async throws {
+        let capture = CapturingTransport(respond: { _, _ in
+            try CapturingTransport.okJSON(Self.messageResultJSON)
+        })
+        let client = try TelegramBotClient(token: "1:test", transport: capture)
+        try await client.sendAudio(
+            chatId: .id(1),
+            audio: .upload(filename: "song.mp3", data: Data("MP3".utf8)),
+            thumbnail: .fileID("AgAC-thumb")
+        )
+        let (request, body) = capture.captured.withLock { ($0!.request, $0!.body) }
         let parts = try TelerouteTestMultipart.parts(
             from: body,
             contentType: request.headerFields[.contentType] ?? ""
         )
-        #expect(String(decoding: parts["photo"]!.body, as: UTF8.self) == "AgAC-file")
-        #expect(parts["photo"]?.filename == nil)
+        #expect(String(decoding: parts["thumbnail"]!.body, as: UTF8.self) == "AgAC-thumb")
+        #expect(parts["thumbnail"]?.filename == nil)
+        #expect(parts["audio"]?.filename == "song.mp3")
     }
 
-    @Test func multipartArrayFieldIsOneJSONPart() async throws {
+    @Test func arrayFieldIsAJSONArrayInAJSONBody() async throws {
         let capture = CapturingTransport(respond: { _, _ in
             try CapturingTransport.okJSON(Self.messageResultJSON)
         })
@@ -107,18 +129,37 @@ import TelerouteTestSupport
             options: [.init(text: "Red"), .init(text: "Blue")]
         )
         let (request, body) = capture.captured.withLock { ($0!.request, $0!.body) }
+        #expect(request.headerFields[.contentType] == "application/json")
+        let json = try JSONSerialization.jsonObject(with: body) as! [String: Any]
+        let options = json["options"] as! [[String: Any]]
+        #expect(options.map { $0["text"] as? String } == ["Red", "Blue"])
+        #expect(json["question"] as? String == "Best color?")
+    }
+
+    @Test func arrayFieldIsOneJSONPartWhenUploading() async throws {
+        let capture = CapturingTransport(respond: { _, _ in
+            try CapturingTransport.okJSON(Self.messageResultJSON)
+        })
+        let client = try TelegramBotClient(token: "1:test", transport: capture)
+        try await client.sendPhoto(
+            chatId: .id(1),
+            photo: .upload(filename: "pic.png", data: Data("PNG".utf8)),
+            caption: "hi",
+            captionEntities: [.init(type: .bold, offset: 0, length: 2)]
+        )
+        let (request, body) = capture.captured.withLock { ($0!.request, $0!.body) }
         let parts = try TelerouteTestMultipart.parts(
             from: body,
             contentType: request.headerFields[.contentType] ?? ""
         )
-        let options = try JSONSerialization.jsonObject(
-            with: parts["options"]!.body
+        // Telegram rejects repeated parts, so an array becomes one JSON part.
+        let entities = try JSONSerialization.jsonObject(
+            with: parts["caption_entities"]!.body
         ) as! [[String: Any]]
-        #expect(options.map { $0["text"] as? String } == ["Red", "Blue"])
-        #expect(String(decoding: parts["question"]!.body, as: UTF8.self) == "Best color?")
+        #expect(entities.first?["type"] as? String == "bold")
     }
 
-    @Test func answerInlineQuerySendsResultsAsOneJSONPart() async throws {
+    @Test func answerInlineQuerySendsResultsAsAJSONArray() async throws {
         let capture = CapturingTransport(respond: { _, _ in
             try CapturingTransport.okJSON(#"{"ok":true,"result":true}"#)
         })
@@ -126,22 +167,16 @@ import TelerouteTestSupport
         try await client.answerInlineQuery(
             inlineQueryId: "iq1",
             results: [
-                .InlineQueryResultArticle(.init(
-                    _type: "article",
-                    id: "1",
+                .InlineQueryResultArticle(.init(                    id: "1",
                     title: "Hello",
                     inputMessageContent: .InputTextMessageContent(.init(messageText: "hi"))
                 )),
             ]
         )
         let (request, body) = capture.captured.withLock { ($0!.request, $0!.body) }
-        let parts = try TelerouteTestMultipart.parts(
-            from: body,
-            contentType: request.headerFields[.contentType] ?? ""
-        )
-        let results = try JSONSerialization.jsonObject(
-            with: parts["results"]!.body
-        ) as! [[String: Any]]
+        #expect(request.headerFields[.contentType] == "application/json")
+        let json = try JSONSerialization.jsonObject(with: body) as! [String: Any]
+        let results = json["results"] as! [[String: Any]]
         #expect(results.first?["type"] as? String == "article")
         #expect(results.first?["title"] as? String == "Hello")
     }
@@ -157,11 +192,11 @@ import TelerouteTestSupport
                 var response = HTTPResponse(status: .tooManyRequests)
                 response.headerFields[.contentType] = "application/json"
                 let body = #"{"ok":false,"error_code":429,"description":"flood","parameters":{"retry_after":0}}"#
-                return (response, HTTPBody(Data(body.utf8)))
+                return (response, Data(body.utf8))
             }
             var response = HTTPResponse(status: .ok)
             response.headerFields[.contentType] = "application/json"
-            return (response, HTTPBody(Data(#"{"ok":true,"result":true}"#.utf8)))
+            return (response, Data(#"{"ok":true,"result":true}"#.utf8))
         }
         let client = try TelegramBotClient(
             token: "1:test",
@@ -198,49 +233,46 @@ import TelerouteTestSupport
 }
 
 /// Captures the last request + collected body while serving a scripted response.
-private final class CapturingTransport: ClientTransport, @unchecked Sendable {
+private final class CapturingTransport: TelegramTransport, @unchecked Sendable {
     struct Captured {
         let request: HTTPRequest
         let body: Data
     }
 
     let captured = Mutex<Captured?>(nil)
-    private let respond: @Sendable (HTTPRequest, Data) throws -> (HTTPResponse, HTTPBody?)
+    private let respond: @Sendable (HTTPRequest, Data) throws -> (HTTPResponse, Data)
 
-    init(respond: @escaping @Sendable (HTTPRequest, Data) throws -> (HTTPResponse, HTTPBody?)) {
+    init(respond: @escaping @Sendable (HTTPRequest, Data) throws -> (HTTPResponse, Data)) {
         self.respond = respond
     }
 
     func send(
         _ request: HTTPRequest,
-        body: HTTPBody?,
+        body: Data?,
         baseURL: URL,
         operationID: String
-    ) async throws -> (HTTPResponse, HTTPBody?) {
-        var data = Data()
-        if let body {
-            data = try await Data(collecting: body, upTo: 10 * 1024 * 1024)
-        }
+    ) async throws -> (HTTPResponse, Data) {
+        let data = body ?? Data()
         self.captured.withLock { $0 = Captured(request: request, body: data) }
         return try self.respond(request, data)
     }
 
-    static func okJSON(_ json: String) throws -> (HTTPResponse, HTTPBody?) {
+    static func okJSON(_ json: String) throws -> (HTTPResponse, Data) {
         var response = HTTPResponse(status: .ok)
         response.headerFields[.contentType] = "application/json"
-        return (response, HTTPBody(Data(json.utf8)))
+        return (response, Data(json.utf8))
     }
 }
 
-private struct ScriptedFloodTransport: ClientTransport {
-    let respond: @Sendable (String) -> (HTTPResponse, HTTPBody?)
+private struct ScriptedFloodTransport: TelegramTransport {
+    let respond: @Sendable (String) -> (HTTPResponse, Data)
 
     func send(
         _ request: HTTPRequest,
-        body: HTTPBody?,
+        body: Data?,
         baseURL: URL,
         operationID: String
-    ) async throws -> (HTTPResponse, HTTPBody?) {
+    ) async throws -> (HTTPResponse, Data) {
         self.respond(operationID)
     }
 }

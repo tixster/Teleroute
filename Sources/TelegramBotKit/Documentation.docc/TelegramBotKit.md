@@ -8,7 +8,7 @@ A standalone, fully typed Telegram Bot API client with production-grade rate lim
 complete Telegram client on its own for projects that don't need routing.
 
 ``TelegramBotClient`` exposes one flat, fully typed method per Bot API
-operation (185 operations), generated from an OpenAPI specification:
+operation (185 operations), generated from Telegram's own documentation:
 
 ```swift
 import TelegramBotKit
@@ -42,8 +42,15 @@ do {
 }
 ```
 
-The raw generated surface stays reachable via ``TelegramBotClient/api``
-(`import TelegramBotAPI` for the `Components`/`Operations` namespaces).
+Anything Telegram ships before Teleroute regenerates is still reachable
+through ``TelegramBotClient/call(_:_:as:)``:
+
+```swift
+let result: SomeNewType = try await client.call(
+    "someNewMethod",
+    ["chat_id": chatId]
+)
+```
 
 ### Built-In Policies
 
@@ -57,10 +64,11 @@ configurable or removable; see <doc:ClientPolicies>:
 
 ### Vocabulary
 
-The Bot API model types are re-published under stable, prefix-free names —
-``Update``, ``Message``, ``User``, ``Chat``, ``ChatId``, and friends — plus
-hand-written enums for spec-untyped strings (``ParseMode``, ``ChatType``,
-``ChatAction``) and ergonomic helpers:
+The Bot API model types carry their own names — `Update`, `Message`, `User`,
+`Chat`, `ChatId`, and the rest — generated into `TelegramBotAPI` and re-exported
+from here, so importing this module is enough. Alongside them are hand-written
+enums for the strings the documentation leaves untyped (``ParseMode``,
+``ChatType``, ``ChatAction``) and ergonomic helpers:
 
 ```swift
 let a: ChatId = 123            // integer literal → numeric id
@@ -72,6 +80,8 @@ let markup: ReplyMarkup = .inline(InlineKeyboardMarkup(rows: [[button]]))
 
 ``UpdateKind`` enumerates every update payload kind, and ``FileInput``
 describes file arguments (`.fileID` / `.url` / `.upload(filename:data:)`).
+`BotAPIVersion.version` reports which Bot API revision the model types were
+generated from.
 
 ## Topics
 

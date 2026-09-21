@@ -1,6 +1,5 @@
 import Foundation
 import HTTPTypes
-import OpenAPIRuntime
 import TelegramBotAPI
 
 /// Bounded automatic retry policy for flood-limited (HTTP 429) requests.
@@ -22,20 +21,19 @@ public struct TelegramFloodWaitPolicy: Sendable, Hashable {
 /// Client middleware that retries 429 responses after Telegram's
 /// `retry_after` interval. Never applied to `getUpdates`, and only when the
 /// request body is replayable.
-struct TelegramFloodWaitRetryMiddleware: ClientMiddleware {
-    private static let maximumErrorBodyBytes = 16 * 1024
-
+struct TelegramFloodWaitRetryMiddleware: TelegramMiddleware {
     let policy: TelegramFloodWaitPolicy
 
     func intercept(
         _ request: HTTPRequest,
-        body: HTTPBody?,
+        body: Data?,
         baseURL: URL,
         operationID: String,
-        next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
-    ) async throws -> (HTTPResponse, HTTPBody?) {
-        guard operationID != "getUpdates",
-              body == nil || body?.iterationBehavior == .multiple else {
+        next: @Sendable (HTTPRequest, Data?, URL) async throws -> (HTTPResponse, Data)
+    ) async throws -> (HTTPResponse, Data) {
+        // Long polling is exempt: a 429 there is answered by backing off the
+        // poll loop, not by replaying the same wait.
+        guard operationID != "getUpdates" else {
             return try await next(request, body, baseURL)
         }
 
@@ -45,19 +43,14 @@ struct TelegramFloodWaitRetryMiddleware: ClientMiddleware {
             guard response.status.code == 429, attempt < self.policy.maxRetries else {
                 return (response, responseBody)
             }
-
-            var bufferedBody: HTTPBody?
-            var retryAfter: Duration?
-            if let responseBody {
-                let data = try await Data(collecting: responseBody, upTo: Self.maximumErrorBodyBytes)
-                bufferedBody = HTTPBody(data)
-                if let decoded = try? JSONDecoder().decode(Components.Schemas._Error.self, from: data),
-                   let seconds = decoded.parameters?.retryAfter {
-                    retryAfter = .seconds(seconds)
-                }
-            }
-            guard let retryAfter, retryAfter <= self.policy.maxWait else {
-                return (response, bufferedBody)
+            guard let decoded = try? JSONDecoder().decode(
+                TelegramErrorEnvelope.self, from: responseBody
+            ),
+                let seconds = decoded.parameters?.retryAfter,
+                case let retryAfter = Duration.seconds(seconds),
+                retryAfter <= self.policy.maxWait
+            else {
+                return (response, responseBody)
             }
 
             attempt += 1

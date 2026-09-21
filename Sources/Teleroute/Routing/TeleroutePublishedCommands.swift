@@ -50,22 +50,22 @@ public enum TelerouteCommandScope: Hashable, Sendable {
     func telegramScope() -> BotCommandScope {
         switch self {
         case .default:
-            return ._default(.init(_type: "default"))
+            return ._default(.init())
         case .allPrivateChats:
-            return .allPrivateChats(.init(_type: "all_private_chats"))
+            return .allPrivateChats(.init())
         case .allGroupChats:
-            return .allGroupChats(.init(_type: "all_group_chats"))
+            return .allGroupChats(.init())
         case .allChatAdministrators:
-            return .allChatAdministrators(.init(_type: "all_chat_administrators"))
+            return .allChatAdministrators(.init())
         case let .chat(chat):
-            return .chat(.init(_type: "chat", chatId: chat.telegramChatID()))
+            return .chat(.init(chatId: chat.telegramChatID()))
         case let .chatAdministrators(chat):
             return .chatAdministrators(
-                .init(_type: "chat_administrators", chatId: chat.telegramChatID())
+                .init(chatId: chat.telegramChatID())
             )
         case let .chatMember(chat, userID):
             return .chatMember(
-                .init(_type: "chat_member", chatId: chat.telegramChatID(), userId: userID)
+                .init(chatId: chat.telegramChatID(), userId: userID)
             )
         }
     }

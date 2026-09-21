@@ -1,12 +1,12 @@
 import Foundation
-import OpenAPIRuntime
 import TelegramBotAPI
 
 /// Error returned by the Telegram Bot API for a non-success response.
 ///
-/// The OpenAPI specification documents only successful responses, so every
-/// API-level failure surfaces as an undocumented response; this type carries
-/// the decoded Telegram error payload when one was present.
+/// Telegram answers every call with the same envelope, so a failure is just
+/// `ok: false` alongside an error code and description. This type carries that
+/// payload, plus the `retry_after` and `migrate_to_chat_id` hints Telegram
+/// attaches to the two failures worth reacting to programmatically.
 public struct TelegramAPIError: Error, Sendable, Hashable {
     /// The Telegram Bot API method that failed, e.g. `sendMessage`.
     public let operation: String
@@ -52,18 +52,13 @@ extension TelegramAPIError: CustomStringConvertible {
 }
 
 extension TelegramAPIError {
-    private static let maximumErrorBodyBytes = 16 * 1024
-
-    /// Builds an error from an undocumented response, decoding Telegram's
-    /// error payload when the body carries one.
-    static func undocumented(
-        operation: String,
-        statusCode: Int,
-        payload: OpenAPIRuntime.UndocumentedPayload
-    ) async -> TelegramAPIError {
-        guard let body = payload.body,
-              let data = try? await Data(collecting: body, upTo: Self.maximumErrorBodyBytes),
-              let decoded = try? JSONDecoder().decode(Components.Schemas._Error.self, from: data) else {
+    /// Builds an error from a response body, decoding Telegram's error payload
+    /// when the body carries one.
+    ///
+    /// A body that cannot be decoded still yields a usable error: the operation
+    /// and the HTTP status are always known.
+    static func from(operation: String, statusCode: Int, data: Data) -> TelegramAPIError {
+        guard let decoded = try? JSONDecoder().decode(TelegramErrorEnvelope.self, from: data) else {
             return TelegramAPIError(operation: operation, statusCode: statusCode)
         }
         return TelegramAPIError(

@@ -103,7 +103,7 @@ public extension TelerouteRoutes {
 
 /// One reply-keyboard button with chainable request options.
 public struct KeyButton: Sendable {
-    var button: Components.Schemas.KeyboardButton
+    var button: KeyboardButton
 
     public init(_ text: String) {
         self.button = .init(text: text)

@@ -2,7 +2,7 @@
 
 ## Targets And Commands
 
-- Package: SwiftPM, Swift 6 language mode, Swift tools 6.3, macOS 15+.
+- Package: SwiftPM, Swift 6 language mode, Swift tools 6.4, macOS 15+.
 - Library target: `Sources/Teleroute`.
 - Optional macro declaration target: `Sources/TelerouteMacros`; compiler plugin: `Sources/TelerouteMacroPlugin`.
 - Example executable: `Sources/TelerouteExample`.
@@ -12,12 +12,15 @@
 
 ## Source Areas
 
-- `Sources/TelegramBotAPI/Generated`: committed swift-openapi-generator output (Telegram Bot API types + client). Regenerate with `Scripts/generate-api.sh`; never edit by hand. Spec, patch script, and workflow live in `openapi/`.
-- `Telegram/TelegramVocabulary.swift`: prefix-free public typealiases over `Components.Schemas.*` plus Teleroute-owned `ParseMode`, `ChatType`, `ChatAction`, `FileInput`, and ergonomics extensions (`ChatId.id/.username`, `ReplyMarkup.inline`, `MaybeInaccessibleMessage.accessibleMessage`).
-- `Telegram/TelegramBotClient.swift`: the client wrapper — generated `api: any APIProtocol` escape hatch, token/transport construction, typed convenience methods unwrapping the `{ok, result}` envelope.
-- `Telegram/TelegramAPIError.swift`: error decoded from undocumented (non-200) responses.
-- `Telegram/TelegramLongPollingConnection.swift`: owned `getUpdates` loop with offset tracking, jittered backoff, webhook cleanup, cancellation.
-- `Telegram/TelegramRateLimit.swift`: token-bucket `ClientMiddleware` (default 30 req/s, `getUpdates` exempt).
+- `Sources/TelegramBotAPI/Generated`: every documented Bot API type under a flat top-level name, one file per type, foldered by documentation section (`AvailableTypes/`, `RichMessages/`, …; `Values/` holds enums recovered from field descriptions, `Shared/` the unions Telegram only spells out inline). Generated from `botapi/telegram-bot-api.html` by `Tooling/BotAPIGen`, a dev-only package outside the main graph (`swift test --package-path Tooling/BotAPIGen`). Regenerate with `Scripts/generate-api.sh`; never edit by hand.
+- `Sources/TelegramBotKit/Generated`: the 185 flat client methods plus `UpdateKind`, from the same snapshot.
+- `Sources/TelegramBotKit/TelegramVocabulary.swift`: re-exports `TelegramBotAPI` and adds Teleroute-owned `ParseMode`, `ChatType`, `ChatAction`, `FileInput`, plus ergonomics extensions (`ChatId.id/.username`, `ReplyMarkup.inline`, `MaybeInaccessibleMessage.accessibleMessage`).
+- `Sources/TelegramBotKit/TelegramBotClient.swift`: transport and middleware chaining, envelope unwrapping, the `call(_:_:as:)` escape hatch for methods newer than the snapshot.
+- `Sources/TelegramBotKit/TelegramRequest.swift`, `TelegramRequestEncoder.swift`, `TelegramResponse.swift`: request building, JSON/multipart encoding (multipart only when a call uploads bytes), and `{ok, result}` envelope decoding.
+- `Sources/TelegramBotKit/TelegramAPIError.swift`: error decoded from Telegram's `ok: false` envelope.
+- `Sources/Teleroute/Telegram/TelegramLongPollingConnection.swift`: owned `getUpdates` loop with offset tracking, jittered backoff, webhook cleanup, cancellation.
+- `Sources/TelegramBotKit/TelegramTransport.swift`: the `TelegramTransport` / `TelegramMiddleware` protocols (HTTPTypes request, `Data` body); `AsyncHTTPClientTelegramTransport.swift` is the default implementation.
+- `Sources/TelegramBotKit/TelegramRateLimit.swift`: token-bucket `TelegramMiddleware` (default 30 req/s, `getUpdates` exempt).
 - `Core/TelerouteBot.swift`: public routed-bot lifecycle, command publishing delegation, event streams, in-process test client, and graceful shutdown.
 - `Core/TelerouteConfiguration.swift`: public runtime dependencies and policies.
 - `Core/TelerouteRuntime.swift`: test-SPI runtime owning the update pipeline: processing order, event emission, error handling, metrics, and replay protection.
@@ -83,7 +86,7 @@
 ## Test Patterns
 
 - Keep tests in `Tests/TelerouteTests` and prefer Swift Testing.
-- Shared fixtures live in `TelerouteTestSupport`; reuse `makeClient`, `makeTelerouteBot`, `makeCommandUpdate`, `makeMessageUpdate`, `makeCallbackUpdate`, `TelerouteTestRecorder`, mock flow storage, fake `ClientTransport` implementations, and command publishing recorders.
+- Shared fixtures live in `TelerouteTestSupport`; reuse `makeClient`, `makeTelerouteBot`, `makeCommandUpdate`, `makeMessageUpdate`, `makeCallbackUpdate`, `TelerouteTestRecorder`, mock flow storage, fake `TelegramTransport` implementations, and command publishing recorders.
 - `TelerouteStageBTests.swift` covers guards and built-in middleware.
 - `TelerouteStageETests.swift` covers keyboard descriptions, pagination, metrics, and route scopes.
 - `TelerouteMacroTests.swift` covers public macros.

@@ -74,17 +74,17 @@ public extension TelerouteRequestContext {
     var flowKey: TelerouteFlowKey? { self.coreContext.flowKey }
 
     /// Typed update payload accessors.
-    var inlineQuery: Components.Schemas.InlineQuery? { self.update.inlineQuery }
-    var chosenInlineResult: Components.Schemas.ChosenInlineResult? { self.update.chosenInlineResult }
-    var shippingQuery: Components.Schemas.ShippingQuery? { self.update.shippingQuery }
-    var preCheckoutQuery: Components.Schemas.PreCheckoutQuery? { self.update.preCheckoutQuery }
-    var chatMemberUpdated: Components.Schemas.ChatMemberUpdated? {
+    var inlineQuery: InlineQuery? { self.update.inlineQuery }
+    var chosenInlineResult: ChosenInlineResult? { self.update.chosenInlineResult }
+    var shippingQuery: ShippingQuery? { self.update.shippingQuery }
+    var preCheckoutQuery: PreCheckoutQuery? { self.update.preCheckoutQuery }
+    var chatMemberUpdated: ChatMemberUpdated? {
         self.update.chatMember ?? self.update.myChatMember
     }
-    var chatJoinRequest: Components.Schemas.ChatJoinRequest? { self.update.chatJoinRequest }
-    var messageReaction: Components.Schemas.MessageReactionUpdated? { self.update.messageReaction }
-    var poll: Components.Schemas.Poll? { self.update.poll }
-    var pollAnswer: Components.Schemas.PollAnswer? { self.update.pollAnswer }
+    var chatJoinRequest: ChatJoinRequest? { self.update.chatJoinRequest }
+    var messageReaction: MessageReactionUpdated? { self.update.messageReaction }
+    var poll: Poll? { self.update.poll }
+    var pollAnswer: PollAnswer? { self.update.pollAnswer }
 }
 
 // MARK: - Target resolution

@@ -12,13 +12,13 @@ public struct TelerouteButton: Sendable {
 
     private let text: String
     private let iconCustomEmojiId: String?
-    private let style: String?
+    private let style: KeyboardButtonStyle?
     private let destination: Destination
 
     private init(
         text: String,
         iconCustomEmojiId: String?,
-        style: String?,
+        style: KeyboardButtonStyle?,
         destination: Destination
     ) {
         self.text = text
@@ -31,7 +31,7 @@ public struct TelerouteButton: Sendable {
         _ text: String,
         _ callback: any TelerouteCallback,
         iconCustomEmojiId: String? = nil,
-        style: String? = nil
+        style: KeyboardButtonStyle? = nil
     ) -> Self {
         .init(
             text: text,
@@ -46,7 +46,7 @@ public struct TelerouteButton: Sendable {
         _ callback: any TelerouteCallback,
         binding: TelerouteCallbackRouteBinding,
         iconCustomEmojiId: String? = nil,
-        style: String? = nil
+        style: KeyboardButtonStyle? = nil
     ) -> Self {
         .init(
             text: text,
@@ -98,7 +98,7 @@ public struct TelerouteButton: Sendable {
     }
 
     /// A Telegram Login widget button.
-    public static func loginUrl(_ text: String, _ loginUrl: Components.Schemas.LoginUrl) -> Self {
+    public static func loginUrl(_ text: String, _ loginUrl: LoginUrl) -> Self {
         .raw(.init(text: text, loginUrl: loginUrl))
     }
 
@@ -132,7 +132,7 @@ public extension TelerouteCallback {
     func button(
         _ text: String,
         iconCustomEmojiId: String? = nil,
-        style: String? = nil
+        style: KeyboardButtonStyle? = nil
     ) -> TelerouteButton {
         .callback(
             text,

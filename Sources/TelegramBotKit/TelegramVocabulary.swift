@@ -1,32 +1,10 @@
 import Foundation
-import TelegramBotAPI
 
-// MARK: - Public vocabulary
-
-/// Telegram Bot API model types re-published under stable, prefix-free names.
-///
-/// The underlying types are generated from the OpenAPI specification into the
-/// `TelegramBotAPI` module; import that module directly to reach the full
-/// `Components`/`Operations` surface.
-public typealias Update = Components.Schemas.Update
-public typealias Message = Components.Schemas.Message
-public typealias User = Components.Schemas.User
-public typealias Chat = Components.Schemas.Chat
-public typealias CallbackQuery = Components.Schemas.CallbackQuery
-public typealias MaybeInaccessibleMessage = Components.Schemas.MaybeInaccessibleMessage
-public typealias MessageEntity = Components.Schemas.MessageEntity
-public typealias BotCommand = Components.Schemas.BotCommand
-public typealias BotCommandScope = Components.Schemas.BotCommandScope
-public typealias ChatMember = Components.Schemas.ChatMember
-public typealias ChatId = Components.Schemas.ChatId
-public typealias ReplyMarkup = Components.Schemas.ReplyMarkup
-public typealias InlineKeyboardMarkup = Components.Schemas.InlineKeyboardMarkup
-public typealias InlineKeyboardButton = Components.Schemas.InlineKeyboardButton
-public typealias ReplyKeyboardMarkup = Components.Schemas.ReplyKeyboardMarkup
-public typealias ReplyKeyboardRemove = Components.Schemas.ReplyKeyboardRemove
-public typealias ForceReply = Components.Schemas.ForceReply
-public typealias InputMedia = Components.Schemas.InputMedia
-public typealias MediaGroupInputMedia = Components.Schemas.MediaGroupInputMedia
+// The model layer is generated from the Telegram Bot API documentation into the
+// `TelegramBotAPI` module under flat, prefix-free names. Re-exporting it means
+// `import TelegramBotKit` — and, through it, `import Teleroute` — brings
+// `Message`, `Update`, `ChatId` and the rest into scope directly.
+@_exported import TelegramBotAPI
 
 // MARK: - Teleroute-owned enums for spec-untyped strings
 
@@ -35,15 +13,6 @@ public enum ParseMode: String, Sendable, Hashable {
     case markdownV2 = "MarkdownV2"
     case html = "HTML"
     case markdown = "Markdown"
-}
-
-/// Telegram chat type. The specification models `Chat.type` as a plain string;
-/// this enum provides the documented values.
-public enum ChatType: String, Sendable, Hashable {
-    case `private`
-    case group
-    case supergroup
-    case channel
 }
 
 /// Telegram chat actions accepted by `sendChatAction`.
@@ -141,13 +110,6 @@ public extension InlineKeyboardMarkup {
     }
 }
 
-public extension Chat {
-    /// `Chat.type` decoded into the documented value set.
-    var chatType: ChatType? {
-        ChatType(rawValue: self._type)
-    }
-}
-
 public extension MaybeInaccessibleMessage {
     /// The backing message when it is still accessible to the bot.
     ///
@@ -176,6 +138,6 @@ public extension MaybeInaccessibleMessage {
 public extension MessageEntity {
     /// A `bot_command` entity covering `length` characters at `offset`.
     static func botCommand(offset: Int64, length: Int64) -> Self {
-        .init(_type: "bot_command", offset: offset, length: length)
+        .init(type: .botCommand, offset: offset, length: length)
     }
 }

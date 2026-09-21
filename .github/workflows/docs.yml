@@ -25,14 +25,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Pull Swift Docker Image
-        run: docker pull swift:6.3
+        run: docker pull swift:6.4
 
       - name: Build Documentation
         run: |
           docker run --rm \
             -v "$GITHUB_WORKSPACE":/workspace \
             -w /workspace \
-            swift:6.3 \
+            swift:6.4 \
             swift package --allow-writing-to-directory /workspace/docs-out \
               generate-documentation \
               --target Teleroute \

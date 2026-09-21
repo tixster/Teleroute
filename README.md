@@ -3,7 +3,7 @@
 [![Linux CI](https://github.com/tixster/Teleroute/actions/workflows/linux-ci.yml/badge.svg?branch=main)](https://github.com/tixster/Teleroute/actions/workflows/linux-ci.yml)
 [![Documentation](https://img.shields.io/badge/Documentation-DocC-blue)](https://tixster.github.io/Teleroute/documentation/teleroute/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/tixster/Teleroute/blob/main/LICENSE)
-[![Swift 6.3](https://img.shields.io/badge/Swift-6.3-F05138?logo=swift&logoColor=white)](https://swift.org)
+[![Swift 6.4](https://img.shields.io/badge/Swift-6.4-F05138?logo=swift&logoColor=white)](https://swift.org)
 
 Teleroute is a route-style Swift framework for the Telegram Bot API, designed
 after Hummingbird 2:
@@ -13,8 +13,8 @@ after Hummingbird 2:
   conforms to `Service` (swift-service-lifecycle);
 - handlers return any `TelerouteResponseGenerator` — a `String`, a chainable
   `Reply(...)`, a full `TelerouteResponse`, or `.unhandled` to fall through;
-- **the entire Bot API** ships as typed flat methods (185 operations) generated
-  from an OpenAPI specification, plus the raw generated client underneath.
+- **the entire Bot API** ships as typed flat methods (185 operations) and flat
+  model types, generated directly from Telegram's own documentation.
 
 ```swift
 import Teleroute
@@ -52,7 +52,7 @@ try await bot.runService()   // SIGTERM/SIGINT → graceful drain + shutdown
 
 ## Requirements
 
-- Swift 6.3
+- Swift 6.4
 - macOS 15+
 
 ## Installation
@@ -85,13 +85,15 @@ Additional products:
 - `TelegramBotKit` — the standalone Telegram client (vocabulary types,
   `TelegramBotClient` with all 185 flat methods, rate limiting, flood-wait
   retry, per-chat pacing) without the router;
-- `TelegramBotAPI` — the raw OpenAPI-generated types and client;
+- `TelegramBotAPI` — every documented Bot API type, under its own name
+  (`Message`, `ChatMember`, `ChatId`, …);
 - `TelerouteHummingbird` — webhook integration for Hummingbird 2 apps.
 
 ## The Client: the Whole Bot API
 
 `TelegramBotClient` exposes one flat, fully typed method per Bot API operation,
-generated from the OpenAPI spec (see [openapi/README.md](openapi/README.md)):
+generated from a committed snapshot of Telegram's documentation
+(see [botapi/README.md](botapi/README.md)):
 
 ```swift
 try await context.bot.sendPoll(
@@ -109,8 +111,12 @@ try await context.bot.sendVideo(
 
 Every method unwraps Telegram's `{ok, result}` envelope; failures throw
 `TelegramAPIError` with the decoded `error_code`, `description`, and
-`retry_after`. The raw generated surface stays reachable via `context.bot.api`
-(`import TelegramBotAPI` for the `Components`/`Operations` namespaces).
+`retry_after`. Anything Telegram ships before Teleroute regenerates is still
+reachable through `context.bot.call("someNewMethod", ["chat_id": 1])`.
+
+Model types are plain structs and enums under their own names — `Message`,
+`Update`, `ChatMember`, `ChatId` — in scope from `import Teleroute`.
+`BotAPIVersion.version` reports which Bot API revision they were generated from.
 
 Built-in client policies (all configurable on `TelegramBotClient` /
 `TelerouteBot` initializers):

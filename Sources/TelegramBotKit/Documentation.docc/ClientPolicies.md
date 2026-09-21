@@ -32,8 +32,8 @@ TelegramRateLimit(requestsPerSecond: 30)             // Telegram's documented li
 TelegramRateLimit(requestsPerSecond: 20, burst: 40)  // custom sustained + burst
 ```
 
-The policy is implemented as ``TelegramRateLimitMiddleware``, an OpenAPI
-client middleware — reuse it when constructing a client over a custom
+The policy is implemented as ``TelegramRateLimitMiddleware``, a
+``TelegramMiddleware`` — reuse it when constructing a client over a custom
 transport.
 
 ### Flood-Wait Retry
@@ -69,7 +69,7 @@ Pacing is applied by the generated wrappers for every operation that carries a
 
 ### Custom Transports and Middlewares
 
-The designated initializer accepts any OpenAPI `ClientTransport` and
+The designated initializer accepts any ``TelegramTransport`` and
 middleware stack — the seam used by proxies, custom HTTP clients, and the
 in-process test transports:
 

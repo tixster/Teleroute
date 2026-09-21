@@ -1,6 +1,5 @@
 import Foundation
 import HTTPTypes
-import OpenAPIRuntime
 import Synchronization
 import Testing
 @_spi(Testing) @testable import Teleroute
@@ -20,7 +19,7 @@ import Testing
             """
             var response = HTTPResponse(status: .tooManyRequests)
             response.headerFields[.contentType] = "application/json"
-            return (response, HTTPBody(Data(body.utf8)))
+            return (response, Data(body.utf8))
         }
         let client = try TelegramBotClient(token: "1:test", transport: transport)
 
@@ -38,7 +37,7 @@ import Testing
 
     @Test func undocumentedErrorWithoutBodyStillCarriesStatusCode() async throws {
         let transport = ScriptedTransport { _, _, _ in
-            (HTTPResponse(status: .badGateway), nil)
+            (HTTPResponse(status: .badGateway), Data())
         }
         let client = try TelegramBotClient(token: "1:test", transport: transport)
 
@@ -163,7 +162,7 @@ import Testing
     }
 
     @Test func maybeInaccessibleMessageTreatsZeroDateAsInaccessible() throws {
-        let chat = Chat(id: 1, _type: ChatType.private.rawValue)
+        let chat = Chat(id: 1, type: .private)
         let accessible = Message(messageId: 1, date: 100, chat: chat)
         let inaccessible = Message(messageId: 2, date: 0, chat: chat)
 
@@ -172,10 +171,9 @@ import Testing
         #expect(MaybeInaccessibleMessage.Message(inaccessible).chat.id == 1)
     }
 
-    private static func bodyValue(_ body: HTTPBody?, name: String) async throws -> Int64? {
-        guard let body else { return nil }
-        let data = try await Data(collecting: body, upTo: 1024 * 1024)
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+    private static func bodyValue(_ body: Data?, name: String) throws -> Int64? {
+        guard let body, !body.isEmpty else { return nil }
+        let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
         return (json?[name] as? NSNumber)?.int64Value
     }
 }
@@ -184,31 +182,31 @@ private enum TelerouteTestScriptError: Error {
     case simulatedOutage
 }
 
-private struct ScriptedTransport: ClientTransport {
+private struct ScriptedTransport: TelegramTransport {
     let handler: @Sendable (
-        HTTPRequest, HTTPBody?, String
-    ) async throws -> (HTTPResponse, HTTPBody?)
+        HTTPRequest, Data?, String
+    ) async throws -> (HTTPResponse, Data)
 
     init(
         handler: @escaping @Sendable (
-            HTTPRequest, HTTPBody?, String
-        ) async throws -> (HTTPResponse, HTTPBody?)
+            HTTPRequest, Data?, String
+        ) async throws -> (HTTPResponse, Data)
     ) {
         self.handler = handler
     }
 
     func send(
         _ request: HTTPRequest,
-        body: HTTPBody?,
+        body: Data?,
         baseURL: URL,
         operationID: String
-    ) async throws -> (HTTPResponse, HTTPBody?) {
+    ) async throws -> (HTTPResponse, Data) {
         try await self.handler(request, body, operationID)
     }
 
-    static func okJSON(_ json: String) throws -> (HTTPResponse, HTTPBody?) {
+    static func okJSON(_ json: String) throws -> (HTTPResponse, Data) {
         var response = HTTPResponse(status: .ok)
         response.headerFields[.contentType] = "application/json"
-        return (response, HTTPBody(Data(json.utf8)))
+        return (response, Data(json.utf8))
     }
 }

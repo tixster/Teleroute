@@ -48,7 +48,7 @@ import TelerouteTestSupport
     let rootRoute = router.callback(PublicV2Callback.self) { _, _ in }
     let nestedRoute = router.group("nested").callback(PublicV2Callback.self) { _, _ in }
     let callback = PublicV2Callback(value: "42")
-    let description = rootRoute.button(callback, "Open", style: "primary")
+    let description = rootRoute.button(callback, "Open", style: .primary)
     let pagination = TeleroutePagination.navigationRow(rootRoute, page: 0, pageCount: 2) { page in
         PublicV2Callback(value: "page-\(page)")
     }
@@ -62,7 +62,7 @@ import TelerouteTestSupport
     #expect(keyboard.inlineKeyboard[0][0].callbackData == "public/42")
     #expect(keyboard.inlineKeyboard[1][0].callbackData == "public/page-1")
     #expect(button.callbackData == "public/42")
-    #expect(button.style == "primary")
+    #expect(button.style == .primary)
     #expect(nestedButton.callbackData == "nested/public/nested")
     #expect(try rootRoute.callbackData(for: callback) == "public/42")
 }
@@ -363,4 +363,40 @@ private struct PublicV2Routes: TelerouteRouteCollection {
         }
         return .init(action: action)
     }
+}
+
+/// The generated model types must be reachable from a bare `import Teleroute`,
+/// with no `import TelegramBotAPI` in sight.
+///
+/// This is the assertion guarding the `@_exported import TelegramBotAPI` in
+/// `TelegramVocabulary.swift`. Before the move to flat names, 19 typealiases
+/// did that job; if the re-export is ever dropped, every downstream file that
+/// names `Message` or `Update` stops compiling, and this test is what catches
+/// it first. Note the deliberate absence of a `TelegramBotAPI` import above.
+@Test func publicModelTypesAreVisibleFromTelerouteAlone() {
+    let chat = Chat(id: 1, type: .private)
+    var message = Message(messageId: 10, date: 0, chat: chat, text: "hi")
+    message.replyToMessage = Message(messageId: 9, date: 0, chat: chat)
+
+    let update = Update(updateId: 1, message: message)
+    #expect(update.kind == .message)
+    #expect(update.message?.replyToMessage?.messageId == 9)
+
+    let target: ChatId = .id(1)
+    #expect(target.int64Value == 1)
+
+    let markup: ReplyMarkup = .inline(InlineKeyboardMarkup(rows: []))
+    guard case .InlineKeyboardMarkup = markup else {
+        Issue.record("expected .InlineKeyboardMarkup, got \(markup)")
+        return
+    }
+
+    let member: ChatMember = .member(ChatMemberMember(user: User(id: 7, isBot: false, firstName: "U")))
+    guard case .member = member else {
+        Issue.record("expected .member, got \(member)")
+        return
+    }
+
+    // The sources say which Bot API revision they were generated from.
+    #expect(!BotAPIVersion.version.isEmpty)
 }
