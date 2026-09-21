@@ -8,6 +8,22 @@ import Foundation
 public protocol TelerouteFlow: Sendable {
     associatedtype Step: RawRepresentable & Hashable & Sendable where Step.RawValue == String
 
+    /// Typed session state, persisted alongside ``TelerouteFlowValues``.
+    ///
+    /// Declare a `Codable` type to work with fields instead of string keys;
+    /// leave it out and the flow keeps using `values` alone.
+    ///
+    /// > Important: deliberately **not** named `State`. Associated-type
+    /// inference prefers a conformer's nested type over the default, so a flow
+    /// with an unrelated `struct State` — a very common name, used twice in
+    /// this package alone — would bind to it and fail to conform. Covered by
+    /// `flowWithNestedNonCodableStateTypeStillConforms`.
+    associatedtype FlowState: Codable & Sendable = TelerouteEmptyFlowState
+
+    /// Handles this flow's `boot` hands back to its caller, mirroring
+    /// ``TelerouteRouteCollection``'s `Exports`. Defaults to `Void`.
+    associatedtype Exports: Sendable = Void
+
     /// Stable flow identifier stored in the session.
     static var id: String { get }
 
@@ -16,8 +32,9 @@ public protocol TelerouteFlow: Sendable {
     /// `nil` (the default) uses the configured value.
     static var sessionTTL: Duration? { get }
 
-    /// Registers the flow's step handlers.
-    func boot(flow: TelerouteFlowGroup<Self>)
+    /// Registers the flow's step handlers, optionally returning route handles.
+    @discardableResult
+    func boot(flow: TelerouteFlowGroup<Self>) -> Exports
 }
 
 public extension TelerouteFlow {
@@ -26,6 +43,11 @@ public extension TelerouteFlow {
     }
 
     static var sessionTTL: Duration? { nil }
+}
+
+/// The default ``TelerouteFlow/FlowState`` for flows that keep using `values`.
+public struct TelerouteEmptyFlowState: Codable, Sendable, Equatable {
+    public init() {}
 }
 
 /// Async handler invoked for a matched flow step.
@@ -169,6 +191,44 @@ public final class TelerouteFlowGroup<Flow: TelerouteFlow>: Sendable {
             middlewares: middlewares,
             handler: handler
         )
+    }
+
+    /// Registers a closure invoked whenever this flow's session ends, with the
+    /// reason it ended.
+    ///
+    /// This is the only way a flow learns about the endings it did not ask for
+    /// — interrupted by a command, expired, or replaced by another flow:
+    ///
+    /// ```swift
+    /// flow.onEnd { context, reason in
+    ///     guard case let .interrupted(command) = reason else { return }
+    ///     try? await context.reply("Paused by /\(command). Send /resume to continue.")
+    /// }
+    /// ```
+    ///
+    /// The hook cannot throw: it runs while the session is being torn down,
+    /// where there is nowhere to report a failure. Handle send errors yourself.
+    /// Registering twice replaces the previous closure.
+    public func onEnd(_ handler: @escaping TelerouteFlowEndHandler) {
+        self.storage.setFlowHooks(id: Flow.id) { $0.onEnd = handler }
+    }
+
+    /// Registers a closure that decides what happens when a command the flow
+    /// does not handle at the current step arrives.
+    ///
+    /// ```swift
+    /// flow.onInterrupt { _, command in
+    ///     command.name == "help"
+    ///         ? .keep                                           // /help is harmless
+    ///         : .handled(.reply("Finish signup first, or /cancel."))
+    /// }
+    /// ```
+    ///
+    /// Without this hook the configured
+    /// ``TelerouteFlowCancellationPolicy`` decides, unchanged. With it, the
+    /// hook wins. Registering twice replaces the previous closure.
+    public func onInterrupt(_ handler: @escaping TelerouteFlowInterruptHandler) {
+        self.storage.setFlowHooks(id: Flow.id) { $0.onInterrupt = handler }
     }
 
     /// Renders one typed button description in this flow's route scope.
@@ -322,6 +382,59 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
         }
     }
 
+    /// The session's typed state, or `nil` when none has been stored yet.
+    ///
+    /// Reads the reserved key inside ``values``, so a flow can mix typed state
+    /// and plain values freely.
+    public func state() throws -> Flow.FlowState? {
+        try self.values.state(Flow.FlowState.self)
+    }
+
+    /// The session's typed state, throwing when none has been stored.
+    public func requireState() throws -> Flow.FlowState {
+        guard let state = try self.state() else {
+            throw TelerouteError.missingParameter(TelerouteFlowValues.stateKey)
+        }
+        return state
+    }
+
+    /// Replaces the typed state, leaving the step and the plain values alone.
+    public func setState(_ state: Flow.FlowState) async throws {
+        let ttl = self.resolvedSessionTTL
+        let encoded = try self.values.settingState(state)
+        try await self.mutateSession { current in
+            current.advanced(values: encoded, ttl: ttl)
+        }
+    }
+
+    /// Reads, mutates, and writes the typed state in one session write.
+    ///
+    /// ```swift
+    /// try await context.mutateState { $0.attempts += 1 }
+    /// ```
+    ///
+    /// Starts from a default-constructed value when the session carries no
+    /// state yet, so the first call does not have to special-case it.
+    public func mutateState(
+        _ mutate: @Sendable (inout Flow.FlowState) -> Void
+    ) async throws where Flow.FlowState: TelerouteDefaultInitializable {
+        var state = try self.state() ?? .init()
+        mutate(&state)
+        try await self.setState(state)
+    }
+
+    /// Moves to another step and sets the typed state in one write.
+    public func transition(
+        to step: Flow.Step,
+        state: Flow.FlowState
+    ) async throws {
+        let ttl = self.resolvedSessionTTL
+        let encoded = try self.values.settingState(state)
+        try await self.mutateSession { current in
+            current.advanced(step: step.rawValue, values: encoded, ttl: ttl)
+        }
+    }
+
     /// The TTL governing this flow's sessions: the flow's own override, or the
     /// router's configured default.
     private var resolvedSessionTTL: Duration? {
@@ -362,13 +475,13 @@ public struct TelerouteFlowContext<Flow: TelerouteFlow>: Sendable {
     /// does, but reports the outcome as ``TelerouteFlowOutcome/finished`` to
     /// the metrics sink — so completion and abandonment are distinguishable.
     public func finish() async throws {
-        try await self.context.endFlow(outcome: .finished)
+        try await self.context.endFlow(reason: .finished)
     }
 
     /// Abandons the current flow session, reported as
     /// ``TelerouteFlowOutcome/cancelled``.
     public func cancel() async throws {
-        try await self.context.endFlow(outcome: .cancelled)
+        try await self.context.endFlow(reason: .cancelled)
     }
 }
 
@@ -381,10 +494,12 @@ extension TelerouteFlowContext: TelerouteRequestContext {
 }
 
 public extension TelerouteRoutes {
-    /// Mounts a flow into the current route scope.
-    func flow<Flow: TelerouteFlow>(_ flow: Flow) {
-        self.storage.registerFlow()
-        flow.boot(
+    /// Mounts a flow into the current route scope, returning whatever its
+    /// `boot` exports.
+    @discardableResult
+    func flow<Flow: TelerouteFlow>(_ flow: Flow) -> Flow.Exports {
+        self.storage.registerFlow(id: Flow.id)
+        return flow.boot(
             flow: .init(
                 storage: self.storage,
                 commandPrefix: self.commandPrefix,
@@ -399,7 +514,8 @@ public extension TelerouteRoutes {
 @_spi(Testing)
 public extension TelerouteRuntime {
     /// Mounts a flow at the router root.
-    func flow<Flow: TelerouteFlow>(_ flow: Flow) {
+    @discardableResult
+    func flow<Flow: TelerouteFlow>(_ flow: Flow) -> Flow.Exports {
         self.routeScope.flow(flow)
     }
 }

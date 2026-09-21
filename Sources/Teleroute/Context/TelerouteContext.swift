@@ -208,6 +208,24 @@ public struct TelerouteContext: Sendable {
         )
     }
 
+    /// Reports a finished session to the metrics sink and hands it to the
+    /// flow's `onEnd` hook, if one was registered.
+    ///
+    /// Reached through `routeScope`, which already carries the registration
+    /// storage — the same lookup the flow coordinator uses, so the two teardown
+    /// families cannot diverge.
+    func endFlowSession(
+        _ session: TelerouteFlowSession,
+        reason: TelerouteFlowEndReason,
+        key: TelerouteFlowKey
+    ) async {
+        await self.reportFlowEnded(session, outcome: reason.outcome, key: key)
+        guard let onEnd = self.routeScope?.storage.routeGraph.flowHooks[session.id]?.onEnd else {
+            return
+        }
+        await onEnd(.init(coreContext: self, endedSession: session), reason)
+    }
+
     func requireFlowStorage() throws -> any TelerouteFlowStorage {
         guard let flowStorage = self.flowStorage else {
             throw TelerouteError.flowControllerMissing

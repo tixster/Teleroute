@@ -19,6 +19,26 @@ struct SignupFlow: TelerouteFlow {
     }
 
     func boot(flow: TelerouteFlowGroup<SignupFlow>) {
+        // The flow decides for itself what an unrelated command does to it,
+        // instead of relying on the router-wide cancellation policy.
+        flow.onInterrupt { _, command in
+            command.name == "cancel_signup"
+                ? .cancel
+                : .handled(.reply("Signup is in progress — /cancel_signup to stop."))
+        }
+
+        // ...and is told about every ending it did not ask for.
+        flow.onEnd { context, reason in
+            switch reason {
+            case let .interrupted(command):
+                try? await context.reply("Signup stopped by /\(command).")
+            case .expired:
+                try? await context.reply("Signup timed out. /signup to start again.")
+            case .finished, .cancelled, .replaced:
+                break
+            }
+        }
+
         let decisions = flow.callback(
             SignupDecisionCallback.self,
             at: .confirm,

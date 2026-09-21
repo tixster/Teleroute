@@ -502,6 +502,15 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
         self.routes.duplicateRouteSignatures
     }
 
+    /// Flow steps that were asked to advance but have no step after them.
+    ///
+    /// Reported rather than thrown, like ``duplicateRouteSignatures``: a
+    /// terminal step is legitimate, but one a linear `ask` tried to advance
+    /// from is a dead end. Inspect at startup.
+    public var unreachableFlowSteps: [TelerouteFlowStepKey] {
+        self.routes.unreachableFlowSteps
+    }
+
     private func registerCommand(
         _ path: String,
         botUsername: String?,

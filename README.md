@@ -372,24 +372,57 @@ Multi-step conversations with per-chat/user session state:
 
 ```swift
 struct SignupFlow: TelerouteFlow {
-    enum Step: String { case name, confirm }
+    enum Step: String, CaseIterable { case name, email, confirm }
 
     func boot(flow: TelerouteFlowGroup<SignupFlow>) {
-        flow.start("signup", at: .name) { context in
-            try await context.reply("Send your name.")
-        }
-        flow.message(at: .name) { context in
-            try await context.transition(to: .confirm, merging: ["name": context.message?.text ?? ""])
-            try await context.reply("Confirm?")
-        }
+        flow.start("signup", at: .name, asking: "Send your name.")
+
+        // ask = prompt + capture + validate + store + advance. With a
+        // CaseIterable Step the next step is inferred from declaration order.
+        flow.ask(.name, store: "name", next: "And your email?")
+        flow.ask(.email, store: "email", next: "Confirm with /done.")
+
         flow.command("done", at: .confirm) { context in
             try await context.finish()
             try await context.reply("Welcome, \(try context.values.require("name"))!")
+        }
+
+        // The flow is told when something ends it that it did not ask for.
+        flow.onEnd { context, reason in
+            guard case let .interrupted(command) = reason else { return }
+            try? await context.reply("Paused by /\(command). /resume to continue.")
+        }
+
+        // ...and decides what an unrelated command should do to it.
+        flow.onInterrupt { _, command in
+            command.name == "help" ? .keep : .suspend
         }
     }
 }
 router.flow(SignupFlow())
 ```
+
+Every ending reaches `onEnd` with a reason — `.finished`, `.cancelled`,
+`.interrupted(command:)`, `.expired`, or `.replaced(by:)` — so a flow can say
+goodbye or clean up. `onInterrupt` decides per flow what an unhandled command
+does: `.cancel`, `.keep`, `.suspend`, or `.handled(response)` to answer from the
+flow and swallow the command entirely. Without either hook the configured
+`flowCancellationPolicy` behaves exactly as before.
+
+`suspendFlow()` / `resumeFlow()` park a conversation instead of discarding it:
+the session stays, stops intercepting, and keeps counting toward its TTL.
+
+For state beyond string keys, declare a `FlowState`:
+
+```swift
+struct FlowState: Codable, Sendable { var name = ""; var attempts = 0 }
+
+try await context.transition(to: .confirm, state: .init())
+let state = try context.requireState()
+```
+
+It is persisted inside the existing flow values under a reserved key, so every
+`TelerouteFlowStorage` keeps working unchanged.
 
 A flow step context **is** a `TelerouteRequestContext`, so every helper above
 works inside a step — media, moderation, reactions, keyboards, `logger` —

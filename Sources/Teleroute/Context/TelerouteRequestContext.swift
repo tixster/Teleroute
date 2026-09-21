@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import TelegramBotAPI
 
 /// Framework-owned input used to construct a custom request context.
@@ -286,8 +287,14 @@ public extension TelerouteRequestContext {
         // atomic backend applies it as one operation.
         let ttl = Flow.sessionTTL ?? self.coreContext.flowSessionTTL
         let now = Date()
-        await storage.updateSession(for: key) { _ in
-            .init(
+        // Starting replaces whatever was there. Capture the outgoing session
+        // inside the mutation so the read stays atomic on a backend that
+        // implements updateSession natively — otherwise a replaced session
+        // disappears without ever reaching the metrics sink or its own hook.
+        let replaced = Mutex<TelerouteFlowSession?>(nil)
+        await storage.updateSession(for: key) { current in
+            replaced.withLock { $0 = current }
+            return .init(
                 id: Flow.id,
                 step: step.rawValue,
                 values: .init(values),
@@ -298,21 +305,59 @@ public extension TelerouteRequestContext {
                 }
             )
         }
+        if let previous = replaced.withLock({ $0 }) {
+            await self.coreContext.endFlowSession(
+                previous,
+                reason: .replaced(by: Flow.id),
+                key: key
+            )
+        }
+    }
+
+    /// Suspends the active flow session: it stays in storage but stops
+    /// intercepting updates until ``resumeFlow()``.
+    ///
+    /// Use it when a command should run without discarding a half-finished
+    /// conversation. The session keeps counting toward its TTL, so an
+    /// abandoned suspended session still expires.
+    func suspendFlow() async throws {
+        let storage = try self.coreContext.requireFlowStorage()
+        let key = try self.coreContext.requireFlowKey()
+        await storage.updateSession(for: key) { $0?.suspended() }
+    }
+
+    /// Resumes a suspended flow session and refreshes its expiry.
+    ///
+    /// Does nothing when there is no suspended session for this scope.
+    func resumeFlow() async throws {
+        let storage = try self.coreContext.requireFlowStorage()
+        let key = try self.coreContext.requireFlowKey()
+        let ttl = self.coreContext.flowSessionTTL
+        await storage.updateSession(for: key) { current in
+            guard let current, current.isSuspended else { return current }
+            return current.resumed(ttl: ttl)
+        }
+    }
+
+    /// The suspended flow session for this scope, if one is waiting to resume.
+    var suspendedFlow: TelerouteFlowSession? {
+        guard let session = self.coreContext.activeFlow, session.isSuspended else { return nil }
+        return session
     }
 
     /// Cancels the active flow session.
     func cancelFlow() async throws {
-        try await self.endFlow(outcome: .cancelled)
+        try await self.endFlow(reason: .cancelled)
     }
 
     /// Ends the active flow session and reports how it ended.
-    func endFlow(outcome: TelerouteFlowOutcome) async throws {
+    func endFlow(reason: TelerouteFlowEndReason) async throws {
         let storage = try self.coreContext.requireFlowStorage()
         let key = try self.coreContext.requireFlowKey()
         let ended = await storage.session(for: key)
         await storage.removeSession(for: key)
         if let ended {
-            await self.coreContext.reportFlowEnded(ended, outcome: outcome, key: key)
+            await self.coreContext.endFlowSession(ended, reason: reason, key: key)
         }
     }
 }

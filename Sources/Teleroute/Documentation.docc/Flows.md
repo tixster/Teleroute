@@ -157,22 +157,94 @@ Expiry is sliding: every write — start, transition, update, restart —
 refreshes the deadline. When an expired session is next read, it is dropped and
 the update falls through to normal routing, so the user is not stuck.
 
-### Cancellation Policy
+### Knowing When a Session Ends
 
-By default an unrelated command arriving mid-flow (say `/help`) cancels the
-session, so the next message is no longer captured. Tune this with
-``TelerouteFlowCancellationPolicy`` on the configuration:
+Three of the four ways a session can end happen *to* a flow rather than being
+asked for by it. ``TelerouteFlowGroup/onEnd(_:)`` is how a flow finds out:
 
 ```swift
-let configuration = TelerouteConfiguration(
-    flowCancellationPolicy: .preserveOnUnmatchedCommand
-)
+flow.onEnd { context, reason in
+    switch reason {
+    case let .interrupted(command):
+        try? await context.reply("Paused by /\(command). Send /resume to continue.")
+    case .expired:
+        try? await context.reply("That took too long — start again with /signup.")
+    case let .replaced(by: flowID) where flowID != SignupFlow.id:
+        try? await context.reply("Switching to something else.")
+    case .finished, .cancelled, .replaced:
+        break
+    }
+}
 ```
 
+The hook receives a ``TelerouteFlowEndContext`` — a full request context, so
+`reply`, `edit`, media and `logger` all work — plus the final session snapshot
+in `endedSession`. It is deliberately *not* a ``TelerouteFlowContext``: the
+session is already gone, so `transition` and `update` would only throw. Read
+the collected values from `endedSession` instead.
+
+The hook cannot throw; teardown has already happened and there would be
+nowhere to report a failure. Handle send errors with `try?`.
+
+### Cancellation Policy, and Deciding Per Flow
+
+By default an unrelated command arriving mid-flow (say `/help`) cancels the
+session, so the next message is no longer captured. The configuration-level
+knob is ``TelerouteFlowCancellationPolicy``:
+
 - `cancelOnAnyUnmatchedCommand` — the default;
-- `preserveOnUnmatchedCommand` — the command falls through to regular routes
-  and the flow keeps capturing;
-- `manual` — only `context.cancelFlow()` / `finish()` end a session.
+- `preserveOnUnmatchedCommand` — the session survives and the command falls
+  through to regular routes;
+- `manual` — the same thing.
+
+> Note: `preserveOnUnmatchedCommand` and `manual` are currently
+> indistinguishable — both simply mean "do not cancel". The distinction the
+> names imply is expressed per flow by ``TelerouteFlowGroup/onInterrupt(_:)``
+> below, which is the finer-grained control.
+
+``TelerouteFlowGroup/onInterrupt(_:)`` lets the flow itself decide, overriding
+the policy for that flow only:
+
+```swift
+flow.onInterrupt { _, command in
+    switch command.name {
+    case "help":   .keep                                    // harmless, let it through
+    case "cancel": .cancel                                  // end the conversation
+    default:       .handled(.reply("Finish signup first, or /cancel."))
+    }
+}
+```
+
+| Decision | The session | The command |
+|---|---|---|
+| `.cancel` | ends, `onEnd(.interrupted)` fires | routes normally |
+| `.keep` | stays active and capturing | routes normally |
+| `.suspend` | stays, stops capturing until resumed | routes normally |
+| `.handled(response)` | stays active | **stops here** — its own route does not run |
+
+Without the hook, the configured policy decides exactly as it always has.
+
+### Suspending and Resuming
+
+`.suspend` — or ``TelerouteRequestContext/suspendFlow()`` from any handler —
+parks a session instead of discarding it:
+
+```swift
+router.command("pause") { context in
+    try await context.suspendFlow()
+    return "Paused. /resume when you're ready."
+}
+
+router.command("resume") { context in
+    try await context.resumeFlow()
+    return "Where were we?"
+}
+```
+
+A suspended session stays in storage and stops intercepting updates, so they
+route normally. It keeps counting toward its TTL, so an abandoned suspended
+session still expires rather than leaking. Resuming refreshes the deadline, and
+any `transition` or `update` wakes it automatically.
 
 ### Observability
 
@@ -181,6 +253,42 @@ fires whenever a session ends, with the outcome (`finished`, `cancelled`,
 `expired`) and the session's age measured from `createdAt`.
 ``TelerouteSwiftMetricsSink`` exports these as `teleroute.flows.ended`
 (dimensioned by `flow` and `outcome`) and `teleroute.flow.age`.
+
+### Typed State
+
+String keys get old. Declare a `FlowState` and work with fields:
+
+```swift
+struct SignupFlow: TelerouteFlow {
+    struct FlowState: Codable, Sendable, TelerouteDefaultInitializable {
+        var name = ""
+        var attempts = 0
+        init() {}
+    }
+
+    func boot(flow: TelerouteFlowGroup<SignupFlow>) {
+        flow.message(at: .name) { context in
+            try await context.transition(to: .confirm, state: .init())
+            try await context.mutateState { $0.attempts += 1 }
+            let state = try context.requireState()
+            try await context.reply("Hello, \(state.name)")
+        }
+    }
+}
+```
+
+The state is persisted **inside** the ordinary ``TelerouteFlowValues`` under a
+reserved key, so the storage wire format is unchanged and every existing
+``TelerouteFlowStorage`` keeps working. The key is hidden from `values.keys`,
+`count`, `isEmpty` and `dictionary`; a backend that persists values itself must
+use ``TelerouteFlowValues/rawDictionary`` so typed state is not dropped.
+
+Sessions written before a flow adopted `FlowState` simply have none, and
+`state()` returns `nil`.
+
+> Note: the associated type is called `FlowState`, not `State`, on purpose.
+> Swift prefers a conformer's nested type over an associated type's default, so
+> a flow with an unrelated `struct State` would bind to it and fail to conform.
 
 ### Storage
 

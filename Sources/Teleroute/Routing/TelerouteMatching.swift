@@ -10,6 +10,7 @@ final class TelerouteStorage: Sendable {
         var routeSignatures: OrderedSet<TelerouteRouteSignature> = []
         var hasInlineActionRoute = false
         var duplicateRouteSignatures: OrderedSet<TelerouteRouteSignature> = []
+        var unreachableFlowSteps: OrderedSet<TelerouteFlowStepKey> = []
     }
 
     private let state = Mutex(State())
@@ -27,6 +28,17 @@ final class TelerouteStorage: Sendable {
 
     var duplicateRouteSignatures: [TelerouteRouteSignature] {
         self.state.withLock { Array($0.duplicateRouteSignatures) }
+    }
+
+    var unreachableFlowSteps: [TelerouteFlowStepKey] {
+        self.state.withLock { Array($0.unreachableFlowSteps) }
+    }
+
+    /// Records a step that asked to advance but has no step after it.
+    func recordFlowStepWithoutSuccessor(flowID: String, step: String) {
+        self.state.withLock {
+            _ = $0.unreachableFlowSteps.append(.init(flowID: flowID, step: step))
+        }
     }
 
     func appendCommandRoute(
@@ -63,9 +75,22 @@ final class TelerouteStorage: Sendable {
         }
     }
 
-    func registerFlow() {
+    func registerFlow(id: String) {
         self.state.withLock {
             $0.routeGraph.hasMountedFlows = true
+            // Mounting the same flow twice must not drop hooks the first mount
+            // registered, so this only creates the entry when it is missing.
+            if $0.routeGraph.flowHooks[id] == nil {
+                $0.routeGraph.flowHooks[id] = .init()
+            }
+        }
+    }
+
+    func setFlowHooks(id: String, _ mutate: (inout TelerouteFlowHooks) -> Void) {
+        self.state.withLock {
+            var hooks = $0.routeGraph.flowHooks[id] ?? .init()
+            mutate(&hooks)
+            $0.routeGraph.flowHooks[id] = hooks
         }
     }
 
@@ -235,9 +260,15 @@ struct TelerouteFlowRoute: Sendable {
     }
 }
 
-struct TelerouteFlowStepKey: Hashable, Sendable {
-    let flowID: String
-    let step: String
+/// Identifies one step of one flow.
+public struct TelerouteFlowStepKey: Hashable, Sendable {
+    public let flowID: String
+    public let step: String
+
+    public init(flowID: String, step: String) {
+        self.flowID = flowID
+        self.step = step
+    }
 }
 
 struct TelerouteCallbackRouteIndex<Route: Sendable>: Sendable {
@@ -366,6 +397,8 @@ struct TelerouteRouteGraph: Sendable {
     var commandsByName: [String: [TelerouteCommandRoute]] = [:]
     var callbacks = TelerouteCallbackRouteIndex<TelerouteCallbackHandlerRoute>()
     var flowSteps: [TelerouteFlowStepKey: TelerouteFlowStepRoutes] = [:]
+    /// Lifecycle closures registered by a flow's `boot`, keyed by flow id.
+    var flowHooks: [String: TelerouteFlowHooks] = [:]
     var hasMountedFlows = false
     var messageRoutes: [TelerouteMessageRoute] = []
     var kindRoutes: [TelerouteUpdateKindRoute] = []

@@ -219,6 +219,16 @@ public final class TelerouteRoutes: Sendable {
         self.storage.duplicateRouteSignatures
     }
 
+    /// Flow steps that were asked to advance but have no step after them.
+    ///
+    /// Reported rather than thrown, like ``duplicateRouteSignatures``: a
+    /// terminal step is legitimate, but one that a linear `ask` tried to
+    /// advance from is a dead end — the session would stop matching anything.
+    /// Inspect at startup.
+    public var unreachableFlowSteps: [TelerouteFlowStepKey] {
+        self.storage.unreachableFlowSteps
+    }
+
     func callbackPattern(for callback: any TelerouteCallback) -> TelerouteCallbackPattern {
         .init(
             prefix: self.callbackPrefix,

@@ -9,9 +9,22 @@ public struct TelerouteFlowValues: Sendable {
         self.storage = storage
     }
 
+    /// Key under which ``TelerouteFlow/FlowState`` is persisted.
+    ///
+    /// Typed state rides inside the ordinary values dictionary so the wire
+    /// format never changes: every existing ``TelerouteFlowStorage`` keeps
+    /// working untouched. The key is hidden from the public accessors below,
+    /// which is safe precisely because no session written before typed state
+    /// existed can contain it.
+    public static let stateKey = "__teleroute_state"
+
+    private var visibleStorage: [String: String] {
+        self.storage.filter { $0.key != Self.stateKey }
+    }
+
     /// Returns `true` when the flow session does not store any values.
     public var isEmpty: Bool {
-        self.storage.isEmpty
+        self.visibleStorage.isEmpty
     }
 
     /// Returns the value for a stored key, if it exists.
@@ -58,18 +71,26 @@ public struct TelerouteFlowValues: Sendable {
         return .init(storage)
     }
 
-    /// Every stored key.
+    /// Every stored key, excluding the reserved typed-state key.
     public var keys: Dictionary<String, String>.Keys {
-        self.storage.keys
+        self.visibleStorage.keys
     }
 
-    /// The number of stored values.
+    /// The number of stored values, excluding typed state.
     public var count: Int {
-        self.storage.count
+        self.visibleStorage.count
     }
 
-    /// Returns all stored values as a dictionary.
+    /// Returns the stored values as a dictionary, excluding typed state.
     public var dictionary: [String: String] {
+        self.visibleStorage
+    }
+
+    /// Every stored pair including the reserved typed-state key.
+    ///
+    /// Storage backends that persist values themselves must use this rather
+    /// than ``dictionary``, or typed state is silently dropped.
+    public var rawDictionary: [String: String] {
         self.storage
     }
 
@@ -97,7 +118,7 @@ extension TelerouteFlowValues: Codable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.singleValueContainer()
-        try container.encode(self.dictionary)
+        try container.encode(self.rawDictionary)
     }
 }
 
@@ -110,6 +131,23 @@ extension TelerouteFlowValues: ExpressibleByDictionaryLiteral {
 extension TelerouteFlowValues: CustomStringConvertible {
     public var description: String {
         "\(self.dictionary)"
+    }
+}
+
+// MARK: - Typed state
+
+public extension TelerouteFlowValues {
+    /// Decodes the typed state stored in this session, if any.
+    func state<State: Decodable>(_ type: State.Type) throws -> State? {
+        guard let raw = self.storage[Self.stateKey] else { return nil }
+        return try TelerouteFlowStateCoding.decode(State.self, from: raw)
+    }
+
+    /// Returns a copy carrying the supplied typed state.
+    func settingState(_ state: some Encodable) throws -> TelerouteFlowValues {
+        var storage = self.storage
+        storage[Self.stateKey] = try TelerouteFlowStateCoding.encodeToString(state)
+        return .init(storage)
     }
 }
 
@@ -164,6 +202,12 @@ public struct TelerouteFlowSession: Sendable, Equatable, Codable {
     /// When the session stops being usable, or `nil` when it never expires on
     /// its own.
     public let expiresAt: Date?
+    /// When the session was suspended, or `nil` while it is capturing updates.
+    ///
+    /// A suspended session stays in storage and keeps counting toward its TTL,
+    /// but stops intercepting updates until
+    /// ``TelerouteRequestContext/resumeFlow()``.
+    public let suspendedAt: Date?
 
     /// Creates a flow session snapshot that never expires on its own.
     public init(id: String, step: String, values: TelerouteFlowValues) {
@@ -185,7 +229,8 @@ public struct TelerouteFlowSession: Sendable, Equatable, Codable {
         values: TelerouteFlowValues,
         createdAt: Date,
         updatedAt: Date,
-        expiresAt: Date?
+        expiresAt: Date?,
+        suspendedAt: Date? = nil
     ) {
         self.id = id
         self.step = step
@@ -193,6 +238,40 @@ public struct TelerouteFlowSession: Sendable, Equatable, Codable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.expiresAt = expiresAt
+        self.suspendedAt = suspendedAt
+    }
+
+    /// Whether the session is currently suspended.
+    public var isSuspended: Bool {
+        self.suspendedAt != nil
+    }
+
+    /// Returns a copy marked suspended, which stops it capturing updates.
+    public func suspended(at now: Date = Date()) -> TelerouteFlowSession {
+        .init(
+            id: self.id,
+            step: self.step,
+            values: self.values,
+            createdAt: self.createdAt,
+            updatedAt: self.updatedAt,
+            expiresAt: self.expiresAt,
+            suspendedAt: now
+        )
+    }
+
+    /// Returns a copy that captures updates again, refreshing the sliding
+    /// expiry so a resumed conversation is not immediately timed out.
+    public func resumed(ttl: Duration?, now: Date = Date()) -> TelerouteFlowSession {
+        .init(
+            id: self.id,
+            step: self.step,
+            values: self.values,
+            createdAt: self.createdAt,
+            updatedAt: now,
+            expiresAt: ttl.map { now.addingTimeInterval(TimeInterval($0.components.seconds)) }
+                ?? self.expiresAt,
+            suspendedAt: nil
+        )
     }
 
     /// Whether the session has expired at the supplied instant.
@@ -223,7 +302,8 @@ public struct TelerouteFlowSession: Sendable, Equatable, Codable {
             values: values ?? self.values,
             createdAt: self.createdAt,
             updatedAt: now,
-            expiresAt: ttl.map { now.addingTimeInterval(TimeInterval($0.components.seconds)) }
+            expiresAt: ttl.map { now.addingTimeInterval(TimeInterval($0.components.seconds)) },
+            suspendedAt: nil
         )
     }
 
@@ -234,6 +314,7 @@ public struct TelerouteFlowSession: Sendable, Equatable, Codable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case expiresAt = "expires_at"
+        case suspendedAt = "suspended_at"
     }
 
     /// Decodes a session, tolerating records written before timestamps existed
@@ -247,5 +328,6 @@ public struct TelerouteFlowSession: Sendable, Equatable, Codable {
         self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? now
         self.updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? now
         self.expiresAt = try container.decodeIfPresent(Date.self, forKey: .expiresAt)
+        self.suspendedAt = try container.decodeIfPresent(Date.self, forKey: .suspendedAt)
     }
 }
