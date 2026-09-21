@@ -412,7 +412,11 @@ a custom context, and command-menu publishing:
 TELEGRAM_BOT_TOKEN=<token> swift run TelerouteExample
 ```
 
-## Migrating from 1.x
+## Migrating
+
+See [docs/MIGRATION-3.0.md](docs/MIGRATION-3.0.md) for the 2.x → 3.0 table
+(types under their own names, `_type` → `type`, typed value enums, the
+`TelegramTransport` protocol).
 
 See [docs/MIGRATION-2.0.md](docs/MIGRATION-2.0.md) for the 1.x → 2.0 table
 (single handler style, `TG`-free naming, `ChatId` targets, Int64 identifiers,
