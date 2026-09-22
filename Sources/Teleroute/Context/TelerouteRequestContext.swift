@@ -100,7 +100,7 @@ public extension TelerouteRequestContext {
 public extension TelerouteRequestContext {
     /// Resolves the target chat for a send operation, preferring an explicit
     /// override and falling back to the chat inferred from the current update.
-    func resolvedChat(_ override: ChatId? = nil) throws -> ChatId {
+    func resolvedChat(_ override: ChatId? = nil) throws(TelerouteError) -> ChatId {
         if let override { return override }
         guard let resolved = self.chatId else {
             throw TelerouteError.chatTargetMissing
@@ -110,7 +110,7 @@ public extension TelerouteRequestContext {
 
     /// Resolves a message id, preferring an explicit override and falling back
     /// to the message carried by the current update.
-    func resolvedMessageId(_ override: Int64? = nil) throws -> Int64 {
+    func resolvedMessageId(_ override: Int64? = nil) throws(TelerouteError) -> Int64 {
         guard let resolved = override ?? self.message?.messageId else {
             throw TelerouteError.messageTargetMissing
         }
@@ -122,7 +122,7 @@ public extension TelerouteRequestContext {
     /// Prefer this over unwrapping ``message`` by hand: the thrown error goes
     /// through the router's normal error pipeline, so it reaches `onError`,
     /// the `errorRenderer`, events, and metrics like any other failure.
-    func requireMessage() throws -> Message {
+    func requireMessage() throws(TelerouteError) -> Message {
         guard let message = self.message else {
             throw TelerouteError.messageTargetMissing
         }
@@ -130,7 +130,7 @@ public extension TelerouteRequestContext {
     }
 
     /// Returns the resolved chat identifier or throws when the update has none.
-    func requireChatId() throws -> Int64 {
+    func requireChatId() throws(TelerouteError) -> Int64 {
         guard let chatId = self.chatId else {
             throw TelerouteError.chatTargetMissing
         }
@@ -138,7 +138,7 @@ public extension TelerouteRequestContext {
     }
 
     /// Returns the Telegram user behind the update or throws when it has none.
-    func requireUser() throws -> User {
+    func requireUser() throws(TelerouteError) -> User {
         guard let user = self.user else {
             throw TelerouteError.userTargetMissing
         }
@@ -146,7 +146,7 @@ public extension TelerouteRequestContext {
     }
 
     /// Returns the resolved user identifier or throws when the update has none.
-    func requireUserId() throws -> Int64 {
+    func requireUserId() throws(TelerouteError) -> Int64 {
         guard let userId = self.userId else {
             throw TelerouteError.userTargetMissing
         }
@@ -155,7 +155,7 @@ public extension TelerouteRequestContext {
 
     /// Returns the current callback query or throws when the update is not a
     /// button press.
-    func requireCallbackQuery() throws -> CallbackQuery {
+    func requireCallbackQuery() throws(TelerouteError) -> CallbackQuery {
         guard let callbackQuery = self.callbackQuery else {
             throw TelerouteError.callbackQueryMissing
         }
@@ -163,7 +163,7 @@ public extension TelerouteRequestContext {
     }
 
     /// Returns the matched command or throws when this is not a command route.
-    func requireCommand() throws -> TelerouteCommandMatch {
+    func requireCommand() throws(TelerouteError) -> TelerouteCommandMatch {
         guard let command = self.command else {
             throw TelerouteError.commandMatchMissing
         }
@@ -197,7 +197,7 @@ public extension TelerouteRequestContext {
     func resolvedEditTarget(
         messageId: Int64? = nil,
         in chat: ChatId? = nil
-    ) throws -> TelerouteEditTarget {
+    ) throws(TelerouteError) -> TelerouteEditTarget {
         if let messageId {
             return .message(chatId: try self.resolvedChat(chat), messageId: messageId)
         }

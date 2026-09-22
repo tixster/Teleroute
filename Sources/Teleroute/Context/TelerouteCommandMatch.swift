@@ -45,7 +45,7 @@ public struct TelerouteCommandMatch: Sendable {
     /// Example:
     /// `let userID = try command.require("userID")`
     /// `let reason = try command.require("reason", at: 1)`
-    public func require(_ name: String, at index: Int = 0) throws -> String {
+    public func require(_ name: String, at index: Int = 0) throws(TelerouteError) -> String {
         guard let value = self.get(name, at: index) else {
             throw TelerouteError.missingParameter(name)
         }
@@ -67,7 +67,7 @@ public struct TelerouteCommandMatch: Sendable {
         _ name: String,
         at index: Int = 0,
         as type: Value.Type
-    ) throws -> Value {
+    ) throws(TelerouteError) -> Value {
         let raw = try self.require(name, at: index)
         guard let value = Value(raw) else {
             throw TelerouteError.invalidParameter(name: name, value: raw)

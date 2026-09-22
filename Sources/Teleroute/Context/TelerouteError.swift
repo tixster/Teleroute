@@ -1,6 +1,24 @@
 import Foundation
 
 /// Errors thrown by router helpers for missing update data or invalid route usage.
+///
+/// ## Where this is a typed throw
+///
+/// Helpers that only *resolve or validate* — ``TelerouteRequestContext``'s
+/// `resolvedChat`, `resolvedMessageId`, `resolvedEditTarget` and the `require*`
+/// family, plus `require` on ``TelerouteParameters``,
+/// ``TelerouteFlowValues`` and ``TelerouteCommandMatch`` — are declared
+/// `throws(TelerouteError)`, so a caller gets the concrete type without a cast.
+///
+/// Anything that reaches the network is deliberately left untyped: the
+/// generated client surfaces `TelegramAPIError` and transport errors, and
+/// `TelerouteFlowContext.transition`/`update` can surface whatever a custom
+/// ``TelerouteFlowStorage`` throws. JSON-backed typed flow state surfaces
+/// `DecodingError`. Swift has no union of thrown types, so those stay `throws`.
+///
+/// > Important: this enum grows. A `switch` over it — including one inside a
+/// `catch` from a typed-throws helper, where the binding is concrete — should
+/// carry a `default`, or a new case in a minor release will stop it compiling.
 public enum TelerouteError: LocalizedError, Sendable {
     case callbackQueryMissing
     case callbackRouteNotRegistered(String)

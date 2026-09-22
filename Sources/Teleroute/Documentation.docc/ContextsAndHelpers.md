@@ -54,6 +54,25 @@ router.command("promote") { context in
 }
 ```
 
+These are typed throws — `throws(TelerouteError)` — so a `catch` binds the
+concrete error with no cast:
+
+```swift
+do {
+    let user = try context.requireUser()
+} catch {
+    switch error {              // error is TelerouteError, not any Error
+    case .userTargetMissing: ...
+    default: ...                // keep it: TelerouteError grows
+    }
+}
+```
+
+The same goes for `require` on ``TelerouteParameters``,
+``TelerouteFlowValues`` and ``TelerouteCommandMatch``. Helpers that reach the
+network stay untyped, because the client surfaces `TelegramAPIError` and
+transport errors that no single thrown type can cover.
+
 Available: ``TelerouteRequestContext/requireMessage()``,
 ``TelerouteRequestContext/requireChatId()``,
 ``TelerouteRequestContext/requireUser()``,

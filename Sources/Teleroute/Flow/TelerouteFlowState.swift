@@ -33,7 +33,7 @@ public struct TelerouteFlowValues: Sendable {
     }
 
     /// Returns the value for a stored key or throws when it is missing.
-    public func require(_ name: String) throws -> String {
+    public func require(_ name: String) throws(TelerouteError) -> String {
         guard let value = self.get(name) else {
             throw TelerouteError.missingParameter(name)
         }
@@ -54,7 +54,7 @@ public struct TelerouteFlowValues: Sendable {
     public func require<Value: LosslessStringConvertible>(
         _ name: String,
         as type: Value.Type
-    ) throws -> Value {
+    ) throws(TelerouteError) -> Value {
         let raw = try self.require(name)
         guard let value = Value(raw) else {
             throw TelerouteError.invalidParameter(name: name, value: raw)
