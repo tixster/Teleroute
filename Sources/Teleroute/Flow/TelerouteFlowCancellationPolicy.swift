@@ -7,6 +7,15 @@ import Foundation
 /// same chat while a flow is in progress. By default `Teleroute` cancels the
 /// session in that situation so the next message is no longer captured by the
 /// flow. The policies below let callers opt out of that behavior.
+///
+/// This is the router-wide setting. ``TelerouteFlowGroup/onInterrupt(_:)``
+/// overrides it for one flow and can do things no policy can — suspend the
+/// session, or answer the command and stop it reaching its own route.
+///
+/// > Note: the scope really is only unmatched commands.
+/// ``TelerouteConfiguration/flowSessionTTL`` expires idle sessions regardless
+/// of the policy set here, and starting a flow still replaces whatever session
+/// held the chat.
 public enum TelerouteFlowCancellationPolicy: Sendable {
     /// Cancels the active flow session when any command fails to match a
     /// flow-local command route for the current step.
@@ -17,11 +26,11 @@ public enum TelerouteFlowCancellationPolicy: Sendable {
     /// Leaves the flow session in place when a command does not match the
     /// current step. The update falls through to regular command routes, and
     /// the flow keeps capturing subsequent messages.
+    ///
+    /// Cancellation then only happens where a handler asks for it —
+    /// ``TelerouteFlowContext/finish()``, ``TelerouteFlowContext/cancel()``, or
+    /// ``TelerouteRequestContext/cancelFlow()``.
     case preserveOnUnmatchedCommand
-
-    /// Never cancels a flow session automatically. Use this when cancellation
-    /// must always be explicit, for example through `context.cancelFlow()`.
-    case manual
 }
 
 extension TelerouteFlowCancellationPolicy {
@@ -31,7 +40,7 @@ extension TelerouteFlowCancellationPolicy {
         switch self {
         case .cancelOnAnyUnmatchedCommand:
             return true
-        case .preserveOnUnmatchedCommand, .manual:
+        case .preserveOnUnmatchedCommand:
             return false
         }
     }

@@ -151,7 +151,8 @@ methods.
 - message steps storing and merging values;
 - callback and flow-local command routes;
 - explicit transition, finish, restart, and cancellation;
-- `.manual` flow cancellation policy.
+- `.preserveOnUnmatchedCommand` flow cancellation policy, with a session TTL
+  as the backstop for abandoned conversations.
 
 ## Route Inventory
 

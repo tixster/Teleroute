@@ -80,7 +80,7 @@ import TelerouteTestSupport
         #expect(await storage.contains(self.key) == false)
     }
 
-    @Test func withoutAHookManualPolicyStillPreserves() async throws {
+    @Test func withoutAHookPreservingPolicyStillPreserves() async throws {
         let storage = TelerouteMockFlowStorage()
         let router = Teleroute()
         router.flow(PlainEndFlow())
@@ -91,7 +91,7 @@ import TelerouteTestSupport
             configuration: .init(
                 flowStorage: storage,
                 replayProtectionStorage: nil,
-                flowCancellationPolicy: .manual
+                flowCancellationPolicy: .preserveOnUnmatchedCommand
             )
         )
         try await bot.test { client in
@@ -164,14 +164,14 @@ private struct NestedStateFlow: TelerouteFlow {
         }
         router.flow(ReplacingFlow())
 
-        // `.manual` so the interrupting command does not tear the session
-        // down before it reaches the global route — this test is about
+        // Preserve the session so the interrupting command does not tear it
+        // down before reaching the global route — this test is about
         // replacement, not interruption.
         let (bot, _) = try TelerouteTestSupport.makeTelerouteBot(
             router: router,
             configuration: .init(
                 replayProtectionStorage: nil,
-                flowCancellationPolicy: .manual,
+                flowCancellationPolicy: .preserveOnUnmatchedCommand,
                 metricsSink: sink
             )
         )

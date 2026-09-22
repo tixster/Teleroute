@@ -31,8 +31,8 @@ enum ExampleBootstrap {
                 maximumConcurrentUpdates: 32,
                 // The example exposes explicit `/cancel_signup` and `/resume_signup`
                 // commands, so unrelated commands do not tear down the flow.
-                flowCancellationPolicy: .manual,
-                // With `.manual` cancellation nothing else ends an abandoned
+                flowCancellationPolicy: .preserveOnUnmatchedCommand,
+                // With cancellation preserved, nothing else ends an abandoned
                 // session, so a TTL is what keeps it from capturing the chat
                 // forever. Slides forward on every step.
                 flowSessionTTL: .seconds(30 * 60),

@@ -194,13 +194,12 @@ knob is ``TelerouteFlowCancellationPolicy``:
 
 - `cancelOnAnyUnmatchedCommand` — the default;
 - `preserveOnUnmatchedCommand` — the session survives and the command falls
-  through to regular routes;
-- `manual` — the same thing.
+  through to regular routes, so cancellation only happens where a handler asks
+  for it.
 
-> Note: `preserveOnUnmatchedCommand` and `manual` are currently
-> indistinguishable — both simply mean "do not cancel". The distinction the
-> names imply is expressed per flow by ``TelerouteFlowGroup/onInterrupt(_:)``
-> below, which is the finer-grained control.
+> Note: the policy covers unmatched commands and nothing else. It does not hold
+> a session open against ``TelerouteConfiguration/flowSessionTTL``, and starting
+> a flow still replaces whatever session held the chat.
 
 ``TelerouteFlowGroup/onInterrupt(_:)`` lets the flow itself decide, overriding
 the policy for that flow only:

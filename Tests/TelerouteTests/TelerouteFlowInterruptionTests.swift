@@ -80,7 +80,7 @@ import TelerouteTestSupport
             configuration: .init(
                 flowStorage: storage,
                 replayProtectionStorage: nil,
-                flowCancellationPolicy: .manual
+                flowCancellationPolicy: .preserveOnUnmatchedCommand
             )
         )
         try await bot.test { client in

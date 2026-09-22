@@ -1076,15 +1076,15 @@ struct TelerouteTests {
     #expect(kinds.contains(.failed) == false)
 }
 
-@Test func flowPreservesSessionWhenPolicyIsManual() async throws {
+@Test func flowPreservesSessionWhenPolicyPreserves() async throws {
     let bot = try await makeBot()
     let storage = TelerouteInMemoryFlowStorage()
     let router = TelerouteRuntime(
         bot: bot,
-        logger: .init(label: "router.flow.manual"),
+        logger: .init(label: "router.flow.preserve"),
         configuration: .init(
             flowStorage: storage,
-            flowCancellationPolicy: .manual
+            flowCancellationPolicy: .preserveOnUnmatchedCommand
         )
     )
     let recorder = Recorder<String>()
@@ -1096,7 +1096,8 @@ struct TelerouteTests {
     await router.process([makeMessageUpdate(text: "Alice", updateId: 551)])
     _ = await recorder.waitForCount(2)
 
-    // An unrelated command must NOT cancel the session under `.manual`.
+    // An unrelated command must NOT cancel the session under
+    // `.preserveOnUnmatchedCommand`.
     await router.process([makeCommandUpdate(text: "/help", updateId: 552)])
     try? await Task.sleep(for: .milliseconds(30))
     let flowKey = TelerouteFlowKey(chatId: 1, userId: 1)
