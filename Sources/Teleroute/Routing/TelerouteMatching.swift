@@ -112,6 +112,12 @@ final class TelerouteStorage: Sendable {
         }
     }
 
+    func appendDiscussionForwardObserver(_ observer: TelerouteDiscussionForwardObserver) {
+        self.state.withLock {
+            $0.routeGraph.appendDiscussionForwardObserver(observer)
+        }
+    }
+
     /// Claims the right to mount the inline-action route, returning `false`
     /// when it is already mounted — two bots may share one router.
     func claimInlineActionRoute() -> Bool {
@@ -403,6 +409,8 @@ struct TelerouteRouteGraph: Sendable {
     var messageRoutes: [TelerouteMessageRoute] = []
     var kindRoutes: [TelerouteUpdateKindRoute] = []
     var unmatchedRoutes: [TelerouteUnmatchedRoute] = []
+    /// Hooks notified of automatic channel forwards before routing.
+    var discussionForwardObservers: [TelerouteDiscussionForwardObserver] = []
     /// Update kinds explicitly routable via `on(_:)`/typed sugar.
     var registeredKinds: Set<UpdateKind> = []
     /// Message sources reachable through message routes.
@@ -440,6 +448,10 @@ struct TelerouteRouteGraph: Sendable {
 
     mutating func appendUnmatched(_ route: TelerouteUnmatchedRoute) {
         self.unmatchedRoutes.append(route)
+    }
+
+    mutating func appendDiscussionForwardObserver(_ observer: TelerouteDiscussionForwardObserver) {
+        self.discussionForwardObservers.append(observer)
     }
 }
 

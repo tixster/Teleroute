@@ -16,6 +16,7 @@ final class TelerouteFlowCoordinator: Sendable {
     /// keyboards like any other handler, so they need the same store the
     /// runtime hands to its own contexts.
     private let inlineActions: TelerouteInlineActionStore?
+    private let discussionForwards: TelerouteDiscussionForwardTracker?
     /// Configured session TTL, handed to each step context so a flow write can
     /// refresh the deadline.
     private let sessionTTL: Duration?
@@ -28,6 +29,7 @@ final class TelerouteFlowCoordinator: Sendable {
         cancellationPolicy: TelerouteFlowCancellationPolicy,
         routeScope: TelerouteRoutes? = nil,
         inlineActions: TelerouteInlineActionStore? = nil,
+        discussionForwards: TelerouteDiscussionForwardTracker? = nil,
         sessionTTL: Duration? = nil,
         metricsSink: (any TelerouteMetricsSink)? = nil
     ) {
@@ -37,6 +39,7 @@ final class TelerouteFlowCoordinator: Sendable {
         self.cancellationPolicy = cancellationPolicy
         self.routeScope = routeScope
         self.inlineActions = inlineActions
+        self.discussionForwards = discussionForwards
         self.sessionTTL = sessionTTL
         self.metricsSink = metricsSink
     }
@@ -347,7 +350,8 @@ final class TelerouteFlowCoordinator: Sendable {
             metricsSink: self.metricsSink,
             responderState: responderState,
             routeScope: self.routeScope,
-            inlineActions: self.inlineActions
+            inlineActions: self.inlineActions,
+            discussionForwards: self.discussionForwards
         )
     }
 }

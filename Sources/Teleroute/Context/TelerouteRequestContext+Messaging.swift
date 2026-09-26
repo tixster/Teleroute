@@ -291,6 +291,59 @@ public extension TelerouteRequestContext {
     }
 }
 
+// MARK: - Discussion forwards
+
+public extension TelerouteRequestContext {
+    /// Waits until Telegram forwards a channel post into the channel's linked
+    /// discussion chat. Returns `nil` when the channel has no linked chat.
+    /// See ``TelerouteBot/discussionMessage(for:timeout:)``.
+    func discussionMessage(
+        for post: Message,
+        timeout: Duration = .seconds(20)
+    ) async throws -> TelerouteDiscussionForward? {
+        guard let tracker = self.coreContext.discussionForwards else {
+            throw TelerouteDiscussionForwardError.trackingDisabled
+        }
+        return try await tracker.discussionMessage(for: post, timeout: timeout, bot: self.bot)
+    }
+
+    /// Waits until Telegram forwards post `messageId` of channel `channelId`
+    /// into the channel's linked discussion chat. Returns `nil` when the
+    /// channel has no linked chat.
+    func discussionMessage(
+        channelId: Int64,
+        messageId: Int64,
+        timeout: Duration = .seconds(20)
+    ) async throws -> TelerouteDiscussionForward? {
+        guard let tracker = self.coreContext.discussionForwards else {
+            throw TelerouteDiscussionForwardError.trackingDisabled
+        }
+        return try await tracker.discussionMessage(
+            channelId: channelId,
+            messageId: messageId,
+            timeout: timeout,
+            bot: self.bot
+        )
+    }
+}
+
+public extension TelerouteRequestContext {
+    /// Sends a channel post and returns it together with its copy in the
+    /// channel's linked discussion chat. See
+    /// ``TelerouteBot/sendWithDiscussionForward(timeout:_:)``.
+    func sendWithDiscussionForward(
+        timeout: Duration = .seconds(20),
+        _ send: (TelegramBotClient) async throws -> Message
+    ) async throws -> (post: Message, forward: TelerouteDiscussionForward?) {
+        try await TelerouteDiscussionForwardTracker.send(
+            with: self.coreContext.discussionForwards,
+            bot: self.bot,
+            timeout: timeout,
+            send
+        )
+    }
+}
+
 // MARK: - Chat management
 
 public extension TelerouteRequestContext {

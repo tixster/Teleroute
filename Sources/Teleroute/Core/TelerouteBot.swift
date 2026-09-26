@@ -33,8 +33,14 @@ public final class TelerouteBot: Sendable {
     private let pollingTask = Mutex<Task<Void, Never>?>(nil)
 
     /// Telegram Bot API client used by the router.
-    public var bot: TelegramBotClient {
+    public var client: TelegramBotClient {
         self.runtime.bot
+    }
+
+    /// Telegram Bot API client used by the router.
+    @available(*, deprecated, renamed: "client")
+    public var bot: TelegramBotClient {
+        self.client
     }
 
     /// Routed bot logger.
@@ -274,6 +280,100 @@ public final class TelerouteBot: Sendable {
         _ mode: TelerouteAllowedUpdates = .automatic
     ) -> [String]? {
         self.runtime.resolvedAllowedUpdates(mode)
+    }
+
+    /// Waits until Telegram forwards a channel post into the channel's linked
+    /// discussion chat, and returns that forward — reply to its
+    /// ``TelerouteDiscussionForward/discussionMessageId`` to comment under
+    /// the post:
+    ///
+    /// ```swift
+    /// let post = try await bot.client.sendMessage(chatId: .id(channelId), text: "New chapter")
+    /// if let forward = try await bot.discussionMessage(for: post) {
+    ///     try await bot.client.sendMessage(
+    ///         chatId: .id(forward.discussionChatId),
+    ///         text: "Comments start here",
+    ///         replyParameters: .init(messageId: forward.discussionMessageId)
+    ///     )
+    /// }
+    /// ```
+    ///
+    /// The channel's linked chat is looked up with `getChat` (and cached per
+    /// ``TelerouteDiscussionForwardPolicy/enabled(retention:capacity:linkedChatCacheTTL:)``);
+    /// without one this returns `nil` immediately. A forward that arrived
+    /// before this call is still found while it is retained.
+    ///
+    /// Tracking is on unless ``TelerouteConfiguration/discussionForwards`` is
+    /// ``TelerouteDiscussionForwardPolicy/disabled``. The bot must ask for
+    /// `message` updates (any command or message route does; a warning is
+    /// logged once otherwise) and see the discussion chat's messages
+    /// (administrator, or privacy mode disabled).
+    ///
+    /// - Parameters:
+    ///   - post: A message sent to a channel, as returned by a send method.
+    ///   - timeout: How long to wait for the forward.
+    /// - Throws: ``TelerouteDiscussionForwardError`` — `.trackingDisabled`,
+    ///   `.notAChannelPost`, `.timeout`, or `.shutdown`; `CancellationError`
+    ///   when the waiting task is cancelled; or the `getChat` failure.
+    public func discussionMessage(
+        for post: Message,
+        timeout: Duration = .seconds(20)
+    ) async throws -> TelerouteDiscussionForward? {
+        guard let tracker = self.runtime.discussionForwards else {
+            throw TelerouteDiscussionForwardError.trackingDisabled
+        }
+        return try await tracker.discussionMessage(for: post, timeout: timeout, bot: self.runtime.bot)
+    }
+
+    /// Sends a channel post and returns it together with its copy in the
+    /// channel's linked discussion chat:
+    ///
+    /// ```swift
+    /// let (post, forward) = try await bot.sendWithDiscussionForward { client in
+    ///     try await client.sendMessage(chatId: .id(channelId), text: "New chapter")
+    /// }
+    /// ```
+    ///
+    /// Any send method returning one `Message` works inside the closure.
+    /// `forward` is `nil` when the channel has no linked chat. See
+    /// ``discussionMessage(for:timeout:)`` for how the copy is found.
+    ///
+    /// - Parameters:
+    ///   - timeout: How long to wait for the copy after sending.
+    ///   - send: Sends the post through the bot's client.
+    /// - Throws: ``TelerouteDiscussionForwardError/trackingDisabled`` before
+    ///   sending anything when tracking is off; the send's own error; or,
+    ///   once the post is out, ``TelerouteDiscussionPostError`` carrying the
+    ///   sent post and the reason waiting failed.
+    public func sendWithDiscussionForward(
+        timeout: Duration = .seconds(20),
+        _ send: (TelegramBotClient) async throws -> Message
+    ) async throws -> (post: Message, forward: TelerouteDiscussionForward?) {
+        try await TelerouteDiscussionForwardTracker.send(
+            with: self.runtime.discussionForwards,
+            bot: self.runtime.bot,
+            timeout: timeout,
+            send
+        )
+    }
+
+    /// Waits until Telegram forwards post `messageId` of channel `channelId`
+    /// into the channel's linked discussion chat. See
+    /// ``discussionMessage(for:timeout:)``.
+    public func discussionMessage(
+        channelId: Int64,
+        messageId: Int64,
+        timeout: Duration = .seconds(20)
+    ) async throws -> TelerouteDiscussionForward? {
+        guard let tracker = self.runtime.discussionForwards else {
+            throw TelerouteDiscussionForwardError.trackingDisabled
+        }
+        return try await tracker.discussionMessage(
+            channelId: channelId,
+            messageId: messageId,
+            timeout: timeout,
+            bot: self.runtime.bot
+        )
     }
 
     /// Creates an independent stream of routed bot lifecycle events.

@@ -639,6 +639,18 @@ public class TelerouteRouterGroup<Context: TelerouteRequestContext>: @unchecked 
         }
     }
 
+    func registerDiscussionForwardObserver(
+        _ handler: @escaping @Sendable (TelerouteDiscussionForward, Context) async throws -> Void
+    ) {
+        let contextExecutor = self.makeContextExecutor()
+        self.routes.onDiscussionForward { forward, coreContext in
+            _ = try await contextExecutor(coreContext) { context in
+                try await handler(forward, context)
+                return .none
+            }
+        }
+    }
+
     private func makeContextExecutor() -> TelerouteContextExecutor<Context> {
         let baseContextExecutor = self.baseContextExecutor
         let middlewares = self.typedMiddlewareStorage.values

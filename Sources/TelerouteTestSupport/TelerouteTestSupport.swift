@@ -520,6 +520,73 @@ public enum TelerouteTestSupport {
         return Update(updateId: updateId, message: message)
     }
 
+    /// Builds the message Telegram posts into a channel's linked discussion
+    /// chat when the channel publishes a post: an automatic forward from the
+    /// Telegram service account. Text starting with `/` carries a
+    /// `bot_command` entity, as a real forward of such a post would.
+    public static func makeAutomaticForwardUpdate(
+        channelId: Int64,
+        channelMessageId: Int64,
+        discussionChatId: Int64,
+        discussionMessageId: Int64 = 100,
+        text: String = "Channel post",
+        updateId: Int64 = 20
+    ) -> Update {
+        let channel = Chat(id: channelId, type: .channel, title: "Channel")
+        let commandToken = text.hasPrefix("/")
+            ? String(text.split(maxSplits: 1, whereSeparator: \.isWhitespace).first ?? "")
+            : nil
+        let message = Message(
+            messageId: discussionMessageId,
+            from: User(id: 777_000, isBot: false, firstName: "Telegram"),
+            senderChat: channel,
+            date: 1,
+            chat: Chat(id: discussionChatId, type: .supergroup, title: "Discussion"),
+            forwardOrigin: .channel(.init(date: 1, chat: channel, messageId: channelMessageId)),
+            isAutomaticForward: true,
+            text: text,
+            entities: commandToken.map { [.botCommand(offset: 0, length: Int64($0.utf16.count))] }
+        )
+        return Update(updateId: updateId, message: message)
+    }
+
+    /// A ``TelerouteRecordingTransport/Fallback`` answering `getChat` for
+    /// channels: `linkedChats` maps a channel id to its linked discussion
+    /// chat, or to `nil` for a channel without one. Other operations, and
+    /// chats missing from the map, throw
+    /// ``TelerouteTestNetworkError/unsupportedMethod(_:)``.
+    public static func linkedChatFallback(
+        _ linkedChats: [Int64: Int64?]
+    ) -> TelerouteRecordingTransport.Fallback {
+        { operationID, body in
+            guard operationID == "getChat",
+                  let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+                  let chatId = (object["chat_id"] as? NSNumber)?.int64Value,
+                  let linkedChatId = linkedChats[chatId] else {
+                throw TelerouteTestNetworkError.unsupportedMethod(operationID)
+            }
+            let chat = ChatFullInfo(
+                id: chatId,
+                type: .channel,
+                title: "Channel",
+                accentColorId: 0,
+                maxReactionCount: 0,
+                acceptedGiftTypes: .init(
+                    unlimitedGifts: false,
+                    limitedGifts: false,
+                    uniqueGifts: false,
+                    premiumSubscription: false,
+                    giftsFromChannels: false
+                ),
+                linkedChatId: linkedChatId
+            )
+            let envelope = try JSONEncoder().encode(OkEnvelope(ok: true, result: chat))
+            var response = HTTPResponse(status: .ok)
+            response.headerFields[.contentType] = "application/json; charset=utf-8"
+            return (response, envelope)
+        }
+    }
+
     /// Builds a synthetic edited-message update.
     public static func makeEditedMessageUpdate(
         text: String,

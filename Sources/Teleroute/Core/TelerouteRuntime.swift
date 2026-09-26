@@ -31,6 +31,9 @@ public final class TelerouteRuntime: Sendable {
     private let flowSessionCleanupTask: Task<Void, Never>?
     let inlineActions: TelerouteInlineActionStore?
     private let inlineActionCleanupTask: Task<Void, Never>?
+    /// Recent automatic channel forwards and the callers awaiting them. `nil`
+    /// when ``TelerouteConfiguration/discussionForwards`` is disabled.
+    let discussionForwards: TelerouteDiscussionForwardTracker?
 
     /// Creates a router with one explicit configuration object for advanced dependencies.
     public convenience init(
@@ -67,6 +70,17 @@ public final class TelerouteRuntime: Sendable {
         let inlineActions = Self.makeInlineActionStore(configuration.inlineActions)
         self.inlineActions = inlineActions
         self.inlineActionCleanupTask = Self.makeInlineActionCleanupTask(store: inlineActions)
+        let allowedUpdates = configuration.polling.allowedUpdates
+        let discussionForwards = TelerouteDiscussionForwardTracker(
+            configuration.discussionForwards,
+            logger: logger,
+            requestsMessages: { [storage] in
+                // `nil` keeps Telegram's default set, which includes messages.
+                Self.resolveAllowedUpdates(allowedUpdates, graph: storage.routeGraph)?
+                    .contains(UpdateKind.message.rawValue) ?? true
+            }
+        )
+        self.discussionForwards = discussionForwards
 
         self.flowCoordinator = .init(
             bot: bot,
@@ -75,6 +89,7 @@ public final class TelerouteRuntime: Sendable {
             cancellationPolicy: configuration.flowCancellationPolicy,
             routeScope: self.routeScope,
             inlineActions: inlineActions,
+            discussionForwards: discussionForwards,
             sessionTTL: configuration.flowSessionTTL,
             metricsSink: configuration.metricsSink
         )
@@ -121,6 +136,7 @@ public final class TelerouteRuntime: Sendable {
         self.replayProtectionCleanupTask?.cancel()
         self.flowSessionCleanupTask?.cancel()
         self.inlineActionCleanupTask?.cancel()
+        self.discussionForwards?.shutdown()
         self.eventHub.finish()
     }
 
@@ -129,13 +145,19 @@ public final class TelerouteRuntime: Sendable {
     public func resolvedAllowedUpdates(
         _ mode: TelerouteAllowedUpdates
     ) -> [String]? {
+        Self.resolveAllowedUpdates(mode, graph: self.storage.routeGraph)
+    }
+
+    static func resolveAllowedUpdates(
+        _ mode: TelerouteAllowedUpdates,
+        graph: TelerouteRouteGraph
+    ) -> [String]? {
         switch mode {
         case .all:
             return UpdateKind.allCases.map(\.rawValue)
         case let .explicit(kinds):
             return kinds.map(\.rawValue).sorted()
         case .automatic:
-            let graph = self.storage.routeGraph
             guard graph.unmatchedRoutes.isEmpty else {
                 return UpdateKind.allCases.map(\.rawValue)
             }
@@ -146,6 +168,13 @@ public final class TelerouteRuntime: Sendable {
             }
             if graph.hasCallbackRoutes || graph.hasMountedFlows {
                 kinds.insert(.callbackQuery)
+            }
+            // Automatic channel forwards arrive as plain messages in the
+            // linked discussion chat. Only observers widen the request:
+            // tracking is on by default and must not change what a bot asks
+            // Telegram for.
+            if graph.discussionForwardObservers.isEmpty == false {
+                kinds.insert(.message)
             }
             guard kinds.isEmpty == false else { return nil }
             return kinds.map(\.rawValue).sorted()
@@ -187,6 +216,8 @@ public final class TelerouteRuntime: Sendable {
                 userId: parsedUpdate.userId
             )
             self.log.debug("Received update", metadata: self.updateMetadata(for: parsedUpdate))
+            let routeGraph = self.storage.routeGraph
+            await self.observeDiscussionForward(parsedUpdate, routeGraph: routeGraph)
             guard await self.shouldHandle(parsedUpdate) else {
                 self.emitEvent(.skippedDuplicate, parsedUpdate: parsedUpdate, startedAt: startedAt)
                 await self.metricsSink.recordSkippedDuplicate(
@@ -197,7 +228,6 @@ public final class TelerouteRuntime: Sendable {
                 self.log.debug("Skipped duplicate update", metadata: self.updateMetadata(for: parsedUpdate))
                 return
             }
-            let routeGraph = self.storage.routeGraph
             if try await self.processFlow(
                 parsedUpdate, routeGraph: routeGraph, startedAt: startedAt, responderState: responderState
             ) {
@@ -250,6 +280,52 @@ public final class TelerouteRuntime: Sendable {
         }
         if handled {
             await self.autoAnswerCallbackIfNeeded(parsedUpdate, responderState: responderState)
+        }
+    }
+
+    /// Records an automatic channel forward and notifies observers.
+    ///
+    /// Runs before replay protection: that deduplicates per chat and user, and
+    /// every automatic forward comes from the same service account, so two
+    /// posts starting with the same command would otherwise collide. It runs
+    /// before routing for the same reason observers exist at all — a command
+    /// route must not swallow a post that happens to start with `/`.
+    private func observeDiscussionForward(
+        _ parsedUpdate: TelerouteParsedUpdate,
+        routeGraph: TelerouteRouteGraph
+    ) async {
+        guard parsedUpdate.messageSource == .message,
+              let message = parsedUpdate.message,
+              let forward = TelerouteDiscussionForward(message) else {
+            return
+        }
+        self.discussionForwards?.record(forward)
+
+        for observer in routeGraph.discussionForwardObservers {
+            let context = TelerouteContext(
+                bot: self.bot,
+                parsedUpdate: parsedUpdate,
+                defaultParseMode: self.defaultParseMode,
+                logger: parsedUpdate.logger(from: self.log),
+                flowStorage: self.flowStorage,
+                flowSession: nil,
+                flowSessionTTL: self.flowSessionTTL,
+                metricsSink: self.metricsSink,
+                routeScope: self.routeScope,
+                inlineActions: self.inlineActions,
+                discussionForwards: self.discussionForwards
+            )
+            do {
+                try await observer.handler(forward, context)
+            } catch {
+                guard (error is CancellationError && Task.isCancelled) == false else { return }
+                // Not routed through `handleError`: that reports the update's
+                // terminal outcome, which the routing pass still decides.
+                var metadata = self.updateMetadata(for: parsedUpdate)
+                metadata["error"] = .string(String(reflecting: error))
+                self.log.error("Discussion-forward observer failed", metadata: metadata)
+                await self.onError?(error, context)
+            }
         }
     }
 
@@ -433,7 +509,8 @@ public final class TelerouteRuntime: Sendable {
                 metricsSink: self.metricsSink,
                 responderState: responderState,
                 routeScope: self.routeScope,
-                inlineActions: self.inlineActions
+                inlineActions: self.inlineActions,
+                discussionForwards: self.discussionForwards
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -484,7 +561,8 @@ public final class TelerouteRuntime: Sendable {
                 metricsSink: self.metricsSink,
                 responderState: responderState,
                 routeScope: self.routeScope,
-                inlineActions: self.inlineActions
+                inlineActions: self.inlineActions,
+                discussionForwards: self.discussionForwards
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -536,7 +614,8 @@ public final class TelerouteRuntime: Sendable {
                 metricsSink: self.metricsSink,
                 responderState: responderState,
                 routeScope: self.routeScope,
-                inlineActions: self.inlineActions
+                inlineActions: self.inlineActions,
+                discussionForwards: self.discussionForwards
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -583,7 +662,8 @@ public final class TelerouteRuntime: Sendable {
                 metricsSink: self.metricsSink,
                 responderState: responderState,
                 routeScope: self.routeScope,
-                inlineActions: self.inlineActions
+                inlineActions: self.inlineActions,
+                discussionForwards: self.discussionForwards
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -629,7 +709,8 @@ public final class TelerouteRuntime: Sendable {
                 metricsSink: self.metricsSink,
                 responderState: responderState,
                 routeScope: self.routeScope,
-                inlineActions: self.inlineActions
+                inlineActions: self.inlineActions,
+                discussionForwards: self.discussionForwards
             )
             let handled = try await Self.run(
                 executor: route.executor,
@@ -676,7 +757,8 @@ public final class TelerouteRuntime: Sendable {
             metricsSink: self.metricsSink,
             responderState: responderState,
             routeScope: self.routeScope,
-            inlineActions: self.inlineActions
+            inlineActions: self.inlineActions,
+            discussionForwards: self.discussionForwards
         )
 
         // An abort is a controlled outcome: render its response and report

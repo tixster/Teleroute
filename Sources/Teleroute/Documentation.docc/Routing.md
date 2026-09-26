@@ -7,15 +7,19 @@ Register handlers for commands, messages, callbacks, and every other update kind
 Every Telegram update kind is routable. When an update arrives, Teleroute
 dispatches it through a fixed pipeline:
 
-1. **Replay protection** — duplicates within the TTL are dropped
+1. **Discussion forwards** — an automatic forward of a channel post into its
+   linked discussion chat is recorded and passed to every
+   `onDiscussionForward` observer (see
+   <doc:Routing#Channel-Discussion-Forwards>). This does not end routing.
+2. **Replay protection** — duplicates within the TTL are dropped
    (``TelerouteConfiguration/replayProtectionStorage``).
-2. **Flows** — if the chat/user has an active flow session, its step routes
+3. **Flows** — if the chat/user has an active flow session, its step routes
    match first (<doc:Flows>).
-3. **Callbacks** — callback-query routes matched against the callback data.
-4. **Commands** — `/command` routes.
-5. **Message routes** — content-filtered plain-message routes.
-6. **Update-kind routes** — `on(_:)` and the typed payload sugar.
-7. **`unmatched` hook** — the final fallback.
+4. **Callbacks** — callback-query routes matched against the callback data.
+5. **Commands** — `/command` routes.
+6. **Message routes** — content-filtered plain-message routes.
+7. **Update-kind routes** — `on(_:)` and the typed payload sugar.
+8. **`unmatched` hook** — the final fallback.
 
 Within each stage, routes are tried in registration order. A route that
 returns `.unhandled` (or whose guard returns `.skip`) falls through to the
@@ -148,11 +152,55 @@ router.unmatched { context in
 }
 ```
 
+### Channel Discussion Forwards
+
+When a channel has a linked discussion chat, Telegram copies each new post
+into it as an automatic forward; replying to that copy comments under the
+post. ``TelerouteConfiguration/discussionForwards`` tracks these copies by
+default, so a bot can await the copy of a post it published:
+
+```swift
+let post = try await bot.client.sendMessage(chatId: .id(channelId), text: "Chapter 69")
+if let forward = try await bot.discussionMessage(for: post) {
+    try await bot.client.sendMessage(
+        chatId: .id(forward.discussionChatId),
+        text: "Discuss here",
+        replyParameters: .init(messageId: forward.discussionMessageId)
+    )
+}
+```
+
+``TelerouteBot/discussionMessage(for:timeout:)`` returns `nil` straight away
+when the channel has no linked chat, finds a copy that arrived before the call
+while it is retained, and throws ``TelerouteDiscussionForwardError`` on
+timeout. Request contexts offer the same call.
+``TelerouteBot/sendWithDiscussionForward(timeout:_:)`` sends and waits in one
+step, returning `(post, forward)`; if waiting fails after the post went out,
+the thrown ``TelerouteDiscussionPostError`` still carries the post. Tracking does not change
+`allowed_updates`; the bot must already ask for `message` — any command or
+message route does — or the first wait logs a warning.
+
+To react to every automatic forward, register an observer:
+
+```swift
+router.onDiscussionForward { forward, context in
+    context.logger.info("post \(forward.channelMessageId) was forwarded")
+}
+```
+
+Observers are not routes: they run before replay protection and routing for
+every automatic forward, so a command route cannot swallow a post starting
+with `/`. They leave the update's outcome alone, skip guards and core
+middleware, and report a thrown error to ``TelerouteConfiguration/onError``.
+The bot must see the discussion chat's messages (administrator, or privacy
+mode disabled).
+
 ### Allowed Updates Are Derived Automatically
 
 Teleroute inspects the registered routes and asks Telegram for exactly the
 update kinds it can handle (`allowed_updates`). Registering an `unmatched`
-hook widens the request to every kind. Override the behavior through
+hook widens the request to every kind; registering an `onDiscussionForward`
+observer adds `message`. Override the behavior through
 ``TelegramPollingConfiguration``:
 
 ```swift

@@ -192,6 +192,13 @@ Start with <doc:GettingStarted>, then explore <doc:Routing> and
 - ``TelegramPollingConfiguration``
 - ``TelerouteAllowedUpdates``
 
+### Channel Discussion Forwards
+
+- ``TelerouteDiscussionForwardPolicy``
+- ``TelerouteDiscussionForward``
+- ``TelerouteDiscussionForwardError``
+- ``TelerouteDiscussionPostError``
+
 ### Replay Protection
 
 - ``TelerouteReplayProtectionStorage``

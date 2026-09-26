@@ -119,6 +119,15 @@ public extension TelerouteRoutes {
             .init(middlewares: resolved, handler: handler)
         )
     }
+
+    /// Registers a hook notified of every automatic channel forward before
+    /// routing. Observers are not routes: inherited guards and middleware do
+    /// not apply.
+    internal func onDiscussionForward(
+        use handler: @escaping @Sendable (TelerouteDiscussionForward, TelerouteContext) async throws -> Void
+    ) {
+        self.storage.appendDiscussionForwardObserver(.init(handler: handler))
+    }
 }
 
 // MARK: - Group-level registration
@@ -271,6 +280,27 @@ public extension TelerouteRouterGroup {
             try await handler($0)
             return .none
         }
+    }
+
+    /// Registers a hook notified whenever Telegram automatically forwards a
+    /// channel post into the channel's linked discussion chat.
+    ///
+    /// Observers are not routes. They run for every automatic forward before
+    /// routing — and before replay protection — whichever route later handles
+    /// the update, so a command route cannot swallow a post that happens to
+    /// start with `/`. Guards and core middleware do not apply, observers do
+    /// not change the update's handled/unmatched outcome, and a thrown error
+    /// is logged and passed to ``TelerouteConfiguration/onError`` without
+    /// interrupting routing. The handler context is built like this scope's
+    /// route contexts.
+    ///
+    /// Registering an observer puts `message` in the automatically derived
+    /// `allowed_updates`. The bot must see the discussion chat's messages:
+    /// make it an administrator there or disable its privacy mode.
+    func onDiscussionForward(
+        use handler: @escaping @Sendable (TelerouteDiscussionForward, Context) async throws -> Void
+    ) {
+        self.registerDiscussionForwardObserver(handler)
     }
 }
 

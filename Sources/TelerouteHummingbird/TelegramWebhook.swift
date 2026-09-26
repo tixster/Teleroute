@@ -136,7 +136,7 @@ public struct TelegramWebhookService: Service {
     }
 
     public func run() async throws {
-        try await self.bot.bot.setWebhook(
+        try await self.bot.client.setWebhook(
             url: self.configuration.url,
             allowedUpdates: self.bot.resolvedAllowedUpdates(self.configuration.allowedUpdates),
             dropPendingUpdates: self.configuration.dropPendingUpdates,
@@ -148,7 +148,7 @@ public struct TelegramWebhookService: Service {
         )
         _ = try? await gracefulShutdown()
         if self.configuration.deleteWebhookOnShutdown {
-            _ = try? await self.bot.bot.deleteWebhook()
+            _ = try? await self.bot.client.deleteWebhook()
         }
     }
 }

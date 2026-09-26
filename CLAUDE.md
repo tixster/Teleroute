@@ -70,8 +70,9 @@ regenerated output. Details in `botapi/README.md`.
 
 ## Dispatch pipeline
 
-Per update, in order: replay protection → flows → callbacks → commands →
-message routes → update-kind routes → `unmatched` hook.
+Per update, in order: discussion-forward tracking/observers → replay
+protection → flows → callbacks → commands → message routes → update-kind
+routes → `unmatched` hook.
 
 Key files: `Core/TelerouteRuntime.swift` owns the pipeline (events, metrics,
 error handling, replay protection); `Core/TelerouteParsedUpdate.swift` does a

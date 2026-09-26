@@ -58,6 +58,9 @@ public struct TelerouteContext: Sendable {
     /// Registry backing buttons that carry an inline handler. `nil` when the
     /// feature is disabled or the context was built directly.
     let inlineActions: TelerouteInlineActionStore?
+    /// Tracker backing ``TelerouteRequestContext/discussionMessage(for:timeout:)``.
+    /// `nil` when the feature is disabled or the context was built directly.
+    let discussionForwards: TelerouteDiscussionForwardTracker?
 
     /// Logger used by contexts built outside a running router.
     public static let defaultLogger = Logger(label: "teleroute.context")
@@ -84,6 +87,7 @@ public struct TelerouteContext: Sendable {
         self.responderState = .init()
         self.routeScope = nil
         self.inlineActions = nil
+        self.discussionForwards = nil
     }
 
     /// Internal initializer used by the running router. `logger` is deliberately
@@ -101,7 +105,8 @@ public struct TelerouteContext: Sendable {
         metricsSink: (any TelerouteMetricsSink)? = nil,
         responderState: TelerouteResponderState = .init(),
         routeScope: TelerouteRoutes? = nil,
-        inlineActions: TelerouteInlineActionStore? = nil
+        inlineActions: TelerouteInlineActionStore? = nil,
+        discussionForwards: TelerouteDiscussionForwardTracker? = nil
     ) {
         self.bot = bot
         self.parameters = parameters
@@ -116,6 +121,7 @@ public struct TelerouteContext: Sendable {
         self.responderState = responderState
         self.routeScope = routeScope
         self.inlineActions = inlineActions
+        self.discussionForwards = discussionForwards
     }
 
     /// Raw Telegram update currently being processed.

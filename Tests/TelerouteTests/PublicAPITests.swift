@@ -466,6 +466,64 @@ private struct PublicV2Routes: TelerouteRouteCollection {
     await bot.shutdown()
 }
 
+@Test func publicDiscussionForwardAPIIsUsableFromOutsideTheModule() async throws {
+    let channelId: Int64 = -100_1
+    let observed = TelerouteTestRecorder<Int64>()
+    let router = Teleroute()
+    router.onDiscussionForward { forward, context in
+        _ = context.message
+        await observed.record(forward.discussionMessageId)
+    }
+    let telegram = TelerouteRecordingTransport(
+        fallback: TelerouteTestSupport.linkedChatFallback([channelId: -100_2])
+    )
+    let bot = try TelerouteBot(
+        token: TelerouteTestSupport.testToken,
+        router: router,
+        configuration: .init(
+            replayProtectionStorage: nil,
+            discussionForwards: .enabled(retention: .seconds(30), capacity: 16, linkedChatCacheTTL: .seconds(30))
+        ),
+        mode: .manual,
+        transport: telegram,
+        rateLimit: nil
+    )
+
+    try await bot.test { client in
+        _ = await client.execute(
+            TelerouteTestSupport.makeAutomaticForwardUpdate(
+                channelId: channelId,
+                channelMessageId: 7,
+                discussionChatId: -100_2,
+                discussionMessageId: 70
+            )
+        )
+    }
+    #expect(await observed.values == [70])
+
+    let forward: TelerouteDiscussionForward? = try await bot.discussionMessage(
+        channelId: channelId,
+        messageId: 7,
+        timeout: .milliseconds(50)
+    )
+    #expect(forward?.channelId == channelId)
+    #expect(forward?.channelMessageId == 7)
+    #expect(forward?.discussionChatId == -100_2)
+    #expect(forward?.message.messageId == 70)
+
+    let (post, sentForward) = try await bot.sendWithDiscussionForward(timeout: .milliseconds(50)) { _ in
+        Message(messageId: 7, date: 1, chat: Chat(id: channelId, type: .channel))
+    }
+    #expect(post.messageId == 7)
+    #expect(sentForward?.discussionMessageId == 70)
+    let postError = TelerouteDiscussionPostError(post: post, underlying: CancellationError())
+    #expect(postError.post.messageId == 7)
+
+    let error: TelerouteDiscussionForwardError = .timeout(channelId: 1, channelMessageId: 2, discussionChatId: 3)
+    #expect(error.description.contains("channel 1"))
+    await bot.shutdown()
+}
+
 /// Minimal companion service that records when it was started.
 private actor PublicProbeServiceState {
     var started = false

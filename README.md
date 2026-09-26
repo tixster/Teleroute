@@ -128,8 +128,8 @@ Built-in client policies (all configurable on `TelegramBotClient` /
 ## Routing
 
 Every update kind is routable. Dispatch order per update:
-replay-protection → flows → callbacks → commands → message routes →
-update-kind routes → `unmatched` hook.
+discussion-forward observers → replay-protection → flows → callbacks →
+commands → message routes → update-kind routes → `unmatched` hook.
 
 ```swift
 // Commands (also /admin_ban style names via groups).
@@ -192,8 +192,10 @@ contexts — carries the full helper surface: `reply`, `send`, `edit`,
 `sendPhoto`/`Video`/`Audio`/`Voice`/`Sticker`/`MediaGroup`/`Location`/`Contact`/`Dice`,
 `sendChatAction`/`typing()`/`withChatAction`, `banMember`/`unbanMember`/
 `restrictMember`, `getChatMember`/`isAdmin`, `approveJoinRequest`,
-`publishCommands`, `keyboard { }`/`render`, `resolvedEditTarget`, and flow
-control (`start`/`cancelFlow`).
+`publishCommands`, `keyboard { }`/`render`, `resolvedEditTarget`,
+`discussionMessage(for:)`/`sendWithDiscussionForward` (see
+[Channel Discussion Forwards](#channel-discussion-forwards)), and flow control
+(`start`/`cancelFlow`).
 
 ```swift
 router.command("hi") { context in
@@ -448,6 +450,71 @@ Values decode in place — `try context.values.require("amount", as: Double.self
 completion and abandonment are measurable. For a shared store, persist sessions
 with `TelerouteFlowSessionCoding` and key them by `TelerouteFlowKey.storageKey`
 rather than inventing a format.
+
+## Channel Discussion Forwards
+
+When a channel has a linked discussion chat, Telegram copies every new post
+into that chat as an automatic forward. Replying to the copy comments under
+the post. Tracking is on by default, so a bot can await the copy of a post it
+just published:
+
+```swift
+let post = try await bot.client.sendMessage(chatId: .id(channelId), text: "Chapter 69")
+if let forward = try await bot.discussionMessage(for: post, timeout: .seconds(20)) {
+    try await bot.client.sendMessage(
+        chatId: .id(forward.discussionChatId),
+        text: "Discuss here",
+        replyParameters: .init(messageId: forward.discussionMessageId)
+    )
+}
+```
+
+`discussionMessage` looks the linked chat up with `getChat` (cached for
+`linkedChatCacheTTL`) and returns `nil` straight away when the channel has
+none. A copy that arrives before you start waiting — a webhook can beat the
+`sendMessage` response — is still found while it is retained
+(`retention`/`capacity`). It throws `TelerouteDiscussionForwardError`:
+`.timeout`, `.notAChannelPost`, `.trackingDisabled` (after
+`discussionForwards: .disabled`), or `.shutdown`; cancelling the waiting task
+throws `CancellationError`. Tune the buffer with
+`.enabled(retention:capacity:linkedChatCacheTTL:)`. The same call is available
+on every request context: `try await context.discussionMessage(for: post)`.
+
+To send and wait in one step, pass the send call to `sendWithDiscussionForward`
+— any send method returning one `Message` works:
+
+```swift
+let (post, forward) = try await bot.sendWithDiscussionForward { client in
+    try await client.sendPhoto(chatId: .id(channelId), photo: .upload(filename: "cover.jpg", data: cover))
+}
+```
+
+It throws `.trackingDisabled` before sending anything when tracking is off, and
+passes the send's own error through. Once the post is out, a failed wait
+throws `TelerouteDiscussionPostError`, which carries the sent `post` and the
+`underlying` reason, so the published message is never lost. Request contexts
+offer it too.
+
+To react to every automatic forward instead, register an observer:
+
+```swift
+router.onDiscussionForward { forward, context in
+    context.logger.info("post \(forward.channelMessageId) → \(forward.discussionMessageId)")
+}
+```
+
+Observers are not routes. They run before replay protection and routing, for
+every automatic forward, so a command route cannot swallow a post that starts
+with `/`; they do not change the update's handled/unmatched outcome, guards
+and core middleware do not apply, and a thrown error goes to `onError` without
+stopping routing. Observers work with tracking disabled.
+
+Automatic forwards arrive as plain messages, so the bot has to ask for
+`message` updates. Tracking does not change `allowed_updates`: any command or
+message route already asks for them, and registering an observer adds
+`message`. If neither does, the first `discussionMessage` call logs a warning.
+The bot also has to see the discussion chat's messages — make it an
+administrator there or disable its privacy mode.
 
 ## Lifecycle and Webhooks
 

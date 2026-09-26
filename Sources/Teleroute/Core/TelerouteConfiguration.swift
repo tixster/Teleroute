@@ -48,6 +48,11 @@ public struct TelerouteConfiguration: Sendable {
     /// stay pressable. Disabled by default: enabling it registers a callback
     /// route, which in turn puts `callback_query` in `allowed_updates`.
     public var inlineActions: TelerouteInlineActionPolicy
+    /// Whether channel posts automatically forwarded into their linked
+    /// discussion chat are tracked, so callers can await them with
+    /// ``TelerouteBot/discussionMessage(for:timeout:)``. Enabled by default;
+    /// it does not change `allowed_updates`.
+    public var discussionForwards: TelerouteDiscussionForwardPolicy
 
     public init(
         flowStorage: any TelerouteFlowStorage = TelerouteInMemoryFlowStorage(),
@@ -64,7 +69,8 @@ public struct TelerouteConfiguration: Sendable {
         autoAnswerCallbackQueries: Bool = true,
         errorRenderer: TelerouteErrorRenderer? = nil,
         shutdownGracePeriod: Duration = .seconds(15),
-        inlineActions: TelerouteInlineActionPolicy = .disabled
+        inlineActions: TelerouteInlineActionPolicy = .disabled,
+        discussionForwards: TelerouteDiscussionForwardPolicy = .enabled()
     ) {
         self.flowStorage = flowStorage
         self.replayProtectionStorage = replayProtectionStorage
@@ -81,5 +87,6 @@ public struct TelerouteConfiguration: Sendable {
         self.errorRenderer = errorRenderer
         self.shutdownGracePeriod = shutdownGracePeriod
         self.inlineActions = inlineActions
+        self.discussionForwards = discussionForwards
     }
 }

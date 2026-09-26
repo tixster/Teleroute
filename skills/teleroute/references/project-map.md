@@ -26,6 +26,7 @@
 - `Core/TelerouteRuntime.swift`: test-SPI runtime owning the update pipeline: processing order, event emission, error handling, metrics, and replay protection.
 - `Core/TelerouteParsedUpdate.swift`: one-pass extraction of command, callback, message, identity, flow key, and route-kind metadata for one routing pass.
 - `Core/TelerouteUpdateExecutor.swift`: bounded update execution, backpressure, cancellation, and synchronous shutdown state.
+- `Core/TelerouteDiscussionForwards.swift`: discussion-forward policy, forward/error types, and the tracker that buffers automatic channel forwards, resolves linked chats via `getChat`, and resumes continuation-based waiters.
 - `Routing/Teleroute.swift`: public generic router/group APIs, middleware collections, custom/child context execution, response and side-effect registration.
 - `Routing/TelerouteRoutes.swift`: low-level test-SPI registration scope used by the runtime and public router adapter.
 - `Routing/TelerouteRuntime+Routes.swift`: test-SPI compatibility used by low-level invariant tests only.
@@ -60,6 +61,7 @@
 - Callback data generation and matching should stay symmetric; parameter values are percent-encoded when rendered and decoded on match.
 - Unbound typed buttons render only when their full callback path is registered in that exact scope; route-bound buttons may cross scopes within the same router but not router instances.
 - Duplicate route diagnostics intentionally ignore guarded routes because same path plus different guards is supported.
+- Automatic channel forwards into a linked discussion chat are recorded and passed to `onDiscussionForward` observers before replay protection and routing; observers never change the routing outcome or emit terminal events.
 - Replay protection deduplicates repeated commands and callbacks for the same chat/user scope within the configured TTL.
 - Route evaluation is registration ordered; the first route whose guard/middleware chain reaches its final handler wins.
 - Every update uses one immutable route-graph snapshot; route registration incrementally updates command, callback, and flow indexes.
