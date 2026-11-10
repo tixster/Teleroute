@@ -82,6 +82,8 @@ public extension TelerouteRequestContext {
     var flowKey: TelerouteFlowKey? { self.coreContext.flowKey }
 
     /// Typed update payload accessors.
+    var widgetQuery: WidgetQuery? { self.update.widgetQuery }
+    var sharedWidgetQuery: SharedWidgetQuery? { self.update.sharedWidgetQuery }
     var inlineQuery: InlineQuery? { self.update.inlineQuery }
     var chosenInlineResult: ChosenInlineResult? { self.update.chosenInlineResult }
     var shippingQuery: ShippingQuery? { self.update.shippingQuery }

@@ -13,20 +13,30 @@ checksum() {
         | sort -z | xargs -0 shasum -a 256
 }
 
+snapshot_checksum() {
+    shasum -a 256 "$ROOT/botapi/telegram-bot-api.html" "$ROOT/botapi/snapshot.json"
+}
+
+# Compare with the input to this run, not HEAD: adopting a new snapshot is a
+# legitimate uncommitted change and must be verifiable before committing it.
+INPUT="$(snapshot_checksum)"
 "$ROOT/Scripts/generate-api.sh" >/dev/null
+if [ "$INPUT" != "$(snapshot_checksum)" ]; then
+    echo "verify-generated: generation modified the documentation snapshot or metadata" >&2
+    exit 1
+fi
 FIRST="$(checksum)"
 "$ROOT/Scripts/generate-api.sh" >/dev/null
 SECOND="$(checksum)"
 
-if [ "$FIRST" != "$SECOND" ]; then
-    echo "verify-generated: pipeline is not idempotent" >&2
-    diff <(echo "$FIRST") <(echo "$SECOND") >&2 || true
+if [ "$INPUT" != "$(snapshot_checksum)" ]; then
+    echo "verify-generated: generation modified the documentation snapshot or metadata" >&2
     exit 1
 fi
 
-# Generation must never rewrite its own input; only --refresh may do that.
-if ! git -C "$ROOT" diff --quiet -- botapi/telegram-bot-api.html; then
-    echo "verify-generated: generation modified the documentation snapshot" >&2
+if [ "$FIRST" != "$SECOND" ]; then
+    echo "verify-generated: pipeline is not idempotent" >&2
+    diff <(echo "$FIRST") <(echo "$SECOND") >&2 || true
     exit 1
 fi
 

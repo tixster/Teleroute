@@ -24,7 +24,7 @@ import Testing
         let client = try TelegramBotClient(token: "1:test", transport: transport)
 
         do {
-            _ = try await client.sendMessage(chatId: .id(1), text: "hi")
+            _ = try await client.sendMessage(text: "hi", chatId: .id(1))
             Issue.record("Expected TelegramAPIError")
         } catch let error as TelegramAPIError {
             #expect(error.operation == "sendMessage")

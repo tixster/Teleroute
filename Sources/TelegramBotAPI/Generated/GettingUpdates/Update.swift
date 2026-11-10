@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -126,6 +126,20 @@ public struct Update: Codable, Hashable, Sendable {
         set { self.callbackQueryBox = newValue.map(_IndirectBox.init) }
     }
 
+    private var widgetQueryBox: _IndirectBox<WidgetQuery>?
+    /// *Optional*. New incoming query from a widget in a message sent by the bot or via the bot
+    public var widgetQuery: WidgetQuery? {
+        get { self.widgetQueryBox?.value }
+        set { self.widgetQueryBox = newValue.map(_IndirectBox.init) }
+    }
+
+    private var sharedWidgetQueryBox: _IndirectBox<SharedWidgetQuery>?
+    /// *Optional*. New incoming query from a forwarded message with a shared widget
+    public var sharedWidgetQuery: SharedWidgetQuery? {
+        get { self.sharedWidgetQueryBox?.value }
+        set { self.sharedWidgetQueryBox = newValue.map(_IndirectBox.init) }
+    }
+
     private var shippingQueryBox: _IndirectBox<ShippingQuery>?
     /// *Optional*. New incoming shipping query. Only for invoices with flexible price.
     public var shippingQuery: ShippingQuery? {
@@ -243,6 +257,8 @@ public struct Update: Codable, Hashable, Sendable {
         inlineQuery: InlineQuery? = nil,
         chosenInlineResult: ChosenInlineResult? = nil,
         callbackQuery: CallbackQuery? = nil,
+        widgetQuery: WidgetQuery? = nil,
+        sharedWidgetQuery: SharedWidgetQuery? = nil,
         shippingQuery: ShippingQuery? = nil,
         preCheckoutQuery: PreCheckoutQuery? = nil,
         purchasedPaidMedia: PaidMediaPurchased? = nil,
@@ -272,6 +288,8 @@ public struct Update: Codable, Hashable, Sendable {
         self.inlineQueryBox = inlineQuery.map(_IndirectBox.init)
         self.chosenInlineResultBox = chosenInlineResult.map(_IndirectBox.init)
         self.callbackQueryBox = callbackQuery.map(_IndirectBox.init)
+        self.widgetQueryBox = widgetQuery.map(_IndirectBox.init)
+        self.sharedWidgetQueryBox = sharedWidgetQuery.map(_IndirectBox.init)
         self.shippingQueryBox = shippingQuery.map(_IndirectBox.init)
         self.preCheckoutQueryBox = preCheckoutQuery.map(_IndirectBox.init)
         self.purchasedPaidMediaBox = purchasedPaidMedia.map(_IndirectBox.init)
@@ -303,6 +321,8 @@ public struct Update: Codable, Hashable, Sendable {
         case inlineQueryBox = "inline_query"
         case chosenInlineResultBox = "chosen_inline_result"
         case callbackQueryBox = "callback_query"
+        case widgetQueryBox = "widget_query"
+        case sharedWidgetQueryBox = "shared_widget_query"
         case shippingQueryBox = "shipping_query"
         case preCheckoutQueryBox = "pre_checkout_query"
         case purchasedPaidMediaBox = "purchased_paid_media"

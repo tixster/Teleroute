@@ -34,8 +34,8 @@ public extension TelerouteRequestContext {
             return
         }
         try await self.bot.sendMessage(
-            chatId: .id(message.chat.id),
             text: text,
+            chatId: .id(message.chat.id),
             parseMode: parseMode ?? self.defaultParseMode,
             replyParameters: .init(messageId: message.messageId, quote: quote),
             replyMarkup: replyMarkup
@@ -54,8 +54,8 @@ public extension TelerouteRequestContext {
         threadId: Int64? = nil
     ) async throws {
         try await self.bot.sendMessage(
-            chatId: try self.resolvedChat(chat),
             text: text,
+            chatId: try self.resolvedChat(chat),
             messageThreadId: threadId,
             parseMode: parseMode ?? self.defaultParseMode,
             disableNotification: silent,

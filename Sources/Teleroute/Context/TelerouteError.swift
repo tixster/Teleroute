@@ -21,6 +21,7 @@ import Foundation
 /// carry a `default`, or a new case in a minor release will stop it compiling.
 public enum TelerouteError: LocalizedError, Sendable {
     case callbackQueryMissing
+    case widgetQueryMissing
     case callbackRouteNotRegistered(String)
     case callbackRouteRouterMismatch(String)
     /// The callback value matches more than one registered route, so the
@@ -59,6 +60,8 @@ public enum TelerouteError: LocalizedError, Sendable {
         switch self {
         case .callbackQueryMissing:
             "Callback query is missing in the current update."
+        case .widgetQueryMissing:
+            "Widget query is missing in the current update."
         case let .callbackRouteNotRegistered(path):
             "Callback route '\(path)' is not registered in this route scope."
         case let .callbackRouteRouterMismatch(path):

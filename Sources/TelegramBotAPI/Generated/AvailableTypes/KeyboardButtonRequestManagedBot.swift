@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -13,7 +13,11 @@ public struct KeyboardButtonRequestManagedBot: Codable, Hashable, Sendable {
     /// *Optional*. Suggested name for the bot
     public var suggestedName: Swift.String?
 
-    /// *Optional*. Suggested username for the bot
+    /// *Optional*. Suggested username for the bot. The username must end with “bot”. If the
+    /// user creating the bot has a Telegram Premium subscription, then the username can also
+    /// end with “agent”, “ai”, “app”, “game”, or “gay”; in this case, the username will be
+    /// assigned to the bot as a secondary username, and a regular username ending with “bot”
+    /// will be assigned to the bot automatically.
     public var suggestedUsername: Swift.String?
 
     public init(

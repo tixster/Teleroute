@@ -12,7 +12,7 @@ regenerate with `Scripts/generate-api.sh`, verify with
 - `Sources/TelegramBotAPI/Generated` — every documented Bot API type under a
   flat top-level name (`Message`, `ChatMember`, `ChatId`, …), one file per type
   in a folder named after its documentation section;
-- `Sources/TelegramBotKit/Generated` — flat convenience wrappers for all 185
+- `Sources/TelegramBotKit/Generated` — flat convenience wrappers for all 193
   operations plus `UpdateKind`.
 
 `TelegramBotKit` also holds the hand-written client layer (request building and

@@ -13,8 +13,8 @@ public extension TelerouteRequestContext {
     /// ```swift
     /// try await context.withResolvedChat { bot, chatId in
     ///     try await bot.sendPhoto(
-    ///         chatId: chatId,
     ///         photo: .upload(filename: "spoiler.png", data: png),
+    ///         chatId: chatId,
     ///         caption: "Careful",
     ///         hasSpoiler: true,
     ///         replyParameters: .init(messageId: try context.resolvedMessageId())
@@ -42,8 +42,8 @@ public extension TelerouteRequestContext {
         replyMarkup: ReplyMarkup? = nil
     ) async throws -> Message {
         try await self.bot.sendPhoto(
-            chatId: try self.resolvedChat(chat),
             photo: photo,
+            chatId: try self.resolvedChat(chat),
             caption: caption,
             parseMode: parseMode ?? self.defaultParseMode,
             replyMarkup: replyMarkup
@@ -60,8 +60,8 @@ public extension TelerouteRequestContext {
         replyMarkup: ReplyMarkup? = nil
     ) async throws -> Message {
         try await self.bot.sendDocument(
-            chatId: try self.resolvedChat(chat),
             document: document,
+            chatId: try self.resolvedChat(chat),
             caption: caption,
             parseMode: parseMode ?? self.defaultParseMode,
             replyMarkup: replyMarkup
@@ -78,8 +78,8 @@ public extension TelerouteRequestContext {
         replyMarkup: ReplyMarkup? = nil
     ) async throws -> Message {
         try await self.bot.sendVideo(
-            chatId: try self.resolvedChat(chat),
             video: video,
+            chatId: try self.resolvedChat(chat),
             caption: caption,
             parseMode: parseMode ?? self.defaultParseMode,
             replyMarkup: replyMarkup
@@ -96,8 +96,8 @@ public extension TelerouteRequestContext {
         replyMarkup: ReplyMarkup? = nil
     ) async throws -> Message {
         try await self.bot.sendAnimation(
-            chatId: try self.resolvedChat(chat),
             animation: animation,
+            chatId: try self.resolvedChat(chat),
             caption: caption,
             parseMode: parseMode ?? self.defaultParseMode,
             replyMarkup: replyMarkup
@@ -114,8 +114,8 @@ public extension TelerouteRequestContext {
         replyMarkup: ReplyMarkup? = nil
     ) async throws -> Message {
         try await self.bot.sendAudio(
-            chatId: try self.resolvedChat(chat),
             audio: audio,
+            chatId: try self.resolvedChat(chat),
             caption: caption,
             parseMode: parseMode ?? self.defaultParseMode,
             replyMarkup: replyMarkup
@@ -132,8 +132,8 @@ public extension TelerouteRequestContext {
         replyMarkup: ReplyMarkup? = nil
     ) async throws -> Message {
         try await self.bot.sendVoice(
-            chatId: try self.resolvedChat(chat),
             voice: voice,
+            chatId: try self.resolvedChat(chat),
             caption: caption,
             parseMode: parseMode ?? self.defaultParseMode,
             replyMarkup: replyMarkup
@@ -148,8 +148,8 @@ public extension TelerouteRequestContext {
         replyMarkup: ReplyMarkup? = nil
     ) async throws -> Message {
         try await self.bot.sendVideoNote(
-            chatId: try self.resolvedChat(chat),
             videoNote: videoNote,
+            chatId: try self.resolvedChat(chat),
             replyMarkup: replyMarkup
         )
     }
@@ -162,8 +162,8 @@ public extension TelerouteRequestContext {
         replyMarkup: ReplyMarkup? = nil
     ) async throws -> Message {
         try await self.bot.sendSticker(
-            chatId: try self.resolvedChat(chat),
             sticker: sticker,
+            chatId: try self.resolvedChat(chat),
             replyMarkup: replyMarkup
         )
     }
@@ -188,9 +188,9 @@ public extension TelerouteRequestContext {
         to chat: ChatId? = nil
     ) async throws -> Message {
         try await self.bot.sendLocation(
-            chatId: try self.resolvedChat(chat),
             latitude: latitude,
-            longitude: longitude
+            longitude: longitude,
+            chatId: try self.resolvedChat(chat)
         )
     }
 
@@ -203,9 +203,9 @@ public extension TelerouteRequestContext {
         to chat: ChatId? = nil
     ) async throws -> Message {
         try await self.bot.sendContact(
-            chatId: try self.resolvedChat(chat),
             phoneNumber: phoneNumber,
             firstName: firstName,
+            chatId: try self.resolvedChat(chat),
             lastName: lastName
         )
     }

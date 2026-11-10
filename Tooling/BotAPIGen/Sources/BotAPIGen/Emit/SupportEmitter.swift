@@ -30,7 +30,7 @@ struct SupportEmitter {
         """
         /// The Telegram Bot API revision these sources were generated from.
         public enum BotAPIVersion {
-            /// The Bot API version, e.g. `10.3`.
+            /// The Bot API version of the committed documentation snapshot.
             public static let version = "\(self.spec.botApiVersion)"
             /// The date Telegram published that version.
             public static let releaseDate = "\(self.spec.botApiDate)"

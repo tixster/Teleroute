@@ -1,26 +1,27 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
-/// Describes the position of a clickable area within a story.
-public struct StoryAreaPosition: Codable, Hashable, Sendable {
-    /// The abscissa of the area's center, as a percentage of the media width
+/// Describes the position of a rectangle area on a story media or a TON wallet card.
+public struct AreaPosition: Codable, Hashable, Sendable {
+    /// The abscissa of the area's center, as a percentage of the media or the card width
     public var xPercentage: Swift.Double
 
-    /// The ordinate of the area's center, as a percentage of the media height
+    /// The ordinate of the area's center, as a percentage of the media or the card height
     public var yPercentage: Swift.Double
 
-    /// The width of the area's rectangle, as a percentage of the media width
+    /// The width of the area's rectangle, as a percentage of the media or the card width
     public var widthPercentage: Swift.Double
 
-    /// The height of the area's rectangle, as a percentage of the media height
+    /// The height of the area's rectangle, as a percentage of the media or the card height
     public var heightPercentage: Swift.Double
 
     /// The clockwise rotation angle of the rectangle, in degrees; 0-360
     public var rotationAngle: Swift.Double
 
-    /// The radius of the rectangle corner rounding, as a percentage of the media width
+    /// The radius of the rectangle corner rounding, as a percentage of the media or the card
+    /// width
     public var cornerRadiusPercentage: Swift.Double
 
     public init(

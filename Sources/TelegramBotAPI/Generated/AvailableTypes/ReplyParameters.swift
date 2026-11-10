@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -11,7 +11,7 @@ public struct ReplyParameters: Codable, Hashable, Sendable {
     public var messageId: Swift.Int64?
 
     /// *Optional*. If the message to be replied to is from a different chat, unique identifier
-    /// for the chat or username of the bot, supergroup or channel in the format `@username`.
+    /// for the chat or username of the bot, supergroup, or channel in the format `@username`.
     /// Not supported for messages sent on behalf of a business account, messages from channel
     /// direct messages chats and ephemeral messages.
     public var chatId: ChatId?
@@ -43,7 +43,30 @@ public struct ReplyParameters: Codable, Hashable, Sendable {
     /// be specified instead of *quote_parse_mode*.
     public var quoteEntities: [MessageEntity]?
 
-    /// *Optional*. Position of the quote in the original message in UTF-16 code units
+    /// *Optional*. A JSON-serialized list of quoted parts of the rich message to be replied to.
+    /// Must contain one element for each quoted text of the message in the order of their
+    /// appearance. Each of the following is a separate quoted text: the text of a paragraph, a
+    /// heading, a preformatted block, a footer, or a mathematical expression; the text and the
+    /// credit of a block quotation or a pull quotation; the summary of a details block; the
+    /// caption and each cell of a table; the text and the credit of a caption of a media block,
+    /// a collage, a slideshow, or a map. Texts of blocks nested in lists, block quotations,
+    /// details, collages, and slideshows are separate quoted texts too. The first and the last
+    /// elements can contain only a part of the corresponding text; all other elements must
+    /// contain the whole text. Formatting of the quoted parts must be kept, and rich texts must
+    /// be nested in the same way as in the message received from the server. Mathematical
+    /// expressions must be quoted entirely. Buttons in ``RichBlockButtons``, anchors and
+    /// dividers can't be quoted. Up to 32 quoted texts with total length up to 1024 characters
+    /// can be specified. Only plain text, ``RichTextBold``, ``RichTextItalic``,
+    /// ``RichTextUnderline``, ``RichTextStrikethrough``, ``RichTextSpoiler``,
+    /// ``RichTextSubscript``, ``RichTextSuperscript``, ``RichTextDateTime``,
+    /// ``RichTextCustomEmoji``, ``RichTextMathematicalExpression``, and arrays of them are kept
+    /// in the quote; other rich text types are replaced with their text. If non-empty, then
+    /// *quote*, *quote_parse_mode* and *quote_entities* are ignored.
+    public var quoteRichTexts: [RichText]?
+
+    /// *Optional*. Position of the quote in the original message in UTF-16 code units. For
+    /// quotes from rich messages, it is the position in the text formed by joining plain texts
+    /// of all quotable texts of the message, separated by line feeds.
     public var quotePosition: Swift.Int64?
 
     /// *Optional*. Identifier of the specific checklist task to be replied to
@@ -60,6 +83,7 @@ public struct ReplyParameters: Codable, Hashable, Sendable {
         quote: Swift.String? = nil,
         quoteParseMode: Swift.String? = nil,
         quoteEntities: [MessageEntity]? = nil,
+        quoteRichTexts: [RichText]? = nil,
         quotePosition: Swift.Int64? = nil,
         checklistTaskId: Swift.Int64? = nil,
         pollOptionId: Swift.String? = nil
@@ -71,6 +95,7 @@ public struct ReplyParameters: Codable, Hashable, Sendable {
         self.quote = quote
         self.quoteParseMode = quoteParseMode
         self.quoteEntities = quoteEntities
+        self.quoteRichTexts = quoteRichTexts
         self.quotePosition = quotePosition
         self.checklistTaskId = checklistTaskId
         self.pollOptionId = pollOptionId
@@ -84,6 +109,7 @@ public struct ReplyParameters: Codable, Hashable, Sendable {
         case quote
         case quoteParseMode = "quote_parse_mode"
         case quoteEntities = "quote_entities"
+        case quoteRichTexts = "quote_rich_texts"
         case quotePosition = "quote_position"
         case checklistTaskId = "checklist_task_id"
         case pollOptionId = "poll_option_id"

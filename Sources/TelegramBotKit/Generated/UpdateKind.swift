@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -22,6 +22,8 @@ public enum UpdateKind: String, CaseIterable, Sendable, Hashable {
     case inlineQuery = "inline_query"
     case chosenInlineResult = "chosen_inline_result"
     case callbackQuery = "callback_query"
+    case widgetQuery = "widget_query"
+    case sharedWidgetQuery = "shared_widget_query"
     case shippingQuery = "shipping_query"
     case preCheckoutQuery = "pre_checkout_query"
     case purchasedPaidMedia = "purchased_paid_media"
@@ -54,6 +56,8 @@ public extension Update {
         if self.inlineQuery != nil { return .inlineQuery }
         if self.chosenInlineResult != nil { return .chosenInlineResult }
         if self.callbackQuery != nil { return .callbackQuery }
+        if self.widgetQuery != nil { return .widgetQuery }
+        if self.sharedWidgetQuery != nil { return .sharedWidgetQuery }
         if self.shippingQuery != nil { return .shippingQuery }
         if self.preCheckoutQuery != nil { return .preCheckoutQuery }
         if self.purchasedPaidMedia != nil { return .purchasedPaidMedia }

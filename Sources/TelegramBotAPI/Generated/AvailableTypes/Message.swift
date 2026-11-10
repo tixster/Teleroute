@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -278,15 +278,18 @@ public struct Message: Codable, Hashable, Sendable {
     /// *Optional*. Message is a voice message, information about the file
     public var voice: Voice?
 
-    /// *Optional*. Caption for the animation, audio, document, paid media, photo, video or
-    /// voice
+    /// *Optional*. Message is an HTML widget, information about the widget
+    public var widget: Widget?
+
+    /// *Optional*. Caption for the animation, audio, document, live photo, paid media, photo,
+    /// video, voice, or widget
     public var caption: Swift.String?
 
     /// *Optional*. For messages with a caption, special entities like usernames, URLs, bot
     /// commands, etc. that appear in the caption
     public var captionEntities: [MessageEntity]?
 
-    /// *Optional*. *True*, if the caption must be shown above the message media
+    /// *Optional*. *True*, if the caption must be shown above the message media or the widget
     public var showCaptionAboveMedia: Swift.Bool?
 
     /// *Optional*. *True*, if the message media is covered by a spoiler animation
@@ -533,6 +536,10 @@ public struct Message: Codable, Hashable, Sendable {
     /// *Optional*. Service message: the price for paid messages has changed in the chat
     public var paidMessagePriceChanged: PaidMessagePriceChanged?
 
+    /// *Optional*. Service message: the sender of the message used a link of the other user,
+    /// which allows sending messages to the user without paying Telegram Stars
+    public var paidMessagesWaived: PaidMessagesWaived?
+
     /// *Optional*. Service message: answer option was added to a poll
     public var pollOptionAdded: PollOptionAdded?
 
@@ -553,6 +560,9 @@ public struct Message: Codable, Hashable, Sendable {
 
     /// *Optional*. Service message: payment for a suggested post was refunded
     public var suggestedPostRefunded: SuggestedPostRefunded?
+
+    /// *Optional*. Service message: a transfer with a TON wallet
+    public var tonWalletTransfer: TonWalletTransfer?
 
     /// *Optional*. Service message: video chat scheduled
     public var videoChatScheduled: VideoChatScheduled?
@@ -624,6 +634,7 @@ public struct Message: Codable, Hashable, Sendable {
         video: Video? = nil,
         videoNote: VideoNote? = nil,
         voice: Voice? = nil,
+        widget: Widget? = nil,
         caption: Swift.String? = nil,
         captionEntities: [MessageEntity]? = nil,
         showCaptionAboveMedia: Swift.Bool? = nil,
@@ -681,6 +692,7 @@ public struct Message: Codable, Hashable, Sendable {
         giveawayCompleted: GiveawayCompleted? = nil,
         managedBotCreated: ManagedBotCreated? = nil,
         paidMessagePriceChanged: PaidMessagePriceChanged? = nil,
+        paidMessagesWaived: PaidMessagesWaived? = nil,
         pollOptionAdded: PollOptionAdded? = nil,
         pollOptionDeleted: PollOptionDeleted? = nil,
         suggestedPostApproved: SuggestedPostApproved? = nil,
@@ -688,6 +700,7 @@ public struct Message: Codable, Hashable, Sendable {
         suggestedPostDeclined: SuggestedPostDeclined? = nil,
         suggestedPostPaid: SuggestedPostPaid? = nil,
         suggestedPostRefunded: SuggestedPostRefunded? = nil,
+        tonWalletTransfer: TonWalletTransfer? = nil,
         videoChatScheduled: VideoChatScheduled? = nil,
         videoChatStarted: VideoChatStarted? = nil,
         videoChatEnded: VideoChatEnded? = nil,
@@ -745,6 +758,7 @@ public struct Message: Codable, Hashable, Sendable {
         self.videoBox = video.map(_IndirectBox.init)
         self.videoNoteBox = videoNote.map(_IndirectBox.init)
         self.voice = voice
+        self.widget = widget
         self.caption = caption
         self.captionEntities = captionEntities
         self.showCaptionAboveMedia = showCaptionAboveMedia
@@ -802,6 +816,7 @@ public struct Message: Codable, Hashable, Sendable {
         self.giveawayCompleted = giveawayCompleted
         self.managedBotCreatedBox = managedBotCreated.map(_IndirectBox.init)
         self.paidMessagePriceChanged = paidMessagePriceChanged
+        self.paidMessagesWaived = paidMessagesWaived
         self.pollOptionAdded = pollOptionAdded
         self.pollOptionDeleted = pollOptionDeleted
         self.suggestedPostApproved = suggestedPostApproved
@@ -809,6 +824,7 @@ public struct Message: Codable, Hashable, Sendable {
         self.suggestedPostDeclined = suggestedPostDeclined
         self.suggestedPostPaid = suggestedPostPaid
         self.suggestedPostRefunded = suggestedPostRefunded
+        self.tonWalletTransfer = tonWalletTransfer
         self.videoChatScheduled = videoChatScheduled
         self.videoChatStarted = videoChatStarted
         self.videoChatEnded = videoChatEnded
@@ -868,6 +884,7 @@ public struct Message: Codable, Hashable, Sendable {
         case videoBox = "video"
         case videoNoteBox = "video_note"
         case voice
+        case widget
         case caption
         case captionEntities = "caption_entities"
         case showCaptionAboveMedia = "show_caption_above_media"
@@ -925,6 +942,7 @@ public struct Message: Codable, Hashable, Sendable {
         case giveawayCompleted = "giveaway_completed"
         case managedBotCreatedBox = "managed_bot_created"
         case paidMessagePriceChanged = "paid_message_price_changed"
+        case paidMessagesWaived = "paid_messages_waived"
         case pollOptionAdded = "poll_option_added"
         case pollOptionDeleted = "poll_option_deleted"
         case suggestedPostApproved = "suggested_post_approved"
@@ -932,6 +950,7 @@ public struct Message: Codable, Hashable, Sendable {
         case suggestedPostDeclined = "suggested_post_declined"
         case suggestedPostPaid = "suggested_post_paid"
         case suggestedPostRefunded = "suggested_post_refunded"
+        case tonWalletTransfer = "ton_wallet_transfer"
         case videoChatScheduled = "video_chat_scheduled"
         case videoChatStarted = "video_chat_started"
         case videoChatEnded = "video_chat_ended"

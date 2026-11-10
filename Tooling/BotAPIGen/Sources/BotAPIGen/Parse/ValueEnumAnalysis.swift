@@ -95,8 +95,17 @@ enum ValueEnumAnalysis {
                 byValues[values] = existing
                 continue
             }
+            // WidgetQuery precedes InlineQuery in 10.4. When their vocabularies
+            // match, reuse the established name; a future divergent set must
+            // get its own enum rather than two enums with the same name.
+            let namingCandidate = candidate.owner == "WidgetQuery" && candidate.field.wireName == "chat_type"
+                ? candidates.first {
+                    $0.owner == "InlineQuery" && $0.field.wireName == "chat_type"
+                        && self.mine($0.field.doc) == values
+                } ?? candidate
+                : candidate
             byValues[values] = ApiValueEnum(
-                name: self.name(owner: candidate.owner, field: candidate.field, isType: candidate.isType),
+                name: self.name(owner: namingCandidate.owner, field: namingCandidate.field, isType: namingCandidate.isType),
                 values: values,
                 doc: candidate.field.doc,
                 users: ["\(candidate.owner).\(candidate.field.wireName)"]

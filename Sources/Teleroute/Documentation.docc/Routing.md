@@ -119,6 +119,12 @@ handed to you together with the context:
 router.inlineQuery { query, context in
     try await context.bot.answerInlineQuery(inlineQueryId: query.id, results: [])
 }
+router.widgetQuery { query, context in
+    try await context.answerWidgetQuery(data: "Received: \(query.data)")
+}
+router.sharedWidgetQuery { query, context in
+    try await context.answerWidgetQuery(data: "Widget: \(query.widgetId)")
+}
 router.preCheckoutQuery { query, context in
     try await context.bot.answerPreCheckoutQuery(preCheckoutQueryId: query.id, ok: true)
 }
@@ -141,6 +147,14 @@ router.on(.chatBoost, .removedChatBoost) { context in
 }
 ```
 
+Widget query handlers inherit group guards and middleware and support custom
+contexts. Returning `.unhandled` continues routing. Registration automatically
+requests `widget_query` / `shared_widget_query` in `allowed_updates`.
+Answer explicitly within 15 seconds; widget queries are not auto-answered.
+`context.user` resolves for both kinds; `context.chat` and the flow key exist
+only when `WidgetQuery.chat` is present. A widget query does not provide a
+`Message`. Use `message(.widget)` for messages that contain widgets.
+
 ### The Unmatched Hook
 
 The `unmatched` hook is the final stage — use it for fallback replies or
@@ -160,11 +174,11 @@ post. ``TelerouteConfiguration/discussionForwards`` tracks these copies by
 default, so a bot can await the copy of a post it published:
 
 ```swift
-let post = try await bot.client.sendMessage(chatId: .id(channelId), text: "Chapter 69")
+let post = try await bot.client.sendMessage(text: "Chapter 69", chatId: .id(channelId))
 if let forward = try await bot.discussionMessage(for: post) {
     try await bot.client.sendMessage(
-        chatId: .id(forward.discussionChatId),
         text: "Discuss here",
+        chatId: .id(forward.discussionChatId),
         replyParameters: .init(messageId: forward.discussionMessageId)
     )
 }

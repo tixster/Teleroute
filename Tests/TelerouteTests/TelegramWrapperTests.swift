@@ -38,8 +38,8 @@ import TelerouteTestSupport
         })
         let client = try TelegramBotClient(token: "1:test", transport: capture)
         try await client.sendMessage(
-            chatId: .username("@channel"),
             text: "hi",
+            chatId: .username("@channel"),
             messageThreadId: 5,
             parseMode: .html,
             linkPreviewOptions: .init(isDisabled: true),
@@ -66,8 +66,8 @@ import TelerouteTestSupport
         let client = try TelegramBotClient(token: "1:test", transport: capture)
         let payload = Data("PNG-BYTES".utf8)
         try await client.sendPhoto(
-            chatId: .id(1),
             photo: .upload(filename: "pic.png", data: payload),
+            chatId: .id(1),
             caption: "cap",
             parseMode: .markdownV2
         )
@@ -88,7 +88,7 @@ import TelerouteTestSupport
             try CapturingTransport.okJSON(Self.messageResultJSON)
         })
         let client = try TelegramBotClient(token: "1:test", transport: capture)
-        try await client.sendPhoto(chatId: .id(1), photo: .fileID("AgAC-file"))
+        try await client.sendPhoto(photo: .fileID("AgAC-file"), chatId: .id(1))
         let (request, body) = capture.captured.withLock { ($0!.request, $0!.body) }
         // No bytes to upload, so multipart buys nothing and the file reference
         // travels as an ordinary JSON string.
@@ -104,8 +104,8 @@ import TelerouteTestSupport
         })
         let client = try TelegramBotClient(token: "1:test", transport: capture)
         try await client.sendAudio(
-            chatId: .id(1),
             audio: .upload(filename: "song.mp3", data: Data("MP3".utf8)),
+            chatId: .id(1),
             thumbnail: .fileID("AgAC-thumb")
         )
         let (request, body) = capture.captured.withLock { ($0!.request, $0!.body) }
@@ -142,8 +142,8 @@ import TelerouteTestSupport
         })
         let client = try TelegramBotClient(token: "1:test", transport: capture)
         try await client.sendPhoto(
-            chatId: .id(1),
             photo: .upload(filename: "pic.png", data: Data("PNG".utf8)),
+            chatId: .id(1),
             caption: "hi",
             captionEntities: [.init(type: .bold, offset: 0, length: 2)]
         )

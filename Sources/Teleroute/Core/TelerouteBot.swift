@@ -288,11 +288,11 @@ public final class TelerouteBot: Sendable {
     /// the post:
     ///
     /// ```swift
-    /// let post = try await bot.client.sendMessage(chatId: .id(channelId), text: "New chapter")
+    /// let post = try await bot.client.sendMessage(text: "New chapter", chatId: .id(channelId))
     /// if let forward = try await bot.discussionMessage(for: post) {
     ///     try await bot.client.sendMessage(
-    ///         chatId: .id(forward.discussionChatId),
     ///         text: "Comments start here",
+    ///         chatId: .id(forward.discussionChatId),
     ///         replyParameters: .init(messageId: forward.discussionMessageId)
     ///     )
     /// }
@@ -330,7 +330,7 @@ public final class TelerouteBot: Sendable {
     ///
     /// ```swift
     /// let (post, forward) = try await bot.sendWithDiscussionForward { client in
-    ///     try await client.sendMessage(chatId: .id(channelId), text: "New chapter")
+    ///     try await client.sendMessage(text: "New chapter", chatId: .id(channelId))
     /// }
     /// ```
     ///

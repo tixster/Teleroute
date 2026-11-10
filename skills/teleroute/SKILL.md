@@ -15,7 +15,7 @@ description: >-
 
 ## Overview
 
-Use this skill to modify, test, document, review, or consume the Teleroute library. Teleroute is a Swift 6.4 SwiftPM package that layers route-style command, callback, message, update-kind, middleware, flow, command-menu, observability, and keyboard APIs on top of `TelegramBotKit` — a full typed Telegram Bot API client (185 flat methods) generated from the committed documentation snapshot in `botapi/` (regenerate with `Scripts/generate-api.sh`, verify with `Scripts/verify-generated.sh`; never edit `Sources/TelegramBotAPI/Generated` or `Sources/TelegramBotKit/Generated` by hand). Handlers return `TelerouteResponseGenerator` values (String, Reply builders, TelerouteResponse, `.unhandled`); guards return `.allow/.skip/.deny(response)`; `TelerouteBot` is a `Service` with polling/webhook/manual modes.
+Use this skill to modify, test, document, review, or consume the Teleroute library. Teleroute is a Swift 6.4 SwiftPM package that layers route-style command, callback, message, update-kind, middleware, flow, command-menu, observability, and keyboard APIs on top of `TelegramBotKit` — a full typed Telegram Bot API client (193 flat methods) generated from the committed documentation snapshot in `botapi/` (regenerate with `Scripts/generate-api.sh`, verify with `Scripts/verify-generated.sh`; never edit `Sources/TelegramBotAPI/Generated` or `Sources/TelegramBotKit/Generated` by hand). Handlers return `TelerouteResponseGenerator` values (String, Reply builders, TelerouteResponse, `.unhandled`); guards return `.allow/.skip/.deny(response)`; `TelerouteBot` is a `Service` with polling/webhook/manual modes.
 
 ## First Steps
 

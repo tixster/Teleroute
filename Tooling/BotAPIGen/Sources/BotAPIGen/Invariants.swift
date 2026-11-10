@@ -32,7 +32,7 @@ enum Invariants {
         /// a junk empty struct.
         var emptyStructNames: [String]
 
-        /// Bot API 10.3, measured 2026-09-21.
+        /// Bot API 10.4, measured 2026-11-10.
         static let current = Expectation(
             // Only these two take part in a value-type cycle through a direct
             // field. `RichBlock` and `InputRichBlock` nest only through arrays,
@@ -57,7 +57,9 @@ enum Invariants {
                 "ChatType": 4, "EncryptedPassportElementType": 13,
                 "InlineQueryChatType": 5, "InputStickerFormat": 3,
                 "KeyboardButtonStyle": 3, "MaskPositionPoint": 4,
-                "MessageEntityType": 20, "PollType": 2,
+                "MessageEntityType": 22, "PollType": 2,
+                "WidgetQueryTypeKind": 3, "ChatShareThemeKind": 2,
+                "EmojiTypeKind": 2,
                 "RichMessageButtonStyle": 4, "StickerType": 3,
                 // One per union, carried by each variant's discriminator field.
                 "BotCommandScopeKind": 7, "ChatMemberKind": 6,
@@ -67,7 +69,7 @@ enum Invariants {
             emptyStructNames: [
                 "CallbackGame", "CommunityChatRemoved", "DisabledButton",
                 "ForumTopicClosed", "ForumTopicReopened", "GeneralForumTopicHidden",
-                "GeneralForumTopicUnhidden", "VideoChatStarted",
+                "GeneralForumTopicUnhidden", "PaidMessagesWaived", "VideoChatStarted",
             ]
         )
     }

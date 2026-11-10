@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -25,6 +25,7 @@ public indirect enum RichText: Codable, Hashable, Sendable {
     case emailAddress(RichTextEmailAddress)
     case phoneNumber(RichTextPhoneNumber)
     case bankCardNumber(RichTextBankCardNumber)
+    case tonAddress(RichTextTonAddress)
     case mention(RichTextMention)
     case hashtag(RichTextHashtag)
     case cashtag(RichTextCashtag)
@@ -84,6 +85,8 @@ public indirect enum RichText: Codable, Hashable, Sendable {
             self = .phoneNumber(try RichTextPhoneNumber(from: decoder))
         case "bank_card_number":
             self = .bankCardNumber(try RichTextBankCardNumber(from: decoder))
+        case "ton_address":
+            self = .tonAddress(try RichTextTonAddress(from: decoder))
         case "mention":
             self = .mention(try RichTextMention(from: decoder))
         case "hashtag":
@@ -150,6 +153,8 @@ public indirect enum RichText: Codable, Hashable, Sendable {
         case let .phoneNumber(value):
             try value.encode(to: encoder)
         case let .bankCardNumber(value):
+            try value.encode(to: encoder)
+        case let .tonAddress(value):
             try value.encode(to: encoder)
         case let .mention(value):
             try value.encode(to: encoder)

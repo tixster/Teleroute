@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -10,9 +10,9 @@ public extension TelegramBotClient {
     /// Use this method to send text messages. On success, the sent ``Message`` is returned.
     @discardableResult
     func sendMessage(
-        chatId: ChatId,
         text: Swift.String,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -105,11 +105,11 @@ public extension TelegramBotClient {
     }
 
     /// Use this method to copy messages of any kind. Service messages, paid media messages,
-    /// giveaway messages, giveaway winners messages, and invoice messages can't be copied. A
-    /// quiz `poll` can be copied only if the value of the field *correct_option_ids* is known
-    /// to the bot. The method is analogous to the method `forwardMessage`, but the copied
-    /// message doesn't have a link to the original message. Returns the ``MessageId`` of the
-    /// sent message on success.
+    /// giveaway messages, giveaway winners messages, invoice messages, and widget messages
+    /// can't be copied. A quiz `poll` can be copied only if the value of the field
+    /// *correct_option_ids* is known to the bot. The method is analogous to the method
+    /// `forwardMessage`, but the copied message doesn't have a link to the original message.
+    /// Returns the ``MessageId`` of the sent message on success.
     @discardableResult
     func copyMessage(
         chatId: ChatId,
@@ -154,11 +154,11 @@ public extension TelegramBotClient {
 
     /// Use this method to copy messages of any kind. If some of the specified messages can't be
     /// found or copied, they are skipped. Service messages, paid media messages, giveaway
-    /// messages, giveaway winners messages, and invoice messages can't be copied. A quiz `poll`
-    /// can be copied only if the value of the field *correct_option_ids* is known to the bot.
-    /// The method is analogous to the method `forwardMessages`, but the copied messages don't
-    /// have a link to the original message. Album grouping is kept for copied messages. On
-    /// success, an Array of ``MessageId`` of the sent messages is returned.
+    /// messages, giveaway winners messages, invoice messages, and widget messages can't be
+    /// copied. A quiz `poll` can be copied only if the value of the field *correct_option_ids*
+    /// is known to the bot. The method is analogous to the method `forwardMessages`, but the
+    /// copied messages don't have a link to the original message. Album grouping is kept for
+    /// copied messages. On success, an Array of ``MessageId`` of the sent messages is returned.
     @discardableResult
     func copyMessages(
         chatId: ChatId,
@@ -186,9 +186,9 @@ public extension TelegramBotClient {
     /// Use this method to send photos. On success, the sent ``Message`` is returned.
     @discardableResult
     func sendPhoto(
-        chatId: ChatId,
         photo: FileInput,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -231,10 +231,10 @@ public extension TelegramBotClient {
     /// Use this method to send live photos. On success, the sent ``Message`` is returned.
     @discardableResult
     func sendLivePhoto(
-        chatId: ChatId,
         livePhoto: FileInput,
         photo: FileInput,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -282,9 +282,9 @@ public extension TelegramBotClient {
     /// method instead.
     @discardableResult
     func sendAudio(
-        chatId: ChatId,
         audio: FileInput,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -333,9 +333,9 @@ public extension TelegramBotClient {
     /// changed in the future.
     @discardableResult
     func sendDocument(
-        chatId: ChatId,
         document: FileInput,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -381,9 +381,9 @@ public extension TelegramBotClient {
     /// future.
     @discardableResult
     func sendVideo(
-        chatId: ChatId,
         video: FileInput,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -442,9 +442,9 @@ public extension TelegramBotClient {
     /// up to 50 MB in size, this limit may be changed in the future.
     @discardableResult
     func sendAnimation(
-        chatId: ChatId,
         animation: FileInput,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -499,9 +499,9 @@ public extension TelegramBotClient {
     /// voice messages of up to 50 MB in size, this limit may be changed in the future.
     @discardableResult
     func sendVoice(
-        chatId: ChatId,
         voice: FileInput,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -543,9 +543,9 @@ public extension TelegramBotClient {
     /// the sent ``Message`` is returned.
     @discardableResult
     func sendVideoNote(
-        chatId: ChatId,
         videoNote: FileInput,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -576,6 +576,96 @@ public extension TelegramBotClient {
         request.set("allow_paid_broadcast", allowPaidBroadcast)
         request.set("message_effect_id", messageEffectId)
         request.set("suggested_post_parameters", suggestedPostParameters)
+        request.set("reply_parameters", replyParameters)
+        request.set("reply_markup", replyMarkup)
+        return try await self.perform(request)
+    }
+
+    /// Use this method to send a message with an HTML widget. Currently, in the production
+    /// environment, widgets can be sent only to private chats, and sent widgets automatically
+    /// have protected content and therefore can't be forwarded. On success, the sent
+    /// ``Message`` is returned.
+    @discardableResult
+    func sendWidget(
+        chatId: ChatId,
+        html: Swift.String,
+        messageThreadId: Swift.Int64? = nil,
+        width: Swift.Int64? = nil,
+        height: Swift.Int64? = nil,
+        publicData: Swift.String? = nil,
+        chatData: Swift.String? = nil,
+        caption: Swift.String? = nil,
+        parseMode: ParseMode? = nil,
+        captionEntities: [MessageEntity]? = nil,
+        showCaptionAboveMedia: Swift.Bool? = nil,
+        allowQueries: Swift.Bool? = nil,
+        isShared: Swift.Bool? = nil,
+        disableNotification: Swift.Bool? = nil,
+        protectContent: Swift.Bool? = nil,
+        allowPaidBroadcast: Swift.Bool? = nil,
+        messageEffectId: Swift.String? = nil,
+        replyParameters: ReplyParameters? = nil,
+        replyMarkup: ReplyMarkup? = nil
+    ) async throws -> Message {
+        try await self.pace(chatId: chatId)
+        var request = TelegramRequest("sendWidget")
+        request.set("chat_id", chatId)
+        request.set("message_thread_id", messageThreadId)
+        request.set("html", html)
+        request.set("width", width)
+        request.set("height", height)
+        request.set("public_data", publicData)
+        request.set("chat_data", chatData)
+        request.set("caption", caption)
+        request.set("parse_mode", parseMode?.rawValue)
+        request.set("caption_entities", captionEntities)
+        request.set("show_caption_above_media", showCaptionAboveMedia)
+        request.set("allow_queries", allowQueries)
+        request.set("is_shared", isShared)
+        request.set("disable_notification", disableNotification)
+        request.set("protect_content", protectContent)
+        request.set("allow_paid_broadcast", allowPaidBroadcast)
+        request.set("message_effect_id", messageEffectId)
+        request.set("reply_parameters", replyParameters)
+        request.set("reply_markup", replyMarkup)
+        return try await self.perform(request)
+    }
+
+    /// Use this method to send again a shared widget created by the bot. Currently, in the
+    /// production environment, widgets can be sent only to private chats, and sent widgets
+    /// automatically have protected content and therefore can't be forwarded. On success, the
+    /// sent ``Message`` is returned.
+    @discardableResult
+    func sendSharedWidget(
+        chatId: ChatId,
+        widgetId: Swift.String,
+        messageThreadId: Swift.Int64? = nil,
+        chatData: Swift.String? = nil,
+        caption: Swift.String? = nil,
+        parseMode: ParseMode? = nil,
+        captionEntities: [MessageEntity]? = nil,
+        showCaptionAboveMedia: Swift.Bool? = nil,
+        disableNotification: Swift.Bool? = nil,
+        protectContent: Swift.Bool? = nil,
+        allowPaidBroadcast: Swift.Bool? = nil,
+        messageEffectId: Swift.String? = nil,
+        replyParameters: ReplyParameters? = nil,
+        replyMarkup: ReplyMarkup? = nil
+    ) async throws -> Message {
+        try await self.pace(chatId: chatId)
+        var request = TelegramRequest("sendSharedWidget")
+        request.set("chat_id", chatId)
+        request.set("message_thread_id", messageThreadId)
+        request.set("widget_id", widgetId)
+        request.set("chat_data", chatData)
+        request.set("caption", caption)
+        request.set("parse_mode", parseMode?.rawValue)
+        request.set("caption_entities", captionEntities)
+        request.set("show_caption_above_media", showCaptionAboveMedia)
+        request.set("disable_notification", disableNotification)
+        request.set("protect_content", protectContent)
+        request.set("allow_paid_broadcast", allowPaidBroadcast)
+        request.set("message_effect_id", messageEffectId)
         request.set("reply_parameters", replyParameters)
         request.set("reply_markup", replyMarkup)
         return try await self.perform(request)
@@ -615,10 +705,10 @@ public extension TelegramBotClient {
     /// Use this method to send point on the map. On success, the sent ``Message`` is returned.
     @discardableResult
     func sendLocation(
-        chatId: ChatId,
         latitude: Swift.Double,
         longitude: Swift.Double,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -661,12 +751,12 @@ public extension TelegramBotClient {
     /// returned.
     @discardableResult
     func sendVenue(
-        chatId: ChatId,
         latitude: Swift.Double,
         longitude: Swift.Double,
         title: Swift.String,
         address: Swift.String,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -710,10 +800,10 @@ public extension TelegramBotClient {
     /// Use this method to send phone contacts. On success, the sent ``Message`` is returned.
     @discardableResult
     func sendContact(
-        chatId: ChatId,
         phoneNumber: Swift.String,
         firstName: Swift.String,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,
@@ -1231,6 +1321,42 @@ public extension TelegramBotClient {
         return try await self.perform(request)
     }
 
+    /// Use this method to edit data of a widget in a message sent by the bot or via the bot
+    /// (for inline bots). Public data of a shared widget can be changed at most once per
+    /// second. On success, *True* is returned.
+    @discardableResult
+    func editMessageWidgetData(
+        chatId: ChatId? = nil,
+        messageId: Swift.Int64? = nil,
+        inlineMessageId: Swift.String? = nil,
+        publicData: Swift.String? = nil,
+        chatData: Swift.String? = nil
+    ) async throws -> Swift.Bool {
+        try await self.pace(chatId: chatId)
+        var request = TelegramRequest("editMessageWidgetData")
+        request.set("chat_id", chatId)
+        request.set("message_id", messageId)
+        request.set("inline_message_id", inlineMessageId)
+        request.set("public_data", publicData)
+        request.set("chat_data", chatData)
+        return try await self.perform(request)
+    }
+
+    /// Use this method to edit public data of a shared widget created by the bot. A shared
+    /// widget can be edited at most once per second. On success, *True* is returned.
+    @discardableResult
+    func editSharedWidgetData(
+        widgetId: Swift.String,
+        publicData: Swift.String,
+        cacheTime: Swift.Int64? = nil
+    ) async throws -> Swift.Bool {
+        var request = TelegramRequest("editSharedWidgetData")
+        request.set("widget_id", widgetId)
+        request.set("public_data", publicData)
+        request.set("cache_time", cacheTime)
+        return try await self.perform(request)
+    }
+
     /// Use this method to edit only the reply markup of messages. On success, if the edited
     /// message is not an inline message, the edited ``Message`` is returned, otherwise *True*
     /// is returned. Note that business messages that were not sent by the bot and do not
@@ -1463,9 +1589,9 @@ public extension TelegramBotClient {
     /// sent ``Message`` is returned.
     @discardableResult
     func sendRichMessage(
-        chatId: ChatId,
         richMessage: InputRichMessage,
         businessConnectionId: Swift.String? = nil,
+        chatId: ChatId? = nil,
         messageThreadId: Swift.Int64? = nil,
         directMessagesTopicId: Swift.Int64? = nil,
         ephemeralMessageParameters: EphemeralMessageParameters? = nil,

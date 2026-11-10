@@ -8,14 +8,14 @@ A standalone, fully typed Telegram Bot API client with production-grade rate lim
 complete Telegram client on its own for projects that don't need routing.
 
 ``TelegramBotClient`` exposes one flat, fully typed method per Bot API
-operation (185 operations), generated from Telegram's own documentation:
+operation (193 operations in Bot API 10.4), generated from Telegram's own documentation:
 
 ```swift
 import TelegramBotKit
 
 let client = try TelegramBotClient(token: token)
 
-try await client.sendMessage(chatId: .id(chatId), text: "Hello!")
+try await client.sendMessage(text: "Hello!", chatId: .id(chatId))
 try await client.sendPoll(
     chatId: .id(chatId),
     question: "Best color?",
@@ -23,8 +23,8 @@ try await client.sendPoll(
 )
 try await client.banChatMember(chatId: "@group", userId: 42)
 try await client.sendVideo(
-    chatId: .id(chatId),
-    video: .upload(filename: "clip.mp4", data: data)   // or .fileID / .url
+    video: .upload(filename: "clip.mp4", data: data),   // or .fileID / .url
+    chatId: .id(chatId)
 )
 ```
 
@@ -34,7 +34,7 @@ Every method unwraps Telegram's `{ok, result}` envelope; failures throw
 
 ```swift
 do {
-    try await client.sendMessage(chatId: .id(chatId), text: text)
+    try await client.sendMessage(text: text, chatId: .id(chatId))
 } catch let error as TelegramAPIError {
     if let retryAfter = error.retryAfter {
         // flood-limited; the built-in policy usually handles this for you

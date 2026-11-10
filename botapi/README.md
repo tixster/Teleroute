@@ -28,7 +28,9 @@ The default run never touches the network and produces the same bytes every
 time. `--refresh` downloads the page and rewrites `snapshot.json`, so adopting a
 new Bot API version is an explicit commit of the snapshot alongside the
 regenerated sources. `Scripts/verify-generated.sh` runs the pipeline twice,
-fails on any difference, and also fails if generation modified its own input.
+fails on any difference, and also fails if either run modified its HTML or
+metadata input. The input is compared with the start of the verification run,
+so an intentionally refreshed snapshot can be verified before committing it.
 
 Every generated file carries a header naming the Bot API revision it came from,
 and `BotAPIVersion.version` / `.releaseDate` expose the same values at runtime.
@@ -40,15 +42,15 @@ types changed, without reading a 19k-line Swift diff.
 ## What the parser reads
 
 The documentation page is flat and regular, which is what makes parsing it
-safer than it sounds. Measured against Bot API 10.3:
+safer than it sounds. Measured against Bot API 10.4:
 
 | | |
 |---|---|
 | `<h3>` sections | 14, of which 10 carry API surface |
-| `<h4>` entries in those | 595 → 400 types, 185 methods, 10 prose asides |
-| Tables | 365 `Field/Type/Description`, 177 `Parameter/Type/Required/Description` |
-| Table-less entries | 26 unions, 8 empty objects, 8 zero-parameter methods, `InputFile` |
-| Table rows | 2,820, using 225 distinct type strings |
+| `<h4>` entries in those | 628 → 425 types, 193 methods, 10 prose asides |
+| Tables | 386 `Field/Type/Description`, 184 `Parameter/Type/Required/Description` |
+| Table-less entries | 29 unions, 9 empty objects, 9 zero-parameter methods, `InputFile` |
+| Table rows | 2,965, using 240 distinct type strings |
 
 No `<h4>` section contains more than one table, so "the first table after the
 heading" is unambiguous — and that is asserted, not assumed.
@@ -78,7 +80,7 @@ exactly when its Required cell reads `Yes`.
 ordered patterns are tried against the whole method description, and a match
 only counts when the name it captured is a type the page documents — which is
 what stops `getWebhookInfo`'s trailing *"will return an object with the url
-field empty"* from winning. All 185 methods resolve, or generation fails.
+field empty"* from winning. All 193 methods resolve, or generation fails.
 
 **Accepted values.** Some `String` fields spell out what they accept — "Type of
 the chat, can be either “private”, “group”, “supergroup” or “channel”" — and
@@ -91,7 +93,8 @@ A union's discriminator is the same thing written one variant at a time —
 `InlineQueryResultArticle.type` always carries `article` — so each union also
 gets a `<Union>Kind` enum shared by its variants, and the field defaults to the
 right case. `BotCommandScopeChat(chatId: …)` needs no `type:` argument at all.
-49 enums over ~130 fields today.
+52 enums today. `WidgetQuery.chat_type` shares the established
+`InlineQueryChatType` name when its accepted values match `InlineQuery.chat_type`.
 
 Every one carries an `unknown(String)` case. Telegram adds values between
 releases, and an enum that threw on an unrecognised one would turn a new chat
@@ -120,9 +123,9 @@ decides.
 folder named after the documentation section it came from:
 
 ```
-AvailableTypes/   235   GettingUpdates/    2   Shared/    4   Support/  2
-RichMessages/      85   Payments/         25   Stickers/  4   Games/    3
-InlineMode/        31   TelegramPassport/ 14   Values/   49
+AvailableTypes/   257   GettingUpdates/    2   Shared/    4   Support/  2
+RichMessages/      86   Payments/         25   Stickers/  4   Games/    3
+InlineMode/        33   TelegramPassport/ 14   Values/   52
 ```
 
 `Values/` holds the enums recovered from field descriptions; `Shared/` the
@@ -205,7 +208,7 @@ has the shape the generator was written against. Counts that legitimately grow
 a near miss there is a silently wrong Swift signature:
 
 - every type string parses and every name resolves to a documented type;
-- all 185 methods resolve a return type;
+- all 193 methods resolve a return type;
 - every union variant set resolves; exactly two synthesized unions exist;
 - exactly one union carries extra prose alternatives, and it is `RichText`;
 - exactly two unions lack a discriminator and exactly one is demoted for

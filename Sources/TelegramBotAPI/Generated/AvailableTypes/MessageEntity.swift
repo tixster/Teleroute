@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -9,7 +9,8 @@ public struct MessageEntity: Codable, Hashable, Sendable {
     /// Type of the entity. Currently, can be “mention” (`@username`), “hashtag” (`#hashtag` or
     /// `#hashtag@chatusername`), “cashtag” (`$USD` or `$USD@chatusername`), “bot_command”
     /// (`/start@jobs_bot`), “url” (`https://telegram.org`), “email”
-    /// (`do-not-reply@telegram.org`), “phone_number” (`+1-212-555-0123`), “bold” (**bold
+    /// (`do-not-reply@telegram.org`), “phone_number” (`+1-212-555-0123`), “bank_card_number”
+    /// (bank card number), “ton_address” (address in the TON blockchain), “bold” (**bold
     /// text**), “italic” (*italic text*), “underline” (underlined text), “strikethrough”
     /// (strikethrough text), “spoiler” (spoiler message), “blockquote” (block quotation),
     /// “expandable_blockquote” (collapsed-by-default block quotation), “code” (monowidth

@@ -26,6 +26,20 @@ struct UpdateShowcaseRoutes: TelerouteRouteCollection {
         }
 
         // Typed update-kind handlers.
+        routes.widgetQuery { query, context in
+            try await context.answerWidgetQuery(data: "Received: \(query.data)")
+        }
+
+        routes.sharedWidgetQuery { query, context in
+            try await context.answerWidgetQuery(data: "Shared widget: \(query.widgetId)")
+        }
+
+        // Production widgets are private-chat-only. More options, including
+        // shared widgets, are available on context.sendWidget.
+        routes.command("widget", description: "Show an HTML widget", guards: [TeleroutePrivateChatGuard()]) { context in
+            try await context.sendWidget(html: "<p>Hello from Teleroute!</p>", allowQueries: true)
+        }
+
         routes.messageReaction { reaction, context in
             try await context.send(
                 "Thanks for the reaction in chat \(reaction.chat.id)!",

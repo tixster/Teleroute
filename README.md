@@ -13,8 +13,8 @@ after Hummingbird 2:
   conforms to `Service` (swift-service-lifecycle);
 - handlers return any `TelerouteResponseGenerator` — a `String`, a chainable
   `Reply(...)`, a full `TelerouteResponse`, or `.unhandled` to fall through;
-- **the entire Bot API** ships as typed flat methods (185 operations) and flat
-  model types, generated directly from Telegram's own documentation.
+- **the entire Bot API** ships as typed flat methods (193 operations) and flat
+  model types, generated directly from Telegram's own documentation (Bot API 10.4).
 
 ```swift
 import Teleroute
@@ -58,7 +58,7 @@ try await bot.runService()   // SIGTERM/SIGINT → graceful drain + shutdown
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/tixster/Teleroute.git", from: "3.1.0"),
+    .package(url: "https://github.com/tixster/Teleroute.git", from: "3.4.0"),
 ],
 targets: [
     .executableTarget(
@@ -82,7 +82,7 @@ targets: [
 Additional products:
 
 - `TelegramBotKit` — the standalone Telegram client (vocabulary types,
-  `TelegramBotClient` with all 185 flat methods, rate limiting, flood-wait
+  `TelegramBotClient` with all 193 flat methods, rate limiting, flood-wait
   retry, per-chat pacing) without the router;
 - `TelegramBotAPI` — every documented Bot API type, under its own name
   (`Message`, `ChatMember`, `ChatId`, …);
@@ -103,8 +103,8 @@ try await context.bot.sendPoll(
 try await context.bot.banChatMember(chatId: "@group", userId: 42)
 try await context.bot.answerPreCheckoutQuery(preCheckoutQueryId: id, ok: true)
 try await context.bot.sendVideo(
-    chatId: .id(chatId),
-    video: .upload(filename: "clip.mp4", data: data)   // or .fileID / .url
+    video: .upload(filename: "clip.mp4", data: data),   // or .fileID / .url
+    chatId: .id(chatId)
 )
 ```
 
@@ -459,11 +459,11 @@ the post. Tracking is on by default, so a bot can await the copy of a post it
 just published:
 
 ```swift
-let post = try await bot.client.sendMessage(chatId: .id(channelId), text: "Chapter 69")
+let post = try await bot.client.sendMessage(text: "Chapter 69", chatId: .id(channelId))
 if let forward = try await bot.discussionMessage(for: post, timeout: .seconds(20)) {
     try await bot.client.sendMessage(
-        chatId: .id(forward.discussionChatId),
         text: "Discuss here",
+        chatId: .id(forward.discussionChatId),
         replyParameters: .init(messageId: forward.discussionMessageId)
     )
 }
@@ -485,7 +485,7 @@ To send and wait in one step, pass the send call to `sendWithDiscussionForward`
 
 ```swift
 let (post, forward) = try await bot.sendWithDiscussionForward { client in
-    try await client.sendPhoto(chatId: .id(channelId), photo: .upload(filename: "cover.jpg", data: cover))
+    try await client.sendPhoto(photo: .upload(filename: "cover.jpg", data: cover), chatId: .id(channelId))
 }
 ```
 
@@ -515,6 +515,33 @@ message route already asks for them, and registering an observer adds
 `message`. If neither does, the first `discussionMessage` call logs a warning.
 The bot also has to see the discussion chat's messages — make it an
 administrator there or disable its privacy mode.
+
+## HTML widgets
+
+```swift
+router.command("widget", guards: [TeleroutePrivateChatGuard()]) { context in
+    try await context.sendWidget(html: "<p>Hello!</p>", allowQueries: true)
+}
+router.widgetQuery { query, context in
+    try await context.answerWidgetQuery(data: "Received: \(query.data)")
+}
+router.sharedWidgetQuery { query, context in
+    try await context.answerWidgetQuery(data: "Widget: \(query.widgetId)")
+}
+```
+
+Use `context.sendSharedWidget(widgetId:)` to resend a shared widget, and
+`router.message(.widget)` to handle messages containing one. Both query routes
+work in nested groups and with custom contexts. Shared and inline widget queries
+without a chat expose the sender but have no `chatId`, `message`, or flow key.
+
+Answer widget queries explicitly within 15 seconds; there is no automatic widget
+answer. An answer does not change widget data: use
+`context.bot.editMessageWidgetData(...)` or `editSharedWidgetData(...)` for that.
+In Telegram's production environment, widgets can currently only be sent to
+private chats, are automatically protected from forwarding, and cannot be sent
+through inline queries. Widget messages cannot be copied. See the
+[official widget API](https://core.telegram.org/bots/api#sendwidget).
 
 ## Lifecycle and Webhooks
 
@@ -609,7 +636,7 @@ client — no network, byte-accurate assertions:
 Synthetic update factories cover commands, messages, photos, callbacks, inline
 queries, reactions, member updates, join requests, pre-checkout queries, and
 poll answers. `TelerouteRecordingTransport` accepts a `fallback:` to stub any
-of the 185 operations, and `TelerouteTestMultipart` parses multipart bodies
+of the 193 operations, and `TelerouteTestMultipart` parses multipart bodies
 for wire-level assertions.
 
 ## Example Project

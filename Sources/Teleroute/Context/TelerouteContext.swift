@@ -152,7 +152,7 @@ public struct TelerouteContext: Sendable {
         self.parsedUpdate.chatId
     }
 
-    /// Telegram chat type inferred from the current message or callback query.
+    /// Telegram chat type inferred from the current update's chat.
     public var chatType: ChatType? {
         self.parsedUpdate.chatType
     }
@@ -174,7 +174,7 @@ public struct TelerouteContext: Sendable {
 
     /// The chat the current update belongs to, when it has one.
     public var chat: Chat? {
-        self.message?.chat ?? self.callbackQuery?.message?.chat
+        self.message?.chat ?? self.callbackQuery?.message?.chat ?? self.update.widgetQuery?.chat
     }
 
     /// Active flow session for the current chat/user scope, if one exists.
@@ -259,8 +259,8 @@ extension TelerouteContext {
             replyParameters = .init(messageId: message.messageId, quote: reply.quote)
         }
         try await self.bot.sendMessage(
-            chatId: .id(chatId),
             text: reply.text,
+            chatId: .id(chatId),
             parseMode: reply.parseMode ?? self.defaultParseMode,
             linkPreviewOptions: reply.options.linkPreviewOptions,
             disableNotification: reply.options.disableNotification,
@@ -279,8 +279,8 @@ extension TelerouteContext {
             throw TelerouteError.chatTargetMissing
         }
         try await self.bot.sendMessage(
-            chatId: chatId,
             text: send.text,
+            chatId: chatId,
             messageThreadId: send.options.messageThreadId,
             parseMode: send.parseMode ?? self.defaultParseMode,
             linkPreviewOptions: send.options.linkPreviewOptions,

@@ -169,6 +169,8 @@ import TelerouteTestSupport
         router.command("start") { _ in "hi" }
         router.callback("a/{b}") { _ in "cb" }
         router.messageReaction { _, _ in "r" }
+        router.widgetQuery { _, _ in "widget" }
+        router.group("shared").sharedWidgetQuery { _, _ in "shared" }
 
         let runtime = TelerouteRuntime(
             bot: try TelerouteTestSupport.makeClient(),
@@ -181,6 +183,8 @@ import TelerouteTestSupport
         #expect(automatic?.contains("edited_message") == true)
         #expect(automatic?.contains("callback_query") == true)
         #expect(automatic?.contains("message_reaction") == true)
+        #expect(automatic?.contains("widget_query") == true)
+        #expect(automatic?.contains("shared_widget_query") == true)
         #expect(automatic?.contains("poll") == false)
 
         #expect(runtime.resolvedAllowedUpdates(.explicit([.poll])) == ["poll"])

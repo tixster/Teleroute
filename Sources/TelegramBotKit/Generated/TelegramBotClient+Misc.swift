@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -88,6 +88,21 @@ public extension TelegramBotClient {
         request.set("show_alert", showAlert)
         request.set("url", url)
         request.set("cache_time", cacheTime)
+        return try await self.perform(request)
+    }
+
+    /// Use this method to send an answer to a query from a widget. The query must be answered
+    /// within 15 seconds. The answer is received only by the widget that sent the query and
+    /// doesn't change data of the widget; use `editMessageWidgetData` or `editSharedWidgetData`
+    /// to change it. On success, *True* is returned.
+    @discardableResult
+    func answerWidgetQuery(
+        widgetQueryId: Swift.String,
+        data: Swift.String? = nil
+    ) async throws -> Swift.Bool {
+        var request = TelegramRequest("answerWidgetQuery")
+        request.set("widget_query_id", widgetQueryId)
+        request.set("data", data)
         return try await self.perform(request)
     }
 
@@ -300,11 +315,15 @@ public extension TelegramBotClient {
     @discardableResult
     func verifyUser(
         userId: Swift.Int64,
-        customDescription: Swift.String? = nil
+        customDescription: Swift.String? = nil,
+        customDescriptionParseMode: Swift.String? = nil,
+        customDescriptionEntities: [MessageEntity]? = nil
     ) async throws -> Swift.Bool {
         var request = TelegramRequest("verifyUser")
         request.set("user_id", userId)
         request.set("custom_description", customDescription)
+        request.set("custom_description_parse_mode", customDescriptionParseMode)
+        request.set("custom_description_entities", customDescriptionEntities)
         return try await self.perform(request)
     }
 

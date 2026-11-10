@@ -13,7 +13,7 @@
 ## Source Areas
 
 - `Sources/TelegramBotAPI/Generated`: every documented Bot API type under a flat top-level name, one file per type, foldered by documentation section (`AvailableTypes/`, `RichMessages/`, …; `Values/` holds enums recovered from field descriptions, `Shared/` the unions Telegram only spells out inline). Generated from `botapi/telegram-bot-api.html` by `Tooling/BotAPIGen`, a dev-only package outside the main graph (`swift test --package-path Tooling/BotAPIGen`). Regenerate with `Scripts/generate-api.sh`; never edit by hand.
-- `Sources/TelegramBotKit/Generated`: the 185 flat client methods plus `UpdateKind`, from the same snapshot.
+- `Sources/TelegramBotKit/Generated`: the 193 flat client methods plus `UpdateKind`, from the same snapshot.
 - `Sources/TelegramBotKit/TelegramVocabulary.swift`: re-exports `TelegramBotAPI` and adds Teleroute-owned `ParseMode`, `ChatType`, `ChatAction`, `FileInput`, plus ergonomics extensions (`ChatId.id/.username`, `ReplyMarkup.inline`, `MaybeInaccessibleMessage.accessibleMessage`).
 - `Sources/TelegramBotKit/TelegramBotClient.swift`: transport and middleware chaining, envelope unwrapping, the `call(_:_:as:)` escape hatch for methods newer than the snapshot.
 - `Sources/TelegramBotKit/TelegramRequest.swift`, `TelegramRequestEncoder.swift`, `TelegramResponse.swift`: request building, JSON/multipart encoding (multipart only when a call uploads bytes), and `{ok, result}` envelope decoding.

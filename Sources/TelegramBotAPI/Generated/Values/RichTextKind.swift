@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -22,6 +22,7 @@ public enum RichTextKind: RawRepresentable, Codable, Hashable, Sendable {
     case emailAddress
     case phoneNumber
     case bankCardNumber
+    case tonAddress
     case mention
     case hashtag
     case cashtag
@@ -53,6 +54,7 @@ public enum RichTextKind: RawRepresentable, Codable, Hashable, Sendable {
         case .emailAddress: "email_address"
         case .phoneNumber: "phone_number"
         case .bankCardNumber: "bank_card_number"
+        case .tonAddress: "ton_address"
         case .mention: "mention"
         case .hashtag: "hashtag"
         case .cashtag: "cashtag"
@@ -85,6 +87,7 @@ public enum RichTextKind: RawRepresentable, Codable, Hashable, Sendable {
         case "email_address": self = .emailAddress
         case "phone_number": self = .phoneNumber
         case "bank_card_number": self = .bankCardNumber
+        case "ton_address": self = .tonAddress
         case "mention": self = .mention
         case "hashtag": self = .hashtag
         case "cashtag": self = .cashtag
@@ -126,6 +129,7 @@ public enum RichTextKind: RawRepresentable, Codable, Hashable, Sendable {
         .emailAddress,
         .phoneNumber,
         .bankCardNumber,
+        .tonAddress,
         .mention,
         .hashtag,
         .cashtag,

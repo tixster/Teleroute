@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -523,6 +523,15 @@ public extension TelegramBotClient {
         return try await self.perform(request)
     }
 
+    /// Use this method to get the list of backdrops, which can be used as the background of a
+    /// theme of the screen for sharing a link to a user or a chat. Requires no parameters.
+    /// Returns a ``ChatShareThemeBackdrops`` object.
+    @discardableResult
+    func getChatShareThemeBackdrops() async throws -> ChatShareThemeBackdrops {
+        let request = TelegramRequest("getChatShareThemeBackdrops")
+        return try await self.perform(request)
+    }
+
     /// Use this method to get the last messages from the personal chat (i.e., the chat
     /// currently added to their profile) of a given user. On success, an Array of ``Message``
     /// objects is returned.
@@ -539,8 +548,10 @@ public extension TelegramBotClient {
 
     /// Use this method to create a topic in a forum supergroup chat or a private chat with a
     /// user. In the case of a supergroup chat the bot must be an administrator in the chat for
-    /// this to work and must have the *can_manage_topics* administrator right. Returns
-    /// information about the created topic as a ``ForumTopic`` object.
+    /// this to work and must have the *can_manage_topics* administrator right. In the case of a
+    /// private chat, a link to the topic can be created in the format
+    /// `https://t.me/<bot_username>/<message_thread_id>`; the link opens the topic only for the
+    /// user. Returns information about the created topic as a ``ForumTopic`` object.
     @discardableResult
     func createForumTopic(
         chatId: ChatId,
@@ -767,12 +778,16 @@ public extension TelegramBotClient {
     @discardableResult
     func verifyChat(
         chatId: ChatId,
-        customDescription: Swift.String? = nil
+        customDescription: Swift.String? = nil,
+        customDescriptionParseMode: Swift.String? = nil,
+        customDescriptionEntities: [MessageEntity]? = nil
     ) async throws -> Swift.Bool {
         try await self.pace(chatId: chatId)
         var request = TelegramRequest("verifyChat")
         request.set("chat_id", chatId)
         request.set("custom_description", customDescription)
+        request.set("custom_description_parse_mode", customDescriptionParseMode)
+        request.set("custom_description_entities", customDescriptionEntities)
         return try await self.perform(request)
     }
 

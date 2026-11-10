@@ -88,7 +88,7 @@ let client = try TelegramBotClient(
 conveniences:
 
 ```swift
-try await client.sendMessage(chatId: 123, text: "hi")          // numeric literal
-try await client.sendMessage(chatId: "@channel", text: "hi")   // username literal
-try await client.sendMessage(chatId: .id(userId), text: "hi")
+try await client.sendMessage(text: "hi", chatId: 123)          // numeric literal
+try await client.sendMessage(text: "hi", chatId: "@channel")   // username literal
+try await client.sendMessage(text: "hi", chatId: .id(userId))
 ```

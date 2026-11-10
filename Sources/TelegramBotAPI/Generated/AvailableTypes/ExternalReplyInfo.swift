@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -92,6 +92,9 @@ public struct ExternalReplyInfo: Codable, Hashable, Sendable {
     /// *Optional*. Message is a voice message, information about the file
     public var voice: Voice?
 
+    /// *Optional*. Message is an HTML widget, information about the widget
+    public var widget: Widget?
+
     /// *Optional*. *True*, if the message media is covered by a spoiler animation
     public var hasMediaSpoiler: Swift.Bool?
 
@@ -158,6 +161,7 @@ public struct ExternalReplyInfo: Codable, Hashable, Sendable {
         video: Video? = nil,
         videoNote: VideoNote? = nil,
         voice: Voice? = nil,
+        widget: Widget? = nil,
         hasMediaSpoiler: Swift.Bool? = nil,
         checklist: Checklist? = nil,
         contact: Contact? = nil,
@@ -185,6 +189,7 @@ public struct ExternalReplyInfo: Codable, Hashable, Sendable {
         self.videoBox = video.map(_IndirectBox.init)
         self.videoNoteBox = videoNote.map(_IndirectBox.init)
         self.voice = voice
+        self.widget = widget
         self.hasMediaSpoiler = hasMediaSpoiler
         self.checklist = checklist
         self.contact = contact
@@ -214,6 +219,7 @@ public struct ExternalReplyInfo: Codable, Hashable, Sendable {
         case videoBox = "video"
         case videoNoteBox = "video_note"
         case voice
+        case widget
         case hasMediaSpoiler = "has_media_spoiler"
         case checklist
         case contact

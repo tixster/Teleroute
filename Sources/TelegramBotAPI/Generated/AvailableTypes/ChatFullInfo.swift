@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -226,6 +226,18 @@ public struct ChatFullInfo: Codable, Hashable, Sendable {
     /// *Optional*. The ``Community`` to which the chat belongs
     public var community: Community?
 
+    /// *Optional*. For private chats, the TON wallet card of the user, which is shown on their
+    /// profile page
+    public var tonWalletCard: TonWalletCard?
+
+    private var shareThemeBox: _IndirectBox<ChatShareTheme>?
+    /// *Optional*. For private chats, supergroups and channels, the theme of the screen for
+    /// sharing a link to the user or the chat; omitted if the default theme is used
+    public var shareTheme: ChatShareTheme? {
+        get { self.shareThemeBox?.value }
+        set { self.shareThemeBox = newValue.map(_IndirectBox.init) }
+    }
+
     public init(
         id: Swift.Int64,
         type: ChatType,
@@ -279,7 +291,9 @@ public struct ChatFullInfo: Codable, Hashable, Sendable {
         uniqueGiftColors: UniqueGiftColors? = nil,
         paidMessageStarCount: Swift.Int64? = nil,
         guardBot: User? = nil,
-        community: Community? = nil
+        community: Community? = nil,
+        tonWalletCard: TonWalletCard? = nil,
+        shareTheme: ChatShareTheme? = nil
     ) {
         self.id = id
         self.type = type
@@ -334,6 +348,8 @@ public struct ChatFullInfo: Codable, Hashable, Sendable {
         self.paidMessageStarCount = paidMessageStarCount
         self.guardBotBox = guardBot.map(_IndirectBox.init)
         self.community = community
+        self.tonWalletCard = tonWalletCard
+        self.shareThemeBox = shareTheme.map(_IndirectBox.init)
     }
 
     public enum CodingKeys: String, CodingKey {
@@ -390,5 +406,7 @@ public struct ChatFullInfo: Codable, Hashable, Sendable {
         case paidMessageStarCount = "paid_message_star_count"
         case guardBotBox = "guard_bot"
         case community
+        case tonWalletCard = "ton_wallet_card"
+        case shareThemeBox = "share_theme"
     }
 }

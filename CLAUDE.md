@@ -41,7 +41,7 @@ Five layers, deliberately stacked so the generated code has no dependencies:
 - `TelegramBotKit` — hand-written client (transport, request building,
   JSON/multipart encoding, `{ok, result}` envelope decoding, rate limiting,
   flood-wait retry, send pacing, vocabulary) **plus generated** flat wrappers
-  for all 185 operations and `UpdateKind`.
+  for all 193 operations and `UpdateKind`.
 - `Teleroute` — the router: route graph, contexts, middleware/guards,
   keyboards, flows, typed commands/callbacks, and the `Service` lifecycle.
 - `TelerouteMacros` / `TelerouteMacroPlugin` — optional `@TelerouteCommand`

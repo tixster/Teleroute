@@ -200,8 +200,8 @@ you the full client without hand-rolling chat resolution:
 ```swift
 try await context.withResolvedChat { bot, chatId in
     try await bot.sendPhoto(
-        chatId: chatId,
         photo: .upload(filename: "spoiler.png", data: png),
+        chatId: chatId,
         hasSpoiler: true,
         replyParameters: .init(messageId: try context.resolvedMessageId())
     )
@@ -209,7 +209,26 @@ try await context.withResolvedChat { bot, chatId in
 ```
 
 Anything else is one call away on the full typed client:
-`context.bot.<operation>(...)` (185 operations).
+`context.bot.<operation>(...)` (193 operations, Bot API 10.4).
+
+### Widgets
+
+`context.sendWidget(html:to:...)` and
+`context.sendSharedWidget(widgetId:to:...)` resolve the destination from `to:`
+or the current chat and expose every optional parameter of the client methods.
+They return `Message` and throw `chatTargetMissing` if neither target exists.
+Caption formatting inherits `defaultParseMode` unless `captionEntities` are
+provided; an explicitly supplied `parseMode` is forwarded unchanged.
+
+`context.widgetQuery` and `context.sharedWidgetQuery` expose typed payloads.
+`context.answerWidgetQuery(data:)` resolves either query ID, returns `Bool`, and
+throws `widgetQueryMissing` outside those updates. Answer within 15 seconds;
+the framework does not answer widgets automatically. Editing stored widget
+data uses the client's `editMessageWidgetData` / `editSharedWidgetData` methods.
+
+Production widgets currently require a private chat, are automatically protected
+from forwarding, and cannot be sent through inline queries or copied using
+`copyMessage` / `copyMessages`.
 
 > Note: two helpers behave asymmetrically, and both are documented at the call
 > site. ``TelerouteRequestContext/unpinMessage(messageId:in:)`` with no

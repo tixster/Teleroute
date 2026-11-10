@@ -80,7 +80,7 @@ let result = await client.execute(update)
 All factories accept explicit `chatType:`, `userId:`, `chatId:`, and
 `updateId:` so guard and scope behavior is easy to pin down.
 
-### Stubbing Any of the 185 Operations
+### Stubbing Any of the 193 Operations
 
 The recording transport has built-in fakes for the common operations. For
 anything else, supply a `fallback:` that returns the raw response:

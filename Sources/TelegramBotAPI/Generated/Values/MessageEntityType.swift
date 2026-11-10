@@ -1,12 +1,13 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
 /// Type of the entity. Currently, can be “mention” (`@username`), “hashtag” (`#hashtag` or
 /// `#hashtag@chatusername`), “cashtag” (`$USD` or `$USD@chatusername`), “bot_command”
 /// (`/start@jobs_bot`), “url” (`https://telegram.org`), “email” (`do-not-reply@telegram.org`),
-/// “phone_number” (`+1-212-555-0123`), “bold” (**bold text**), “italic” (*italic text*),
+/// “phone_number” (`+1-212-555-0123`), “bank_card_number” (bank card number), “ton_address”
+/// (address in the TON blockchain), “bold” (**bold text**), “italic” (*italic text*),
 /// “underline” (underlined text), “strikethrough” (strikethrough text), “spoiler” (spoiler
 /// message), “blockquote” (block quotation), “expandable_blockquote” (collapsed-by-default
 /// block quotation), “code” (monowidth string), “pre” (monowidth block), “text_link” (for
@@ -21,6 +22,8 @@ public enum MessageEntityType: RawRepresentable, Codable, Hashable, Sendable {
     case url
     case email
     case phoneNumber
+    case bankCardNumber
+    case tonAddress
     case bold
     case italic
     case underline
@@ -46,6 +49,8 @@ public enum MessageEntityType: RawRepresentable, Codable, Hashable, Sendable {
         case .url: "url"
         case .email: "email"
         case .phoneNumber: "phone_number"
+        case .bankCardNumber: "bank_card_number"
+        case .tonAddress: "ton_address"
         case .bold: "bold"
         case .italic: "italic"
         case .underline: "underline"
@@ -72,6 +77,8 @@ public enum MessageEntityType: RawRepresentable, Codable, Hashable, Sendable {
         case "url": self = .url
         case "email": self = .email
         case "phone_number": self = .phoneNumber
+        case "bank_card_number": self = .bankCardNumber
+        case "ton_address": self = .tonAddress
         case "bold": self = .bold
         case "italic": self = .italic
         case "underline": self = .underline
@@ -107,6 +114,8 @@ public enum MessageEntityType: RawRepresentable, Codable, Hashable, Sendable {
         .url,
         .email,
         .phoneNumber,
+        .bankCardNumber,
+        .tonAddress,
         .bold,
         .italic,
         .underline,

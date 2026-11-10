@@ -1,12 +1,13 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
-/// *Optional*. Type of the chat from which the inline query was sent. Can be either “sender”
-/// for a private chat with the inline query sender, “private”, “group”, “supergroup”, or
-/// “channel”. The chat type should be always known for requests sent from official clients and
-/// most third-party clients, unless the request was sent from a secret chat.
+/// *Optional*. For widgets in inline messages, type of the chat to which the message was sent.
+/// Can be either “sender” for a private chat with the inline query sender, “private”, “group”,
+/// “supergroup”, or “channel”.
+///
+/// Used by WidgetQuery.chat_type, InlineQuery.chat_type.
 public enum InlineQueryChatType: RawRepresentable, Codable, Hashable, Sendable {
     case sender
     case `private`

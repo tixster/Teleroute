@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -268,6 +268,17 @@ public extension TelegramBotClient {
         return try await self.perform(request)
     }
 
+    /// Use this method to get information about a unique gift by its name. Returns a
+    /// ``UniqueGift`` object on success.
+    @discardableResult
+    func getUniqueGift(
+        name: Swift.String
+    ) async throws -> UniqueGift {
+        var request = TelegramRequest("getUniqueGift")
+        request.set("name", name)
+        return try await self.perform(request)
+    }
+
     /// Converts a given regular gift to Telegram Stars. Requires the
     /// *can_convert_gifts_to_stars* business bot right. Returns *True* on success.
     @discardableResult
@@ -315,6 +326,21 @@ public extension TelegramBotClient {
         request.set("owned_gift_id", ownedGiftId)
         request.set("new_owner_chat_id", newOwnerChatId)
         request.set("star_count", starCount)
+        return try await self.perform(request)
+    }
+
+    /// Deletes a regular gift owned by a managed business account without receiving Telegram
+    /// Stars for it. Requires the *can_convert_gifts_to_stars* business bot right. The gift can
+    /// be deleted only if it isn't limited (the field *total_count* of the ``Gift`` is omitted)
+    /// and wasn't refunded. Returns *True* on success.
+    @discardableResult
+    func deleteBusinessAccountGift(
+        businessConnectionId: Swift.String,
+        ownedGiftId: Swift.String
+    ) async throws -> Swift.Bool {
+        var request = TelegramRequest("deleteBusinessAccountGift")
+        request.set("business_connection_id", businessConnectionId)
+        request.set("owned_gift_id", ownedGiftId)
         return try await self.perform(request)
     }
 

@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -46,7 +46,8 @@ public struct ChatMemberRestricted: Codable, Hashable, Sendable {
     /// *True*, if the user is allowed to send polls and checklists
     public var canSendPolls: Swift.Bool
 
-    /// *True*, if the user is allowed to send animations, games, stickers and use inline bots
+    /// *True*, if the user is allowed to send animations, games, stickers, widgets and use
+    /// inline bots
     public var canSendOtherMessages: Swift.Bool
 
     /// *True*, if the user is allowed to add web page previews to their messages

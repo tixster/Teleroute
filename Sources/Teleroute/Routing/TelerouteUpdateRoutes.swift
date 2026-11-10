@@ -19,6 +19,8 @@ public struct TelerouteMessageFilter: Sendable {
     public static let text = TelerouteMessageFilter(name: "text") { $0.text != nil }
     /// Messages carrying a photo.
     public static let photo = TelerouteMessageFilter(name: "photo") { $0.photo != nil }
+    /// Messages carrying an HTML widget.
+    public static let widget = TelerouteMessageFilter(name: "widget") { $0.widget != nil }
     /// Messages carrying a document.
     public static let document = TelerouteMessageFilter(name: "document") { $0.document != nil }
     /// Messages carrying a video.
@@ -307,6 +309,50 @@ public extension TelerouteRouterGroup {
 // MARK: - Typed payload sugar
 
 public extension TelerouteRouterGroup {
+    /// Registers a widget-query handler. Answer explicitly within 15 seconds
+    /// using `context.answerWidgetQuery(data:)`.
+    func widgetQuery<Response: TelerouteResponseGenerator>(
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (WidgetQuery, Context) async throws -> Response
+    ) {
+        self.onPayload(.widgetQuery, \.widgetQuery, guards: guards, middlewares: middlewares, use: handler)
+    }
+
+    /// Registers a query handler for forwarded shared widgets. Answer
+    /// explicitly within 15 seconds using `context.answerWidgetQuery(data:)`.
+    func sharedWidgetQuery<Response: TelerouteResponseGenerator>(
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (SharedWidgetQuery, Context) async throws -> Response
+    ) {
+        self.onPayload(.sharedWidgetQuery, \.sharedWidgetQuery, guards: guards, middlewares: middlewares, use: handler)
+    }
+
+    /// Registers a side-effect-only widget-query handler.
+    func widgetQuery(
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (WidgetQuery, Context) async throws -> Void
+    ) {
+        self.widgetQuery(guards: guards, middlewares: middlewares) { (payload: WidgetQuery, context: Context) -> TelerouteResponse in
+            try await handler(payload, context)
+            return .none
+        }
+    }
+
+    /// Registers a side-effect-only shared-widget-query handler.
+    func sharedWidgetQuery(
+        guards: [any TelerouteGuard] = [],
+        middlewares: [any TelerouteMiddleware<TelerouteContext>] = [],
+        use handler: @escaping @Sendable (SharedWidgetQuery, Context) async throws -> Void
+    ) {
+        self.sharedWidgetQuery(guards: guards, middlewares: middlewares) { (payload: SharedWidgetQuery, context: Context) -> TelerouteResponse in
+            try await handler(payload, context)
+            return .none
+        }
+    }
+
     /// Registers an inline-query handler.
     func inlineQuery<Response: TelerouteResponseGenerator>(
         guards: [any TelerouteGuard] = [],

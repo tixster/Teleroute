@@ -1,12 +1,12 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
 /// Describes a clickable area on a story media.
 public struct StoryArea: Codable, Hashable, Sendable {
     /// Position of the area
-    public var position: StoryAreaPosition
+    public var position: AreaPosition
 
     private var typeBox: _IndirectBox<StoryAreaType>
     /// Type of the area
@@ -16,7 +16,7 @@ public struct StoryArea: Codable, Hashable, Sendable {
     }
 
     public init(
-        position: StoryAreaPosition,
+        position: AreaPosition,
         type: StoryAreaType
     ) {
         self.position = position

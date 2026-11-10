@@ -1,6 +1,6 @@
 {
-  "botApiDate": "August 24, 2026",
-  "botApiVersion": "10.3",
-  "sha256": "4e0ccffd5d08298cf013ece78619033d3f6e0b0d9214ee4b088c405b4c3d6599",
+  "botApiDate": "November 9, 2026",
+  "botApiVersion": "10.4",
+  "sha256": "ee8a2c242486dd31ff8ce3f8e6fa13f03450620a55db3e3d2cc36b58c40c3f80",
   "source": "https://core.telegram.org/bots/api"
 }

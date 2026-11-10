@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -12,6 +12,8 @@ public enum InputMessageContent: Codable, Hashable, Sendable {
     case InputVenueMessageContent(TelegramBotAPI.InputVenueMessageContent)
     case InputContactMessageContent(TelegramBotAPI.InputContactMessageContent)
     case InputInvoiceMessageContent(TelegramBotAPI.InputInvoiceMessageContent)
+    case InputWidgetMessageContent(TelegramBotAPI.InputWidgetMessageContent)
+    case InputSharedWidgetMessageContent(TelegramBotAPI.InputSharedWidgetMessageContent)
 
     public init(from decoder: any Decoder) throws {
         var errors: [any Error] = []
@@ -51,6 +53,18 @@ public enum InputMessageContent: Codable, Hashable, Sendable {
         } catch {
             errors.append(error)
         }
+        do {
+            self = .InputWidgetMessageContent(try TelegramBotAPI.InputWidgetMessageContent(from: decoder))
+            return
+        } catch {
+            errors.append(error)
+        }
+        do {
+            self = .InputSharedWidgetMessageContent(try TelegramBotAPI.InputSharedWidgetMessageContent(from: decoder))
+            return
+        } catch {
+            errors.append(error)
+        }
         throw DecodingError.typeMismatch(
             Self.self,
             DecodingError.Context(
@@ -74,6 +88,10 @@ public enum InputMessageContent: Codable, Hashable, Sendable {
         case let .InputContactMessageContent(value):
             try value.encode(to: encoder)
         case let .InputInvoiceMessageContent(value):
+            try value.encode(to: encoder)
+        case let .InputWidgetMessageContent(value):
+            try value.encode(to: encoder)
+        case let .InputSharedWidgetMessageContent(value):
             try value.encode(to: encoder)
         }
     }

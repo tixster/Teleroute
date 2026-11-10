@@ -1,5 +1,5 @@
 // Generated from the Telegram Bot API documentation by Tooling/BotAPIGen.
-// Bot API 10.3 (August 24, 2026).
+// Bot API 10.4 (November 9, 2026).
 //
 // Do not edit by hand: re-run Scripts/generate-api.sh instead.
 
@@ -32,7 +32,8 @@ public struct InlineKeyboardButton: Codable, Hashable, Sendable {
     /// *Optional*. Description of the Web App that will be launched when the user presses the
     /// button. The Web App will be able to send an arbitrary message on behalf of the user
     /// using the method `answerWebAppQuery`. Available only in private chats between a user and
-    /// the bot. Not supported for messages sent on behalf of a business account.
+    /// the bot. Not supported for messages sent on behalf of a business account and ephemeral
+    /// messages.
     public var webApp: WebAppInfo?
 
     /// *Optional*. An HTTPS URL used to automatically authorize the user. Can be used as a

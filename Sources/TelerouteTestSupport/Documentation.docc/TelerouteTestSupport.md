@@ -53,7 +53,7 @@ Convenience senders on `TelerouteBotTestClient` (`sendCommand`,
 
 - ``TelerouteRecordingTransport`` records common Telegram side effects
   (messages, edits, callback answers, command-menu updates) while returning
-  synthetic successful responses. A `fallback:` closure fakes any of the 185
+  synthetic successful responses. A `fallback:` closure fakes any of the 193
   operations the transport has no built-in response for.
 - ``TelerouteStubTransport`` throws ``TelerouteTestNetworkError/unexpectedCall``
   on every request — for routing tests that must never reach the API.

@@ -111,6 +111,12 @@ struct TelerouteParsedUpdate: Sendable {
         if let message {
             return (message.chat.id, message.chat.type, message.from)
         }
+        if let query = update.widgetQuery {
+            return (query.chat?.id, query.chat?.type, query.from)
+        }
+        if let query = update.sharedWidgetQuery {
+            return (nil, nil, query.from)
+        }
         if let updated = update.chatMember ?? update.myChatMember {
             return (updated.chat.id, updated.chat.type, updated.from)
         }
