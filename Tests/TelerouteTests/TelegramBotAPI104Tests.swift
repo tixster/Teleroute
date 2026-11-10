@@ -210,10 +210,17 @@ import TelerouteTestSupport
         #expect(shared["chat_data"] as? String == "shared-chat")
         #expect(shared["parse_mode"] == nil)
         #expect((shared["caption_entities"] as? [[String: Any]])?.first?["type"] as? String == "bold")
-        for key in ["message_thread_id", "caption", "show_caption_above_media", "disable_notification",
-                    "protect_content", "allow_paid_broadcast", "message_effect_id", "reply_parameters", "reply_markup"] {
-            #expect(NSDictionary(dictionary: [key: shared[key] as Any]).isEqual(to: [key: sent[key] as Any]), "\(key)")
-        }
+        // Compare JSON values as Swift types: NSDictionary equality over
+        // Optional<Any> has different Bool bridging behavior on Linux.
+        #expect(shared["message_thread_id"] as? Int == 3)
+        #expect(shared["caption"] as? String == "Hello")
+        #expect(shared["show_caption_above_media"] as? Bool == true)
+        #expect(shared["disable_notification"] as? Bool == true)
+        #expect(shared["protect_content"] as? Bool == true)
+        #expect(shared["allow_paid_broadcast"] as? Bool == false)
+        #expect(shared["message_effect_id"] as? String == "effect")
+        #expect((shared["reply_parameters"] as? [String: Int])?["message_id"] == 8)
+        #expect((shared["reply_markup"] as? [String: Bool])?["remove_keyboard"] == true)
         try await context.sendSharedWidget(widgetId: "widget", parseMode: .markdownV2)
         #expect(try transport.calls[3].json()["parse_mode"] as? String == "MarkdownV2")
         try await context.sendSharedWidget(widgetId: "widget")
